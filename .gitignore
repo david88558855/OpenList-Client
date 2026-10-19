@@ -44,5 +44,5 @@ design/
 design/**/*.html
 design/**/*.htm
 
-# Flutter 官方模板生成的 Windows runner（构建时现场生成，不入库）
-windows/
+# Flutter 官方模板生成的 Windows runner（构建时现场生成，不入库；只忽略根目录）
+/windows/
