@@ -60,10 +60,132 @@ lib/
   features/       # auth servers files transfers search media settings
   platform/       # windows/tray.dart（托盘）、windows/single_instance.dart
 android/          # 完整可构建的 Android 工程（minSdk 26 / compileSdk 35）
+assets/tray/      # 托盘四态图标（运行时资源白名单内）
+design/           # 设计稿原件（只作视觉依据，不参与构建，见下节）
 tool/             # Windows 平台引导与打包脚本
 installer/        # Inno Setup 安装版脚本
 .cnb.yml          # 云端构建流水线
 ```
+
+## 设计稿隔离（design/）
+
+单文件设计稿已随仓库提交：`design/OpenList-Client-Design.html`（v1.3，W1–W9 / A1–A8）。
+它只作为视觉与交互依据，**构建、分析、打包全流程都不会读取或处理它**。
+
+### 为什么不能只靠 .gitignore
+
+`.gitignore` 只过滤**未跟踪**文件，它既不决定构建行为，也无法把已入库文件“排除出构建”。
+所以这里用「强制入库 + 忽略规则 + 三层构建隔离」组合：
+
+1. **强制入库一次**：`git add -f design/OpenList-Client-Design.html`。
+   之后该文件仍被 Git 正常跟踪（可 diff / 检出 / 归档），`.gitignore` 不会让它从仓库消失。
+2. **忽略规则**：挡住 `design/` 下后续产生的导出图、截图、临时副本，避免被顺手提交；
+   同时让任何按目录扫描仓库的脚本把 `design/` 视为非源码目录。
+3. **构建隔离**：Flutter 只编译 `lib/`、只打包 `pubspec.yaml` 中 `assets:` 白名单里的资源；
+   分析器 exclude `design/**`；CI 再对产物做反查断言。
+
+### .gitignore 中的具体配置
+
+```gitignore
+# 设计稿（随仓库分发，但永不参与构建 / 打包）
+# 语义：.gitignore 只作用于未跟踪文件；本文件已用 git add -f 强制入库。
+design/
+design/**/*.html
+design/**/*.htm
+
+# 生成物与平台临时文件（与设计稿无关，节选）
+build/
+.dart_tool/
+android/.gradle/
+windows/flutter/ephemeral/
+```
+
+配合的两处声明：
+
+```yaml
+# analysis_options.yaml —— 分析器不读设计稿
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - design/**
+```
+
+```yaml
+# pubspec.yaml —— 资源是白名单，只有托盘图标会进包
+flutter:
+  uses-material-design: false
+  assets:
+    - assets/tray/
+```
+
+`.cnb.yml` 的 build 阶段还会执行「设计稿隔离校验」：在 `build/flutter_assets`、
+`AssetManifest.json` 与最终 APK 里反查 `design` / `OpenList-Client-Design`，命中即让流水线失败。
+
+### 如何验证构建确实忽略了设计稿
+
+本地（验证 git 侧规则）：
+
+```bash
+# 1) 规则命中：--no-index 表示“忽略索引状态，只查 ignore 规则”
+git check-ignore -v --no-index design/OpenList-Client-Design.html
+# 预期输出：.gitignore:43:design/	design/OpenList-Client-Design.html
+
+# 2) 仍被跟踪：证明它是入库文件，不是被 gitignore 挡在仓库外
+git ls-files design/
+# 预期输出：design/OpenList-Client-Design.html
+
+# 3) 不带 --no-index 时 check-ignore 退出码为 1、无输出 —— 这正是“已跟踪文件
+#    不受 ignore 影响”的证据（ignore 只挡未跟踪文件）
+git check-ignore -v design/OpenList-Client-Design.html; echo "exit=$?"
+# 预期：exit=1
+
+# 4) design/ 下新增的临时副本会被规则挡住
+touch design/tmp-export.png
+git check-ignore -v design/tmp-export.png
+# 预期：.gitignore:43:design/	design/tmp-export.png
+rm design/tmp-export.png
+```
+
+本地（验证构建侧隔离，任选其一）：
+
+```bash
+flutter pub get
+flutter build apk --release --target-platform android-arm64
+
+# 1) 资源目录里不应出现设计稿
+find build/flutter_assets -iname '*design*'
+# 预期：无输出
+
+# 2) 资源清单不应声明设计稿
+grep -i "OpenList-Client-Design" build/flutter_assets/AssetManifest.json
+# 预期：无输出（退出码 1）
+
+# 3) APK 包内不应包含设计稿
+unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -i "OpenList-Client-Design"
+# 预期：无输出
+```
+
+CI 侧：查看 cnb.cool 该次构建的 `build-android` 阶段日志，末尾应出现
+
+```
+== 设计稿隔离校验 ==
+设计稿已入库（仅文档用途），大小 278376 字节
+OK: 设计稿未进入任何构建产物
+```
+
+若出现 `FAIL: APK 中出现设计稿`，流水线会直接失败——这就是“构建确实忽略设计稿”的可执行证据。
+
+### 可选：连构建都不触发
+
+如果只想在源码变更时才跑流水线，可在 `.cnb.yml` 顶部解开注释：
+
+```yaml
+skipIfModify:
+  - design/**
+  - "**/*.md"
+```
+
+（默认保持注释状态，避免不同 CNB 版本对路径过滤支持不一致导致流水线无法启动。）
 
 ## 构建
 
