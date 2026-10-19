@@ -7,7 +7,6 @@ import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
 import '../../core/format.dart';
-import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
@@ -194,13 +193,10 @@ class _Row extends StatelessWidget {
 
 class _GroupLabel extends StatelessWidget {
   final String text;
-  final Widget? trailing;
-  const _GroupLabel(this.text, {this.trailing});
+  const _GroupLabel(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    return OlSectionLabel(text, trailing: trailing);
-  }
+  Widget build(BuildContext context) => OlSectionLabel(text);
 }
 
 // ---------------------------------------------------------------------------
