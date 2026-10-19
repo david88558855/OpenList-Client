@@ -30,14 +30,8 @@ android {
         release {
             // CI 产物使用 debug 签名，便于直接安装验收；正式发布请替换为自己的 keystore。
             signingConfig = signingConfigs.debug
-            isMinifyEnabled = false
-            isShrinkResources = false
-        }
-    }
-
-    packaging {
-        resources {
-            excludes += ["META-INF/*.kotlin_module"]
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
