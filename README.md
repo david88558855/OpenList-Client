@@ -19,7 +19,7 @@ OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视�
 | P1 | 脚手架、设计令牌、路由、API 客户端、安全存储 | ✅ 完成 |
 | P2 | 登录、多服务器、文件浏览 / 搜索、四态 | ✅ 完成 |
 | P3 | 传输（续传 / 限速 / 队列）、media_kit 播放 | ✅ 完成 |
-| P4 | 托盘 / 单实例、Android 出包与 Release 发布 | ✅ 完成（Windows 安装包待 Windows 机器执行打包脚本） |
+| P4 | 托盘 / 单实例、Android 出包与 Release 发布 | ✅ 完成（Windows 只发便携版 zip，需 Windows 构建机执行 `tool/ci_build_windows.ps1`） |
 
 构建状态：CNB `main` 分支流水线通过，`static-check` + `build-android` 全绿；
 tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
@@ -28,19 +28,20 @@ tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
 
 | 项 | 值 |
 | --- | --- |
-| 最新版本 | [`v1.0.1`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.1)（安卓安全区修复） |
-| 产物 | `OpenList-Client-1.0.1-android-arm64.apk`（65,462,792 字节 / 62.4 MiB） |
-| SHA-256 | `da4fb395935a614d02e1b6fd9a1e51349019fa0f4c47bb5d266f6e43e0158077` |
-| 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.1/OpenList-Client-1.0.1-android-arm64.apk> |
-| 历史版本 | [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0)（首个可交付版本） |
-| 说明 | Release APK 为 debug 签名，可直接安装验收；上架前请替换 keystore |
+| 最新版本 | [`v1.0.2`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.2)（交互改版 · 仅便携版发行） |
+| Android | `OpenList-Client-1.0.2-android-arm64.apk`（65,528,360 字节 / 62.5 MiB） |
+| Android SHA-256 | `9288624670fe09439b89a080c233a0b8eea43037f4b9e15e3f6aae64556c859a` |
+| Android 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk> |
+| Windows | `OpenList-Client-1.0.2-windows-x64-portable.zip`（脚本 `tool/ci_build_windows.ps1` 已就绪，待 Windows 构建机产出） |
+| 历史版本 | [`v1.0.1`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.1) · [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0) |
+| 说明 | APK 为 debug 签名，可直接安装验收；**Windows 只发便携版 zip，不再产出安装程序** |
 
 下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
 
 ```bash
-curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.1/OpenList-Client-1.0.1-android-arm64.apk
+curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk
 sha256sum app.apk
-# da4fb395935a614d02e1b6fd9a1e51349019fa0f4c47bb5d266f6e43e0158077
+# 9288624670fe09439b89a080c233a0b8eea43037f4b9e15e3f6aae64556c859a
 ```
 
 发布流程（全自动）：
