@@ -37,3 +37,9 @@ android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 # 构建侧靠 analysis_options / pubspec / packagingOptions / 打包脚本把它排除在产物之外。
 !design/
 !design/**
+
+# 本地临时文件
+run.json
+jobs.json
+runs.json
+rel.json
