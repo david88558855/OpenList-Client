@@ -485,7 +485,8 @@ class _ServersPageState extends ConsumerState<ServersPage> {
           ...Map<String, dynamic>.from(raw),
           'id': newServerId(),
         });
-        if (profile.baseUrl.isEmpty) continue;
+        // 导入的地址同样要过安全校验，避免把公网 HTTP 实例带进配置。
+        if (profile.baseUrl.isEmpty || validateBaseUrl(profile.baseUrl) != null) continue;
         await ref.read(serverListProvider.notifier).upsert(profile.copyWith(health: ServerHealth.unknown));
         added++;
       }
