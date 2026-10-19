@@ -1,0 +1,94 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.47.7"
+
+jobs:
+  android-arm64:
+    name: Android arm64 APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 提供 android-36 平台与 licenses，避免 Gradle 首次拉 SDK 时卡住
+      - uses: android-actions/setup-android@v3
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze（提示性）
+        continue-on-error: true
+        run: flutter analyze
+
+      - name: 构建 APK（含设计稿隔离断言）
+        run: bash tool/ci_build_android.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64
+          path: |
+            dist/*.apk
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: 发布到 Release（仅 tag）
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.apk
+            dist/*.sha256
+          fail_on_unmatched_files: false
+
+  windows-x64-portable:
+    name: Windows x64 portable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 构建便携版 zip（含设计稿隔离断言）
+        shell: pwsh
+        run: ./tool/ci_build_windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-portable
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: 发布到 Release（仅 tag）
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.sha256
+          fail_on_unmatched_files: false

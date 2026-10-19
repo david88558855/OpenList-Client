@@ -19,6 +19,10 @@
   Android 11+ 需「所有文件访问权限」，提供「去授权」跳系统授权页，未授权时行内标红「需授权」。
   选择目录走 SAF 目录选择器，选择结果按实例持久化，下载优先写到该目录。
 
+### 构建
+- 构建迁到 GitHub Actions（`.github/workflows/build.yml`）：`ubuntu-latest` 出 Android arm64 APK，
+  `windows-latest` 出 Windows x64 便携包；打 tag 自动发 Release。CNB 流水线（`.cnb.yml`）已移除。
+
 ### 产物
 - 只产出两种：`OpenList-Client-<ver>-android-arm64.apk`、
   `OpenList-Client-<ver>-windows-x64-portable.zip`。

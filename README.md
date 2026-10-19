@@ -21,43 +21,41 @@ OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视�
 | P3 | 传输（续传 / 限速 / 队列）、media_kit 播放 | ✅ 完成 |
 | P4 | 托盘 / 单实例、Android 出包与 Release 发布 | ✅ 完成（Windows 只发便携版 zip，需 Windows 构建机执行 `tool/ci_build_windows.ps1`） |
 
-构建状态：CNB `main` 分支流水线通过，`static-check` + `build-android` 全绿；
-tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
+构建状态：GitHub Actions（`.github/workflows/build.yml`）在每次推送 `main` 时产出
+Android arm64 APK 与 Windows x64 便携包；打 `v*` tag 时自动把两者作为 Release 附件发布。
+仓库地址：<https://github.com/david88558855/OpenList-Client>
 
 ## 发布（Release）
 
 | 项 | 值 |
 | --- | --- |
-| 最新版本 | [`v1.0.2`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.2)（交互改版 · 仅便携版发行） |
-| Android | `OpenList-Client-1.0.2-android-arm64.apk`（65,528,360 字节 / 62.5 MiB） |
-| Android SHA-256 | `9288624670fe09439b89a080c233a0b8eea43037f4b9e15e3f6aae64556c859a` |
-| Android 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk> |
-| Windows | `OpenList-Client-1.0.2-windows-x64-portable.zip`（脚本 `tool/ci_build_windows.ps1` 已就绪，待 Windows 构建机产出） |
-| 历史版本 | [`v1.0.1`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.1) · [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0) |
+| 最新版本 | [`v1.0.2`](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.2)（交互改版 · 仅便携版发行） |
+| Android | `OpenList-Client-1.0.2-android-arm64.apk` |
+| Android SHA-256 | 见 Release 附件中的同名 `.sha256`（构建日志同时打印） |
+| Android 下载 | <https://github.com/david88558855/OpenList-Client/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk> |
+| Windows | `OpenList-Client-1.0.2-windows-x64-portable.zip`（GitHub Actions `windows-latest` 产出） |
 | 说明 | APK 为 debug 签名，可直接安装验收；**Windows 只发便携版 zip，不再产出安装程序** |
 
 下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
 
 ```bash
-curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk
-sha256sum app.apk
-# 9288624670fe09439b89a080c233a0b8eea43037f4b9e15e3f6aae64556c859a
+curl -L -O https://github.com/david88558855/OpenList-Client/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk
+sha256sum OpenList-Client-1.0.2-android-arm64.apk
+# 与 Release 里的 .sha256 附件比对
 ```
 
 发布流程（全自动）：
 
 ```bash
-# 1) 提交并推送 main（触发构建校验）
+# 1) 推送 main：两个 job 并行构建，产物在 Actions → Artifacts 可下载
 git push origin main
-# 2) 打好 tag 并推送（触发 release 流水线：构建 → 上传附件）
-git tag -a v1.0.1 -m "OpenList Client v1.0.1"
-git push origin v1.0.1
+# 2) 打 tag：构建完成后自动创建 Release 并上传 apk / zip / sha256
+git tag -a v1.0.2 -m "OpenList Client v1.0.2"
+git push origin v1.0.2
 ```
 
-`tool/ci_publish_release.sh` 会解析当前 tag（兼容 CNB 浅克隆返回的
-`refs/tags/v1.0.1-0-g89825ed` 这类字符串，并按 `CNB_TAG` / `CNB_BRANCH` / `git describe` /
-`git tag` / pubspec 版本多候选匹配）、反查 Release、申请上传地址、PUT 上传、确认附件；
-Release 需提前在 CNB 控制台创建（或调用 OpenAPI），脚本最多重试 8 轮 × 15s 等待其就绪。
+工作流权限用仓库自带的 `GITHUB_TOKEN`（`permissions: contents: write`），无需额外 Secret。
+也可以在 Actions 页面用 `workflow_dispatch` 手动跑一次。
 
 ## 画板对照
 
@@ -110,7 +108,7 @@ android/          # 完整可构建的 Android 工程（minSdk 26 / compileSdk 3
 assets/tray/      # 托盘四态图标（运行时资源白名单内）
 design/           # 设计稿原件（只作视觉依据，不参与构建，见下节）
 tool/             # Windows 平台引导与打包脚本（仅便携版）
-.cnb.yml          # 云端构建流水线（Android arm64 + Windows x64 便携包）
+.github/workflows/build.yml  # GitHub Actions：Android arm64 APK + Windows x64 便携包
 ```
 
 ## 设计稿隔离（design/）
@@ -164,8 +162,8 @@ flutter:
     - assets/tray/
 ```
 
-`.cnb.yml` 的 build 阶段还会执行「设计稿隔离校验」：在 `build/flutter_assets`、
-`AssetManifest.json` 与最终 APK 里反查 `design` / `OpenList-Client-Design`，命中即让流水线失败。
+`.github/workflows/build.yml` 的两个 job 都会执行「设计稿隔离校验」：在 `build/flutter_assets`、
+`AssetManifest.json` 与最终 APK / zip 里反查 `design` / `OpenList-Client-Design`，命中即让 job 失败。
 
 ### 如何验证构建确实忽略了设计稿
 
@@ -211,7 +209,7 @@ unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -i "OpenList-Clien
 # 预期：无输出
 ```
 
-CI 侧：查看 cnb.cool 该次构建的 `build-android` 阶段日志，末尾应出现
+CI 侧：打开 GitHub Actions 该次 run 的 `构建 APK（含设计稿隔离断言）` 步骤日志，末尾应出现
 
 ```
 == 设计稿隔离校验 ==
@@ -219,32 +217,20 @@ CI 侧：查看 cnb.cool 该次构建的 `build-android` 阶段日志，末尾�
 OK: 设计稿未进入任何构建产物
 ```
 
-若出现 `FAIL: APK 中出现设计稿`，流水线会直接失败——这就是“构建确实忽略设计稿”的可执行证据。
-
-### 可选：连构建都不触发
-
-如果只想在源码变更时才跑流水线，可在 `.cnb.yml` 顶部解开注释：
-
-```yaml
-skipIfModify:
-  - design/**
-  - "**/*.md"
-```
-
-（默认保持注释状态，避免不同 CNB 版本对路径过滤支持不一致导致流水线无法启动。）
+若出现 `FAIL: APK 中出现设计稿`，job 会直接失败——这就是“构建确实忽略设计稿”的可执行证据。
 
 ## 构建
 
-> 本仓库不在本地编译，所有构建都在 cnb.cool 流水线完成。
+> 本仓库不在本地编译，所有构建都在 GitHub Actions 完成（`ubuntu-latest` 出 Android，`windows-latest` 出 Windows）。
 
 ### Android（CI 产出）
 
-`.cnb.yml` 在 `main` 分支推送后执行：
+`.github/workflows/build.yml` 在 `main` 分支推送 / tag `v*` / 手动触发时执行：
 
 1. `flutter analyze`（提示性，不阻塞）
-2. `flutter build apk --release --target-platform android-arm64`
+2. `bash tool/ci_build_android.sh` → `flutter build apk --release --target-platform android-arm64`
 
-产物：`build/app/outputs/flutter-apk/app-release.apk`（release 使用 debug 签名，便于安装验收；正式发布请替换 keystore）。
+产物：`dist/OpenList-Client-<ver>-android-arm64.apk` + `.sha256`（release 使用 debug 签名，便于安装验收；正式发布请替换 keystore）。
 
 ### Windows（仅便携版）
 
@@ -258,11 +244,9 @@ flutter run -d windows                  # 开发
 .\tool\package_windows.ps1               # 便携版 zip，产物在 dist/
 ```
 
-CI 侧对应 `tool/ci_build_windows.ps1`，产物为
+CI 侧对应 `tool/ci_build_windows.ps1`（`windows-latest` 自带 Visual Studio 的 C++ 工具链，
+`windows/` 平台目录由脚本调用 `flutter create --platforms=windows` 现场生成，不入库），产物为
 `OpenList-Client-<ver>-windows-x64-portable.zip`（含 `OpenList.exe` 与可写的 `userdata/`）。
-Windows 编译需要 Windows + Visual Studio（Desktop development with C++）；CNB 社区版只提供
-Linux runner，因此 `.cnb.yml` 的 windows 流水线走根组织自托管节点（`runner.namespace: group`，
-tag `windows`）。没有该节点时 windows 流水线失败，但 Android 出包与发布不受影响。
 
 单实例、托盘、关闭到托盘、窗口尺寸限制均在 Dart 层完成，无需改动生成的 runner。
 
