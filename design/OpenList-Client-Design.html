@@ -2115,7 +2115,7 @@ h3{letter-spacing:-.015em}
   .ts-item{display:flex;align-items:center;gap:9px;padding:6px 0}
   .ts-item b{display:block;font-size:10px;font-weight:750;color:#D6E4EF}
   .ts-item span{display:block;font-size:8.5px;color:#7890A6;margin-top:1px}
-  .ts-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(140deg,#38BDF8,#2DD4BF);color:#04121D;position:relative;flex:none}
+  .ts-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#0B2233;color:#fff;border:1px solid rgba(125,211,252,.25);position:relative;flex:none}
   .ts-ic .ic{width:16px;height:16px}
   .ts-ic.xfer:after{content:"";position:absolute;inset:-3px;border-radius:12px;border:2px solid transparent;border-top-color:#7DD3FC;border-right-color:#7DD3FC;transform:rotate(28deg)}
   .ts-ic.err:after{content:"";position:absolute;right:-2px;top:-2px;width:9px;height:9px;border-radius:50%;background:#F43F5E;border:2px solid #0B1926}
@@ -2186,7 +2186,7 @@ h3{letter-spacing:-.015em}
   <div class="screen">
     <div class="screen-head">
       <span class="num">W9</span>
-      <div><h3>Windows 托盘 · 常驻与快速控制</h3><p>关闭窗口只收进托盘，托盘「退出」才结束进程。右键菜单可直接看传输、暂停任务、切换服务器。</p></div>
+      <div><h3>Windows 托盘 · 常驻与快速控制</h3><p>关闭窗口只收进托盘，托盘「退出」才结束进程。右键菜单仅两项：显示主界面 / 退出；左键双击显示主界面。程序图标与 Android 启动图标同源。</p></div>
     </div>
     <div class="fit" data-w="1100" data-h="700">
       <div class="tray">
@@ -2194,12 +2194,12 @@ h3{letter-spacing:-.015em}
         <div style="position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);color:#7DD3FC;opacity:.04;pointer-events:none"><svg class="ic" style="width:320px;height:320px;stroke-width:.7"><use href="#i-layers"/></svg></div>
         <div class="tstates">
           <div class="ts-head">Tray Icon · 四种状态</div>
-          <div class="ts-item"><span class="ts-ic"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>空闲</b><span>左键打开主窗口</span></div></div>
+          <div class="ts-item"><span class="ts-ic"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>空闲</b><span>左键双击显示主界面</span></div></div>
           <div class="ts-item"><span class="ts-ic xfer"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>传输中</b><span>外圈进度 + 悬停显示速度</span></div></div>
-          <div class="ts-item"><span class="ts-ic err"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>有失败任务</b><span>右上角红点，菜单提示重试</span></div></div>
+          <div class="ts-item"><span class="ts-ic err"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>有失败任务</b><span>右上角红点，悬停提示失败数</span></div></div>
           <div class="ts-item"><span class="ts-ic paused"><svg class="ic"><use href="#i-layers"/></svg></span><div><b>已暂停 / 离线</b><span>灰化图标 + 暂停角标</span></div></div>
         </div>
-        <div class="tray-tip"><svg class="ic"><use href="#i-info"/></svg>关闭窗口 = 收进托盘 · 单实例运行 · 默认开机启动</div>
+        <div class="tray-tip"><svg class="ic"><use href="#i-info"/></svg>关闭窗口 = 收进托盘 · 仅托盘「退出」结束进程 · 单实例运行</div>
         <div class="ttoast">
           <div class="tt-head"><span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span><b>OpenList</b>· 现在<svg class="ic"><use href="#i-x"/></svg></div>
           <div class="tt-title">传输完成</div>
@@ -2212,29 +2212,9 @@ h3{letter-spacing:-.015em}
             <div><b>OpenList</b><span>pan.mydomain.com</span></div>
             <i class="dot"></i>
           </div>
-          <div class="tm-item"><svg class="ic"><use href="#i-panel"/></svg>打开主窗口<span>Enter</span></div>
+          <div class="tm-item"><svg class="ic"><use href="#i-panel"/></svg>显示主界面</div>
           <div class="tm-div"></div>
-          <div class="tm-sec">正在传输<span>3 项 · 12.6 MB/s</span></div>
-          <div class="tm-task">
-            <span class="ftile t-violet"><svg class="ic"><use href="#i-film"/></svg></span>
-            <div class="ti"><b>Interstellar.2014.2160p.HDR.mkv</b><div class="prog"><i style="width:66%"></i></div></div>
-            <em>66%</em>
-          </div>
-          <div class="tm-task">
-            <span class="ftile t-rose"><svg class="ic"><use href="#i-image"/></svg></span>
-            <div class="ti"><b>2026-10 家庭照片.zip</b><div class="prog"><i style="width:46%"></i></div></div>
-            <em>46%</em>
-          </div>
-          <div class="tm-item small"><svg class="ic"><use href="#i-pause"/></svg>暂停全部传输</div>
-          <div class="tm-div"></div>
-          <div class="tm-sec">服务器<span>3 个 · 数量不限</span></div>
-          <div class="tm-srv"><i></i>家庭主服务器<svg class="ic"><use href="#i-check"/></svg></div>
-          <div class="tm-srv"><i></i>公司 OpenList<span>82 ms</span></div>
-          <div class="tm-srv warn"><i></i>VPS 备份<span>超时</span></div>
-          <div class="tm-item small"><svg class="ic"><use href="#i-server"/></svg>管理服务器…</div>
-          <div class="tm-div"></div>
-          <div class="tm-item"><svg class="ic"><use href="#i-settings"/></svg>设置…</div>
-          <div class="tm-item danger"><svg class="ic"><use href="#i-logout"/></svg>退出 OpenList</div>
+          <div class="tm-item danger"><svg class="ic"><use href="#i-logout"/></svg>退出</div>
         </div>
         <div class="tray-bar">
           <div class="tb-start"><span class="four"><i></i><i></i><i></i><i></i></span></div>
@@ -2250,7 +2230,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>左键：</b>打开 / 聚焦主窗口</span><span><b>右键：</b>托盘菜单，含传输与服务器切换</span><span><b>关闭：</b>收进托盘，任务继续</span><span><b>退出：</b>仅菜单「退出」结束进程</span></div>
+    <div class="screen-note"><span><b>左键双击：</b>显示主界面</span><span><b>右键：</b>托盘菜单（显示主界面 / 退出）</span><span><b>关闭：</b>收进托盘，任务继续</span><span><b>退出：</b>仅菜单「退出」结束进程</span></div>
   </div>
 
 </section>
@@ -3353,7 +3333,7 @@ GET /d/&lt;path&gt;?sign=&lt;sign&gt;   <span class="c">// 支持 Range</span></
         <tr><td><b>传输</b></td><td>暂停/继续/重试；重启后续传；全局限速；托盘与 Android 前台服务显示进度</td></tr>
         <tr><td><b>播放</b></td><td>Range seek；字幕与音轨；断点续播；PiP / 后台音频；4K 不阻塞 UI</td></tr>
         <tr><td><b>主题</b></td><td>默认跟随系统；播放器强制深色；正文对比度 ≥ 7:1</td></tr>
-        <tr><td><b>托盘</b></td><td>四种图标状态；左键打开、右键菜单；关闭收进托盘；单实例；仅「退出」结束进程</td></tr>
+        <tr><td><b>托盘</b></td><td>四种图标状态；左键双击显示主界面、右键两项菜单；关闭一律收进托盘；单实例；仅「退出」结束进程；exe 图标与 Android 启动图标一致</td></tr>
         <tr><td><b>安全</b></td><td>密码/Token 只进系统安全存储；日志与 prefs 无明文；HTTP 仅内网放行</td></tr>
       </tbody>
     </table>

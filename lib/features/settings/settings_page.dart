@@ -473,7 +473,8 @@ class _NotifySection extends ConsumerWidget {
       children: [
         _Line(
           label: '关闭窗口时收进托盘',
-          trailing: OlSwitch(value: settings.closeToTray, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setCloseToTray(v)),
+          hint: '固定行为：只有托盘菜单「退出」才结束进程',
+          trailing: Text('始终开启', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: context.ol.ink4)),
         ),
         _Line(
           label: '传输完成时通知',

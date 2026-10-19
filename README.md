@@ -19,7 +19,7 @@ OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视�
 | P1 | 脚手架、设计令牌、路由、API 客户端、安全存储 | ✅ 完成 |
 | P2 | 登录、多服务器、文件浏览 / 搜索、四态 | ✅ 完成 |
 | P3 | 传输（续传 / 限速 / 队列）、media_kit 播放 | ✅ 完成 |
-| P4 | 托盘 / 单实例、Android 出包与 Release 发布 | ✅ 完成（Windows 只发便携版 zip，需 Windows 构建机执行 `tool/ci_build_windows.ps1`） |
+| P4 | 托盘 / 单实例、双平台出包与 Release 发布 | ✅ 完成（GitHub Actions 同时产出 APK 与便携 zip） |
 
 构建状态：GitHub Actions（`.github/workflows/build.yml`）在每次推送 `main` 时产出
 Android arm64 APK 与 Windows x64 便携包；打 `v*` tag 时自动把两者作为 Release 附件发布。
@@ -69,7 +69,7 @@ git push origin v1.0.2
 | W6 设置 | `lib/features/settings/settings_page.dart` | 账户、存储只读、传输、播放、外观、通知、隐私、关于 |
 | W7 深色文件页 | 同一套布局 + `OlPalette.dark` | 跟随系统 / 手动切换，播放器始终深色 |
 | W8 服务器管理 | `lib/features/servers/servers_page.dart` + `server_form.dart` | 左侧列表点选、右侧同屏编辑、搜索与状态筛选、导入导出 |
-| W9 托盘 | `lib/platform/windows/tray.dart` | 四态图标（运行时绘制 PNG）、左键打开、右键菜单、关闭收进托盘、单实例 |
+| W9 托盘 | `lib/platform/windows/tray.dart` | 四态图标、左键双击显示、右键两项菜单（显示主界面 / 退出）、关闭只收起、单实例 |
 | A1 登录 | 同上登录页（窄屏分支） | 深色沉浸、玻璃表单、最近服务器 |
 | A2 文件 | `files_page.dart` 移动分支 | 存储卡横滑、类型 chips、长按操作面板、下拉刷新、FAB |
 | A3 传输 | `transfers_page.dart` 移动分支 | 速率卡 + 分组 chips + 任务卡 |
@@ -88,7 +88,7 @@ git push origin v1.0.2
 - **搜索**：`/api/fs/search`，当前目录 / 全部挂载两种 scope，键盘 ↑↓ + Enter。
 - **传输**：下载（Range 续传、暂停/继续/重试、重启后从已写入字节继续）、上传（`PUT /api/fs/put` + `File-Path`）、离线任务查询、实时速率、并发与下载限速、任务持久化。
 - **播放**：media_kit 流式播放、进度记忆、倍速、音量、同目录播放列表、同目录字幕自动挂载。
-- **托盘**：Windows 四态图标由 Canvas 运行时绘制并写入临时目录（不依赖外部图片）；左键唤起、右键菜单（服务器切换 / 暂停全部 / 传输中心 / 退出）；关闭窗口收进托盘；UDP 单实例。
+- **托盘**：Windows 四态图标（`assets/tray/`，由 `tool/gen_app_icons.py` 生成）；左键双击显示主界面；右键菜单仅两项「显示主界面 / 退出」；关闭窗口只收进托盘，仅「退出」结束进程；UDP 单实例。exe 图标与应用图标同源（`assets/windows/app_icon.ico` → `windows/runner/resources/app_icon.ico`）。
 - **桌面能力**：自绘标题栏（拖动 / 最小化 / 最大化 / 关闭）、Ctrl K / Ctrl U / Ctrl Shift N / F2 / Delete / F5 / Space 快捷键、拖拽上传、右键菜单、最小窗口 1024×680。
 
 ## 首版边界
@@ -106,6 +106,7 @@ lib/
   platform/       # windows/tray.dart（托盘）、windows/single_instance.dart
 android/          # 完整可构建的 Android 工程（minSdk 26 / compileSdk 35）
 assets/tray/      # 托盘四态图标（运行时资源白名单内）
+assets/windows/   # app_icon.ico（exe 图标，与 Android 启动图标同源，构建时注入）
 design/           # 设计稿原件（只作视觉依据，不参与构建，见下节）
 tool/             # Windows 平台引导与打包脚本（仅便携版）
 .github/workflows/build.yml  # GitHub Actions：Android arm64 APK + Windows x64 便携包
@@ -248,7 +249,8 @@ CI 侧对应 `tool/ci_build_windows.ps1`（`windows-latest` 自带 Visual Studio
 `windows/` 平台目录由脚本调用 `flutter create --platforms=windows` 现场生成，不入库），产物为
 `OpenList-Client-<ver>-windows-x64-portable.zip`（含 `OpenList.exe` 与可写的 `userdata/`）。
 
-单实例、托盘、关闭到托盘、窗口尺寸限制均在 Dart 层完成，无需改动生成的 runner。
+单实例、托盘（双击显示 / 两项菜单 / 仅「退出」结束）、窗口尺寸限制均在 Dart 层完成；
+exe 图标由构建脚本注入 `windows/runner/resources/app_icon.ico`，无需手改 runner 源码。
 
 ## 本地存储键
 

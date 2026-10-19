@@ -7,8 +7,13 @@ import 'package:window_manager/window_manager.dart';
 import '../../app/providers.dart';
 import '../../features/transfers/transfers_controller.dart';
 
-/// W9 — Windows tray: four icon states, left click opens, right click menu,
-/// closing the window hides to tray, only “退出” ends the process.
+/// W9 — Windows 托盘。
+///
+/// 交互约定：
+///   - 启动后常驻托盘图标（四态：空闲 / 传输中 / 失败 / 暂停）；
+///   - 左键双击显示主界面；
+///   - 右键菜单两项：显示主界面、退出；
+///   - 关闭窗口、Alt+F4、任务栏关闭一律只收进托盘，只有菜单「退出」结束进程。
 enum TrayIconState { idle, transferring, error, paused }
 
 class TrayService with TrayListener {
@@ -20,12 +25,13 @@ class TrayService with TrayListener {
   TrayIconState _state = TrayIconState.idle;
   ProviderSubscription<TransfersState>? _subscription;
   _OlWindowListener? _windowListener;
+  DateTime? _lastLeftClick;
 
   Future<void> attach(ProviderContainer container) async {
     if (_ready) return;
     _container = container;
     trayManager.addListener(this);
-    _windowListener = _OlWindowListener(container);
+    _windowListener = _OlWindowListener();
     windowManager.addListener(_windowListener!);
     await _applyIcon(TrayIconState.idle);
     await _rebuildMenu();
@@ -82,64 +88,11 @@ class TrayService with TrayListener {
     }
   }
 
+  /// 只有两项：显示主界面 / 退出。
   Future<void> _rebuildMenu() async {
-    final container = _container;
-    if (container == null) return;
-    final servers = container.read(serverListProvider);
-    final transfers = container.read(transfersProvider);
     final menu = Menu(
       items: [
-        MenuItem(key: 'open', label: '打开 OpenList', onClick: (item) => _showWindow()),
-        MenuItem.separator(),
-        MenuItem.submenu(
-          key: 'servers',
-          label: '服务器',
-          submenu: Menu(
-            items: [
-              for (final server in servers.servers)
-                MenuItem.checkbox(
-                  key: 'srv_${server.id}',
-                  label: server.name,
-                  checked: server.id == servers.activeId,
-                  onClick: (item) async {
-                    await container.read(sessionProvider.notifier).switchTo(server.id);
-                    await container.read(filesProvider.notifier).attach();
-                    await _showWindow();
-                  },
-                ),
-              MenuItem.separator(),
-              MenuItem(
-                key: 'manage',
-                label: '管理服务器…',
-                onClick: (item) {
-                  _showWindow();
-                  container.read(trayNavigateProvider.notifier).state = '/servers';
-                },
-              ),
-            ],
-          ),
-        ),
-        MenuItem.separator(),
-        MenuItem(
-          key: 'pause',
-          label: transfers.pausedGlobally ? '继续全部传输' : '暂停全部传输',
-          onClick: (item) async {
-            final notifier = container.read(transfersProvider.notifier);
-            if (transfers.pausedGlobally) {
-              await notifier.resumeAll();
-            } else {
-              await notifier.pauseAll();
-            }
-          },
-        ),
-        MenuItem(
-          key: 'transfers',
-          label: '传输中心',
-          onClick: (item) {
-            _showWindow();
-            container.read(trayNavigateProvider.notifier).state = '/transfers';
-          },
-        ),
+        MenuItem(key: 'show', label: '显示主界面', onClick: (item) => _showWindow()),
         MenuItem.separator(),
         MenuItem(key: 'quit', label: '退出', onClick: (item) => _quit()),
       ],
@@ -147,23 +100,33 @@ class TrayService with TrayListener {
     try {
       await trayManager.setContextMenu(menu);
     } catch (_) {
-      // ignore
+      // 托盘不可用时忽略，主窗口行为不受影响
     }
   }
 
   Future<void> _showWindow() async {
     await windowManager.show();
     await windowManager.focus();
+    await windowManager.restore();
   }
 
   Future<void> _quit() async {
     await trayManager.destroy();
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
     exit(0);
   }
 
   @override
   void onTrayIconMouseDown() {
-    _showWindow();
+    // 左键双击才显示主界面：450ms 内的第二次按下视为双击。
+    final now = DateTime.now();
+    final last = _lastLeftClick;
+    _lastLeftClick = now;
+    if (last != null && now.difference(last) <= const Duration(milliseconds: 450)) {
+      _lastLeftClick = null;
+      _showWindow();
+    }
   }
 
   @override
@@ -180,19 +143,10 @@ class TrayService with TrayListener {
 /// Small bridge so tray menu entries can drive the router.
 final trayNavigateProvider = StateProvider<String?>((ref) => null);
 
+/// 关闭窗口一律收进托盘；只有托盘菜单「退出」会结束进程。
 class _OlWindowListener extends WindowListener {
-  final ProviderContainer container;
-
-  _OlWindowListener(this.container);
-
   @override
   void onWindowClose() async {
-    final closeToTray = container.read(appSettingsProvider).closeToTray;
-    if (closeToTray) {
-      await windowManager.hide();
-    } else {
-      await trayManager.destroy();
-      exit(0);
-    }
+    await windowManager.hide();
   }
 }

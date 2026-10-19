@@ -1877,7 +1877,9 @@ class _MobileStorageRow extends ConsumerWidget {
           final mount = mounts[index];
           final ratio = mount.usageRatio;
           final gradient = gradients[index % gradients.length];
-          return Container(
+          return GestureDetector(
+            onTap: () => ref.read(filesProvider.notifier).open(mount.mountPath),
+            child: Container(
             width: 152,
             height: 96,
             margin: const EdgeInsets.only(right: 10, top: 2),
@@ -1901,6 +1903,7 @@ class _MobileStorageRow extends ConsumerWidget {
                         style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xB8FFFFFF)),
                       ),
                     ),
+                    const OlIcon('chev-r', size: 11, color: Color(0x8CFFFFFF)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1929,6 +1932,7 @@ class _MobileStorageRow extends ConsumerWidget {
                   style: const TextStyle(fontSize: 8, color: Color(0x9EFFFFFF)),
                 ),
               ],
+            ),
             ),
           );
         },
