@@ -29,19 +29,19 @@ Android arm64 APK 与 Windows x64 便携包；打 `v*` tag 时自动把两者作
 
 | 项 | 值 |
 | --- | --- |
-| 最新版本 | [`v1.0.3`](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.3)（托盘规格 · 图标同源 · 界面对齐设计稿） |
-| Android | `OpenList-Client-1.0.3-android-arm64.apk`（65,764,160 字节） |
-| Android SHA-256 | `adfe6d0a77a4ffebd8075785754f8d16ebc36450b993ea4e3a3a230d593e5a8f` |
-| Windows | `OpenList-Client-1.0.3-windows-x64-portable.zip`（34,082,346 字节，解压即用） |
-| Windows SHA-256 | `28d8a3f770a64949a755272dc15d31ebd7121b5dc145eb19ee39893b63a05b99` |
-| 下载 | <https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.3> |
+| 最新版本 | [`v1.0.4`](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.4)（布局与功能对齐设计稿 · 设计稿 v2.0） |
+| Android | `OpenList-Client-1.0.4-android-arm64.apk`（65,764,160 字节） |
+| Android SHA-256 | `0e74a9a282274b170a480338244d065b05ed5d9dd06edc6b2da2f592e02329b7` |
+| Windows | `OpenList-Client-1.0.4-windows-x64-portable.zip`（34,087,426 字节，解压即用） |
+| Windows SHA-256 | `a4133da6030d8b8f95f71d2b02ca36c02abe6c19c866d802f8b18388458143df` |
+| 下载 | <https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.4> |
 | 说明 | APK 为 debug 签名，可直接安装；**Windows 只发便携版 zip，不再产出安装程序** |
 
 下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
 
 ```bash
-curl -L -O https://github.com/david88558855/OpenList-Client/releases/download/v1.0.2/OpenList-Client-1.0.2-android-arm64.apk
-sha256sum OpenList-Client-1.0.2-android-arm64.apk
+curl -L -O https://github.com/david88558855/OpenList-Client/releases/download/v1.0.4/OpenList-Client-1.0.4-android-arm64.apk
+sha256sum OpenList-Client-1.0.4-android-arm64.apk
 # 与 Release 里的 .sha256 附件比对
 ```
 
