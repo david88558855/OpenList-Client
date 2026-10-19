@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,9 +9,9 @@ import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/format.dart';
 import '../../core/models/server_profile.dart';
+import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
-import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -133,7 +134,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 900;
     final body = narrow ? _buildMobile(context) : _buildDesktop(context);
-    return AppFrame(showNav: false, child: body);
+    // 移动端登录页整块是深色渐变，由页面自己避让系统栏（见 _buildMobile 的 SafeArea），
+    // 这样渐变能一直铺到屏幕上下边缘，不会在状态栏/导航栏位置露出浅色底。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: olDarkSystemBars,
+      child: AppFrame(showNav: false, edgeToEdge: narrow, child: body),
+    );
   }
 
   Widget _buildDesktop(BuildContext context) {
@@ -323,29 +329,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _AltButton(
-                icon: 'key',
-                dark: compact,
-                label: _mode == AuthMode.token ? '使用密码' : '使用 API Token',
-                onTap: () => setState(() {
-                  _mode = _mode == AuthMode.token ? AuthMode.password : AuthMode.token;
-                  _error = null;
-                }),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _AltButton(
-                icon: 'qr',
-                dark: compact,
-                label: '扫码授权',
-                onTap: () => olToast(context, '扫码授权需服务端开启 OAuth，请在网页端完成授权后使用 Token 登录'),
-              ),
-            ),
-          ],
+        _AltButton(
+          icon: 'key',
+          dark: compact,
+          label: _mode == AuthMode.token ? '使用密码登录' : '使用 API Token 登录',
+          onTap: () => setState(() {
+            _mode = _mode == AuthMode.token ? AuthMode.password : AuthMode.token;
+            _error = null;
+          }),
         ),
         if (recent.isNotEmpty) ...[
           const SizedBox(height: 20),

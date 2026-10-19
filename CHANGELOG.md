@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.1 · 2026-10-19
+
+### 修复
+- **安卓内容压到状态栏**：全平台统一 edge-to-edge（`SystemChrome.setEnabledSystemUIMode`），
+  `AppFrame` 统一用 `MediaQuery.padding` 的顶部内边距避让状态栏与刘海；已补的内边距会从
+  子页面的 `MediaQuery` 中移除，页面自己再读 padding 也不会重复留白。
+- **安卓底部多余白条**：状态栏与导航栏改为透明、图标亮度跟随主题；底部导航条改用
+  `viewPadding` 撑满系统导航栏/手势条区域（键盘弹出时不叠加内边距）。Android 主题里的
+  `statusBarColor` / `navigationBarColor` 同步设为透明，启动阶段不再闪出系统默认白底。
+- 登录页、播放页这类恒定深色界面单独声明浅色系统栏图标，避免深色背景下图标不可见。
+- 设置页个人资料（深色渐变头部）保留自绘到状态栏下方的效果，由页面自己避让。
+
+### 移除
+- 登录页「扫码授权」入口及其提示文案；图标集里的 `qr` 字形一并删除（该能力此前只是占位，
+  并无实际扫码实现）。
+
 ## v1.0.0 · 2026-10-19
 
 首个可交付版本。按设计稿 `design/OpenList-Client-Design.html` v1.3 的 W1–W9 / A1–A8 画板实现，

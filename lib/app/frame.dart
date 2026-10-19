@@ -18,19 +18,46 @@ class AppFrame extends ConsumerWidget {
   final bool showNav;
   final bool showTitleBar;
 
+  /// true 表示页面自己绘制到系统栏下方，并自行处理安全区（登录页的渐变头部、
+  /// 设置页的个人资料渐变）。此时框架不再叠加任何内边距，避免重复避让。
+  final bool edgeToEdge;
+
   const AppFrame({
     super.key,
     required this.child,
     this.navIndex = 0,
     this.showNav = true,
     this.showTitleBar = true,
+    this.edgeToEdge = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final narrow = MediaQuery.sizeOf(context).width < 900;
+    final mq = MediaQuery.of(context);
+    final narrow = mq.size.width < 900;
     final p = context.ol;
-    Widget body = child;
+    final navShown = narrow && showNav;
+
+    // 顶部：始终避开状态栏/刘海，否则内容会压到状态栏上。
+    // 底部：有底部导航时由导航条自己撑满系统导航栏区域；没有导航时由框架补足，
+    // 避免内容被系统手势条盖住。软键盘弹出时 viewInsets 已经压缩了可用高度，
+    // 此时不再追加底部内边距，否则会多出一段空白。
+    final insets = _frameInsets(mq, bleed: edgeToEdge, navShown: navShown);
+
+    Widget content = child;
+    if (insets != EdgeInsets.zero) {
+      // 消费掉已经补过的内边距：子页面再次读取 MediaQuery.padding 时不会重复避让。
+      content = MediaQuery.removePadding(
+        context: context,
+        removeTop: insets.top > 0,
+        removeBottom: insets.bottom > 0,
+        removeLeft: insets.left > 0,
+        removeRight: insets.right > 0,
+        child: Padding(padding: insets, child: content),
+      );
+    }
+
+    Widget body = content;
     if (!narrow && showTitleBar) {
       body = Column(
         children: [
@@ -39,11 +66,11 @@ class AppFrame extends ConsumerWidget {
         ],
       );
     }
-    if (narrow && showNav) {
+    if (navShown) {
       body = Column(
         children: [
           Expanded(child: body),
-          _BottomNav(index: navIndex),
+          _BottomNav(index: navIndex, bottomInset: _systemBottomInset(mq)),
         ],
       );
     }
@@ -52,6 +79,23 @@ class AppFrame extends ConsumerWidget {
       body: body,
     );
   }
+
+  EdgeInsets _frameInsets(MediaQueryData mq, {required bool bleed, required bool navShown}) {
+    if (bleed) return EdgeInsets.zero;
+    return EdgeInsets.only(
+      top: mq.padding.top,
+      bottom: navShown ? 0 : _systemBottomInset(mq),
+      left: mq.padding.left,
+      right: mq.padding.right,
+    );
+  }
+}
+
+/// 系统底部内边距（导航栏 / 手势条）。软键盘弹出时返回 0，交给 Scaffold 的
+/// resizeToAvoidBottomInset 处理，避免与 viewInsets 叠加出多余空白。
+double _systemBottomInset(MediaQueryData mq) {
+  if (mq.viewInsets.bottom > 0) return 0;
+  return mq.viewPadding.bottom;
 }
 
 class OlTitleBar extends ConsumerWidget {
@@ -203,7 +247,11 @@ class _CtrlButton extends StatelessWidget {
 class _BottomNav extends ConsumerWidget {
   final int index;
 
-  const _BottomNav({required this.index});
+  /// 系统导航栏 / 手势条高度：导航条底色要一直铺到屏幕最底部，
+  /// 否则底部会露出 Scaffold 的底色（浅色主题下就是一条白边）。
+  final double bottomInset;
+
+  const _BottomNav({required this.index, required this.bottomInset});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -217,8 +265,8 @@ class _BottomNav extends ConsumerWidget {
       _NavItem('我的', 'user', '/settings'),
     ];
     return Container(
-      height: 70 + MediaQuery.paddingOf(context).bottom,
-      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      height: 70 + bottomInset,
+      padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: p.isDark ? const Color(0xFF0A1624) : const Color(0xFAFFFFFF),
         border: Border(top: BorderSide(color: p.line2)),

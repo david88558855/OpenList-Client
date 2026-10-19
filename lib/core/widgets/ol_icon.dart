@@ -70,7 +70,6 @@ const Map<String, _Glyph> _glyphs = {
   'zap': _Glyph('<path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/>'),
   'shield': _Glyph('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>'),
   'key': _Glyph('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l3 3"/>'),
-  'qr': _Glyph('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M20 20v.01M20 17h.01M17 20h.01"/>'),
   'logout': _Glyph('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'),
   'cloud': _Glyph('<path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 7 19Z"/>'),
   'arrow-up': _Glyph('<path d="M12 19V5M5 12l7-7 7 7"/>'),

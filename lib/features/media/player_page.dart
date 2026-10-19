@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
@@ -12,6 +13,7 @@ import '../../app/providers.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/theme/theme.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
@@ -172,7 +174,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 900;
-    return Scaffold(
+    // 播放页是纯深色全屏界面：系统栏图标固定浅色，配 SafeArea 让开系统栏。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: olDarkSystemBars,
+      child: Scaffold(
       backgroundColor: const Color(0xFF07101B),
       body: SafeArea(
         child: Column(
@@ -189,6 +194,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             _controls(context, narrow),
           ],
         ),
+      ),
       ),
     );
   }

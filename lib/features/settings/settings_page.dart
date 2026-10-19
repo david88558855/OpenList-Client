@@ -24,6 +24,8 @@ class SettingsPage extends ConsumerWidget {
     if (narrow) {
       return AppFrame(
         navIndex: 3,
+        // 个人资料页是深色渐变头部，页面自己画到状态栏下方并避让（见 _MobileProfile）。
+        edgeToEdge: tab == 'profile',
         child: tab == 'profile' ? const _MobileProfile() : _MobileSection(section: tab),
       );
     }
