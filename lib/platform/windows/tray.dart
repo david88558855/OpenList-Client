@@ -142,9 +142,9 @@ class TrayService with TrayListener {
     if (_quitting) return;
     _quitting = true;
 
-    // 1. 断开数据订阅，避免退出过程中还有 UI 回调
+    // 1. 断开数据订阅，避免退出过程中还有 UI 回调（close() 是同步 void）
     try {
-      await _subscription?.close();
+      _subscription?.close();
       _subscription = null;
     } catch (_) {}
 
