@@ -29,20 +29,5 @@ Thumbs.db
 # Generated plugin registrant
 android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
-# ---------------------------------------------------------------------------
-# 设计稿（随仓库分发，但永不参与构建 / 打包）
-#
-# 语义说明：.gitignore 只作用于「未跟踪」文件。设计稿通过
-# `git add -f design/OpenList-Client-Design.html` 强制入库一次，之后该文件
-# 仍被 Git 跟踪、可正常 diff / 检出；下面的规则用于：
-#   1) 阻止 design/ 下新增的导出物、截图、临时副本被顺手加入仓库；
-#   2) 让任何按目录扫描仓库的构建/打包脚本把 design/ 视为非源码目录。
-# 真正的构建隔离由三处保证：pubspec 的 assets 白名单、analysis_options 的
-# exclude、以及 .cnb.yml 里的产物断言（见 README「设计稿隔离」）。
-# ---------------------------------------------------------------------------
-design/
-design/**/*.html
-design/**/*.htm
-
 # Flutter 官方模板生成的 Windows runner（构建时现场生成，不入库；只忽略根目录）
 /windows/
