@@ -4,7 +4,12 @@
 # 设计稿（design/OpenList-Client-Design.html）只作视觉依据：
 #   - pubspec.yaml 的 assets 是白名单，只声明 assets/tray/，设计稿不会被复制进 flutter_assets；
 #   - analysis_options.yaml 已 exclude design/**，分析器不读它；
-#   - 下面 build 阶段的「设计稿隔离校验」会在产物里反查，命中即失败。
+#   - tool/ci_build_android.sh 在产物里反查设计稿，命中即失败。
+#
+# 构建 / 发布逻辑都在 tool/ 下的脚本里（可审计、可复用）：
+#   tool/ci_build_android.sh   出 APK + sha256 + 设计稿隔离断言
+#   tool/ci_publish_release.sh 把 dist/*.apk 传到当前 tag 对应 CNB Release
+#
 # 如确认 CNB 支持路径过滤，可解开 skipIfModify：仅改设计稿/文档时不再触发构建。
 # skipIfModify:
 #   - design/**
@@ -43,31 +48,37 @@ main:
               timeout: 60m
               script: |
                 set -e
-                flutter config --no-analytics
-                flutter pub get
-                flutter build apk --release --target-platform android-arm64
-                ls -lh build/app/outputs/flutter-apk/
+                sh tool/ci_build_android.sh
 
-                echo "== 设计稿隔离校验 =="
-                if [ -f design/OpenList-Client-Design.html ]; then
-                  echo "设计稿已入库（仅文档用途），大小 $(wc -c < design/OpenList-Client-Design.html) 字节"
-                fi
-                leaked=0
-                if find build/flutter_assets -iname '*design*' 2>/dev/null | grep -q .; then
-                  echo "FAIL: flutter_assets 中出现设计稿"
-                  leaked=1
-                fi
-                if grep -qi "OpenList-Client-Design" build/flutter_assets/AssetManifest.json 2>/dev/null; then
-                  echo "FAIL: AssetManifest 声明了设计稿"
-                  leaked=1
-                fi
-                if command -v unzip >/dev/null 2>&1; then
-                  if unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -qi "OpenList-Client-Design"; then
-                    echo "FAIL: APK 中出现设计稿"
-                    leaked=1
-                  fi
-                fi
-                if [ "$leaked" -ne 0 ]; then
-                  exit 1
-                fi
-                echo "OK: 设计稿未进入任何构建产物"
+# 打 tag（v*）时：构建 + 把 APK 作为附件发布到该 tag 的 Release。
+# Release 需提前创建（CNB 控制台或 OpenAPI）；脚本会重试查找，最多约 3 分钟。
+"$":
+  tag_push:
+    - name: release
+      runner:
+        tags:
+          - cnb:arch:amd64
+      docker:
+        image: ghcr.io/cirruslabs/flutter:stable
+        volumes:
+          - /root/.pub-cache
+          - /root/.gradle
+      env:
+        PUB_CACHE: /root/.pub-cache
+        GRADLE_USER_HOME: /root/.gradle
+        CI: "true"
+      stages:
+        - name: build-android
+          jobs:
+            - name: flutter-build-apk
+              timeout: 60m
+              script: |
+                set -e
+                sh tool/ci_build_android.sh
+        - name: publish-release
+          jobs:
+            - name: upload-apk
+              timeout: 30m
+              script: |
+                set -e
+                sh tool/ci_publish_release.sh

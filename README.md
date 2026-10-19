@@ -12,6 +12,41 @@ OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视�
 | 目标平台 | Windows 10/11 x64 · Android 8.0+（minSdk 26） |
 | 管理后台 | 决策 A：只读（存储健康 / 容量），写操作跳浏览器 |
 
+## 进度
+
+| 阶段 | 内容 | 状态 |
+| --- | --- | --- |
+| P1 | 脚手架、设计令牌、路由、API 客户端、安全存储 | ✅ 完成 |
+| P2 | 登录、多服务器、文件浏览 / 搜索、四态 | ✅ 完成 |
+| P3 | 传输（续传 / 限速 / 队列）、media_kit 播放 | ✅ 完成 |
+| P4 | 托盘 / 单实例、Android 出包与 Release 发布 | ✅ 完成（Windows 安装包待 Windows 机器执行打包脚本） |
+
+构建状态：CNB `main` 分支流水线通过，`static-check` + `build-android` 全绿；
+tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
+
+## 发布（Release）
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | `v1.0.0` |
+| 产物 | `OpenList-Client-1.0.0-android-arm64.apk`（约 63 MB） |
+| 校验 | 同名 `.sha256` 一并发布 |
+| 下载 | 仓库 Release 页面 → `v1.0.0` → Assets |
+| 说明 | Release APK 为 debug 签名，可直接安装验收；上架前请替换 keystore |
+
+发布流程（全自动）：
+
+```bash
+# 1) 提交并推送 main（触发构建校验）
+git push origin main
+# 2) 打好 tag 并推送（触发 release 流水线：构建 → 上传附件）
+git tag -a v1.0.0 -m "OpenList Client v1.0.0"
+git push origin v1.0.0
+```
+
+`tool/ci_publish_release.sh` 会按 tag 反查 Release、申请上传地址、PUT 上传、确认附件；
+Release 需提前在 CNB 控制台创建（或调用 OpenAPI），脚本最多重试 12 次 × 15s 等待其就绪。
+
 ## 画板对照
 
 | 画板 | 实现文件 | 说明 |
