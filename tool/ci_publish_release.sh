@@ -46,8 +46,10 @@ if [ -z "$RID" ]; then
 fi
 echo "release_id=$RID"
 
+FOUND=0
 for FILE in dist/*.apk; do
   [ -f "$FILE" ] || continue
+  FOUND=$((FOUND + 1))
   NAME=$(basename "$FILE")
   SIZE=$(wc -c < "$FILE" | tr -d ' ')
   echo "--> 上传 $NAME ($SIZE 字节)"
@@ -57,11 +59,31 @@ for FILE in dist/*.apk; do
     "$API/$REPO/-/releases/$RID/asset-upload-url")
   UPLOAD_URL=$(printf '%s' "$UP" | pick "['upload_url']")
   VERIFY_URL=$(printf '%s' "$UP" | pick "['verify_url']")
-  curl -sS -m 1800 -X PUT -H "Content-Type: application/octet-stream" \
-    --data-binary "@$FILE" "$UPLOAD_URL" -o /dev/null -w "PUT %{http_code}\n"
-  curl -sS -m 120 -X POST -H "Authorization: Bearer $TOKEN" "$VERIFY_URL" -o /dev/null -w "CONFIRM %{http_code}\n"
+  if [ -z "$UPLOAD_URL" ] || [ -z "$VERIFY_URL" ]; then
+    echo "FAIL: 申请上传地址失败：$UP"
+    exit 1
+  fi
+  PUT_CODE=$(curl -sS -m 1800 -X PUT -H "Content-Type: application/octet-stream" \
+    --data-binary "@$FILE" "$UPLOAD_URL" -o /dev/null -w "%{http_code}")
+  echo "PUT $PUT_CODE"
+  if [ "$PUT_CODE" != "200" ]; then
+    echo "FAIL: 文件上传失败（HTTP $PUT_CODE）"
+    exit 1
+  fi
+  # 确认接口必须带 Accept: application/json，否则返回 406
+  CFM_CODE=$(curl -sS -m 120 -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Accept: application/json" "$VERIFY_URL" -o /dev/null -w "%{http_code}")
+  echo "CONFIRM $CFM_CODE"
+  if [ "$CFM_CODE" != "200" ]; then
+    echo "FAIL: 附件确认失败（HTTP $CFM_CODE）"
+    exit 1
+  fi
   echo "OK: $NAME"
 done
+if [ "$FOUND" -eq 0 ]; then
+  echo "FAIL: dist/ 下没有 apk，构建产物未传递到发布阶段"
+  exit 1
+fi
 
 echo "== 已发布资产 =="
 curl -sS -m 30 -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
