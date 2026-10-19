@@ -13,8 +13,38 @@ env:
   FLUTTER_VERSION: "3.47.7"
 
 jobs:
+  # 快速门禁：只有「错误」才失败（lint / warning 不阻断），比三平台编译早十分钟拿到语法错。
+  analyze:
+    name: static check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze（仅错误阻断）
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: design/ 必须仍在 Git 跟踪中
+        run: |
+          set -e
+          if git check-ignore -q design/OpenList-Client-Design.html; then
+            echo "FAIL: design/ 被 .gitignore 忽略"; exit 1
+          fi
+          n=$(git ls-files design | wc -l)
+          echo "design/ tracked files: $n"
+          [ "$n" -gt 0 ] || { echo "FAIL: design/ 未入库"; exit 1; }
+
   android-arm64:
     name: Android arm64 APK
+    needs: analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +90,7 @@ jobs:
 
   windows-x64-portable:
     name: Windows x64 portable
+    needs: analyze
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
