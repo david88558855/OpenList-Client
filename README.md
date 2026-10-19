@@ -28,18 +28,19 @@ tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
 
 | 项 | 值 |
 | --- | --- |
-| 版本 | [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0) |
-| 产物 | `OpenList-Client-1.0.0-android-arm64.apk`（65,464,152 字节 / 62.4 MiB） |
-| SHA-256 | `8bbfbc3b2366f676404a06bfffa478b09e73e36f1e8c03a18fb9ed967914f50b` |
-| 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.0/OpenList-Client-1.0.0-android-arm64.apk> |
+| 最新版本 | [`v1.0.1`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.1)（安卓安全区修复） |
+| 产物 | `OpenList-Client-1.0.1-android-arm64.apk`（65,462,792 字节 / 62.4 MiB） |
+| SHA-256 | `da4fb395935a614d02e1b6fd9a1e51349019fa0f4c47bb5d266f6e43e0158077` |
+| 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.1/OpenList-Client-1.0.1-android-arm64.apk> |
+| 历史版本 | [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0)（首个可交付版本） |
 | 说明 | Release APK 为 debug 签名，可直接安装验收；上架前请替换 keystore |
 
 下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
 
 ```bash
-curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.0/OpenList-Client-1.0.0-android-arm64.apk
+curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.1/OpenList-Client-1.0.1-android-arm64.apk
 sha256sum app.apk
-# 8bbfbc3b2366f676404a06bfffa478b09e73e36f1e8c03a18fb9ed967914f50b
+# da4fb395935a614d02e1b6fd9a1e51349019fa0f4c47bb5d266f6e43e0158077
 ```
 
 发布流程（全自动）：
@@ -48,12 +49,14 @@ sha256sum app.apk
 # 1) 提交并推送 main（触发构建校验）
 git push origin main
 # 2) 打好 tag 并推送（触发 release 流水线：构建 → 上传附件）
-git tag -a v1.0.0 -m "OpenList Client v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "OpenList Client v1.0.1"
+git push origin v1.0.1
 ```
 
-`tool/ci_publish_release.sh` 会按 tag 反查 Release、申请上传地址、PUT 上传、确认附件；
-Release 需提前在 CNB 控制台创建（或调用 OpenAPI），脚本最多重试 12 次 × 15s 等待其就绪。
+`tool/ci_publish_release.sh` 会解析当前 tag（兼容 CNB 浅克隆返回的
+`refs/tags/v1.0.1-0-g89825ed` 这类字符串，并按 `CNB_TAG` / `CNB_BRANCH` / `git describe` /
+`git tag` / pubspec 版本多候选匹配）、反查 Release、申请上传地址、PUT 上传、确认附件；
+Release 需提前在 CNB 控制台创建（或调用 OpenAPI），脚本最多重试 8 轮 × 15s 等待其就绪。
 
 ## 画板对照
 
