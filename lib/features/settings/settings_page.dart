@@ -9,35 +9,30 @@ import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import 'download_dir.dart';
 import 'settings_sidebar.dart';
 
+/// W6（Windows 设置）/ A6（Android 我的）。
+///
+/// 账户与存储分开：账户决定登录态，存储只读展示每个挂载点的健康与容量。
+/// 管理后台写操作一律跳浏览器（产品基线 02）。
 class SettingsPage extends ConsumerWidget {
   final String tab;
   const SettingsPage({super.key, this.tab = 'appearance'});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final narrow = MediaQuery.sizeOf(context).width < 900;
-    if (narrow) {
-      return AppFrame(
-        navIndex: 3,
-        // 个人资料页是深色渐变头部，页面自己画到状态栏下方并避让（见 _MobileProfile）。
-        edgeToEdge: tab == 'profile',
-        child: tab == 'profile' ? const _MobileProfile() : _MobileSection(section: tab),
-      );
-    }
+    if (context.isNarrow) return const AppFrame(navIndex: 3, child: _MobileSettings());
     return AppFrame(
       showNav: false,
       child: Row(
         children: [
           SettingsSidebar(active: tab),
           Expanded(
-            child: Container(
+            child: ColoredBox(
               color: context.ol.card,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
@@ -54,6 +49,9 @@ class SettingsPage extends ConsumerWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 分区路由
+// ---------------------------------------------------------------------------
 class _SectionBody extends ConsumerWidget {
   final String section;
   const _SectionBody({required this.section});
@@ -73,198 +71,281 @@ class _SectionBody extends ConsumerWidget {
         return const _SecuritySection();
       case 'about':
         return const _AboutSection();
-      case 'servers':
-        return const _ServersShortcut();
-      case 'diagnostics':
-        return const _DiagnosticsSection();
-      default:
+      case 'appearance':
         return const _AppearanceSection();
+      case 'servers':
+      default:
+        return const _ServersSection();
     }
   }
 }
 
-class _Card extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// 通用块
+// ---------------------------------------------------------------------------
+class _SectionHead extends StatelessWidget {
   final String title;
-  final String? subtitle;
-  final String icon;
-  final List<Widget> children;
+  final String subtitle;
+  final Widget? action;
+  const _SectionHead({required this.title, required this.subtitle, this.action});
 
-  const _Card({required this.title, required this.icon, required this.children, this.subtitle});
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 14.5, letterSpacing: -0.3, fontWeight: FontWeight.w800, color: p.ink)),
+                const SizedBox(height: 3),
+                Text(subtitle, style: TextStyle(fontSize: 10.5, color: p.ink4)),
+              ],
+            ),
+          ),
+          if (action != null) action!,
+        ],
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets padding;
+  const _Card({required this.child, this.padding = EdgeInsets.zero});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(18, 15, 18, 14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: padding,
       decoration: BoxDecoration(
         color: p.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: p.line),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: p.line2),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+      child: child,
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  final String icon;
+  final String title;
+  final String subtitle;
+  final Widget trailing;
+  final VoidCallback? onTap;
+
+  const _Row({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: onTap == null ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+          child: Row(
             children: [
               Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEAF8FE), borderRadius: BorderRadius.circular(9)),
-                child: Center(child: OlIcon(icon, size: 14, color: OlTokens.sky700)),
+                width: 23,
+                height: 23,
+                decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(6)),
+                child: Center(child: OlIcon(icon, size: 12, color: p.ink3)),
               ),
               const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
-                    if (subtitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(subtitle!, style: TextStyle(fontSize: 10, height: 1.5, color: p.ink4)),
-                      ),
+                    Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(subtitle, style: TextStyle(fontSize: 9, color: p.ink4)),
+                    ],
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              trailing,
             ],
           ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
+        ),
       ),
     );
   }
 }
 
-class _Line extends StatelessWidget {
-  final String label;
-  final String? hint;
-  final Widget trailing;
-
-  const _Line({required this.label, required this.trailing, this.hint});
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  final Widget? trailing;
+  const _GroupLabel(this.text, {this.trailing});
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink2)),
-                if (hint != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(hint!, style: TextStyle(fontSize: 9, height: 1.5, color: p.ink4)),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          trailing,
-        ],
-      ),
-    );
+    return OlSectionLabel(text, trailing: trailing);
   }
 }
 
-class _AppearanceSection extends ConsumerWidget {
-  const _AppearanceSection();
+// ---------------------------------------------------------------------------
+// 服务器
+// ---------------------------------------------------------------------------
+class _ServersSection extends ConsumerWidget {
+  const _ServersSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
     final p = context.ol;
-    final themes = <ThemeMode, String>{
-      ThemeMode.system: '跟随系统',
-      ThemeMode.light: '浅色',
-      ThemeMode.dark: '深色',
-    };
+    final session = ref.watch(sessionProvider);
+    final profile = session.profile;
+    final servers = ref.watch(serverListProvider).servers;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Card(
-          title: '外观',
-          subtitle: '默认跟随系统；播放器与全屏媒体强制深色。',
-          icon: 'sun',
-          children: [
-            OlSeg<ThemeMode>(
-              items: [
-                for (final entry in themes.entries) OlSegItem(entry.key, entry.value),
-              ],
-              value: settings.themeMode,
-              onChanged: (v) => ref.read(appSettingsProvider.notifier).setTheme(v),
-              height: 26,
+        _SectionHead(
+          title: '服务器管理',
+          subtitle: '当前连接的 OpenList 实例与登录身份',
+          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.go('/servers')),
+        ),
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF7FCFE), Color(0xFFF2FBF9)],
             ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                for (final mode in [ThemeMode.system, ThemeMode.light, ThemeMode.dark]) ...[
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => ref.read(appSettingsProvider.notifier).setTheme(mode),
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: settings.themeMode == mode ? OlTokens.sky : p.line, width: 1.5),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: p.line2),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(gradient: OlTokens.gradientBrand, borderRadius: BorderRadius.circular(11)),
+                child: const Center(child: OlIcon('server', size: 18, color: Colors.white)),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            profile?.displayHost ?? '未连接',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: p.ink),
+                          ),
                         ),
-                        child: Column(
-                          children: [
-                            Container(
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: mode == ThemeMode.dark
-                                    ? const Color(0xFF0B1622)
-                                    : mode == ThemeMode.light
-                                        ? Colors.white
-                                        : p.isDark
-                                            ? const Color(0xFF0B1622)
-                                            : Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: p.line2),
-                              ),
-                              padding: const EdgeInsets.all(5),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(height: 4, width: 26, color: mode == ThemeMode.dark ? const Color(0xFF38BDF8) : const Color(0xFF0EA5E9)),
-                                  const SizedBox(height: 4),
-                                  Container(height: 3, width: 40, color: mode == ThemeMode.dark ? const Color(0xFF24384C) : const Color(0xFFE3EBF3)),
-                                  const SizedBox(height: 3),
-                                  Container(height: 3, width: 32, color: mode == ThemeMode.dark ? const Color(0xFF24384C) : const Color(0xFFE3EBF3)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(themes[mode]!, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink3)),
-                          ],
+                        const SizedBox(width: 7),
+                        OlBadge(
+                          label: session.signedIn ? '已连接' : '未连接',
+                          fg: session.signedIn ? const Color(0xFF0B7A63) : const Color(0xFFB47405),
+                          bg: session.signedIn ? const Color(0xFFE7FBF5) : const Color(0xFFFFF6E5),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ],
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        profile?.username ?? '—',
+                        session.user?.role == 3 ? '管理员' : '普通用户',
+                        profile?.version ?? session.site?.version ?? 'API v4',
+                        if (session.latencyMs != null) '${session.latencyMs} ms',
+                        '${servers.length} 个服务器',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 9.5, color: p.ink4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.go('/servers')),
+            ],
+          ),
         ),
+        _GroupLabel('已保存的服务器'),
         _Card(
-          title: '列表密度',
-          icon: 'list',
-          children: [
-            _Line(label: '文档视图默认列表模式', trailing: OlSwitch(value: true, onChanged: (_) {})),
-            _Line(label: '正文对比度 ≥ 7:1（已按设计令牌实现）', trailing: const OlBadge(label: 'WCAG AA')),
-          ],
+          child: Column(
+            children: [
+              if (servers.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text('还没有服务器，点右上角「添加服务器」', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                ),
+              for (var i = 0; i < servers.length; i++)
+                _Row(
+                  icon: 'server',
+                  title: servers[i].name,
+                  subtitle: servers[i].baseUrl,
+                  trailing: Text(
+                    servers[i].id == profile?.id ? '当前' : '切换',
+                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: servers[i].id == profile?.id ? OlTokens.sky700 : p.ink4),
+                  ),
+                  onTap: () => context.go('/servers/edit/${servers[i].id}'),
+                ),
+            ],
+          ),
         ),
+        const SizedBox(height: 6),
+        _InfoStrip(text: '管理后台（只读）：客户端只调用 /api/admin/storage/list；创建、用户与索引在浏览器完成。'),
       ],
     );
   }
 }
 
+class _InfoStrip extends StatelessWidget {
+  final String text;
+  const _InfoStrip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.line2),
+      ),
+      child: Row(
+        children: [
+          const OlIcon('info', size: 14, color: Color(0xFF0EA5E9)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 9.5, height: 1.6, color: p.ink3))),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 存储挂载（只读）
+// ---------------------------------------------------------------------------
 class _StorageSection extends ConsumerWidget {
   const _StorageSection();
 
@@ -272,159 +353,209 @@ class _StorageSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final storages = ref.watch(storagesProvider);
-    final profile = ref.watch(sessionProvider).profile;
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const _SectionHead(title: '存储挂载', subtitle: '健康状态与容量来自服务端，只读展示'),
+        _GroupLabel('挂载点（只读）'),
         _Card(
-          title: '存储挂载',
-          subtitle: '只读视图（决策 A）：健康状态与容量，新增 / 编辑 / 删除请到网页端。',
-          icon: 'database',
-          children: [
-            storages.when(
-              loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator(minHeight: 2)),
-              error: (_, __) => Text('读取失败', style: TextStyle(fontSize: 11, color: p.ink3)),
-              data: (mounts) => mounts.isEmpty
-                  ? Text('当前账号不是管理员，或服务端未返回挂载信息。', style: TextStyle(fontSize: 10.5, height: 1.6, color: p.ink4))
-                  : Column(
-                      children: [
-                        for (final mount in mounts) _MountRow(mount: mount),
-                      ],
+          child: storages.when(
+            loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator(minHeight: 2)),
+            error: (error, stack) => Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text('读取失败：$error', style: TextStyle(fontSize: 10.5, color: const Color(0xFFD92D4B))),
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text('没有可展示的挂载点（需要管理员权限）', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                );
+              }
+              return Column(
+                children: [
+                  for (final mount in items)
+                    _Row(
+                      icon: 'hard-drive',
+                      title: mount.mountPath == '/' ? '根目录' : mount.mountPath,
+                      subtitle: '${mount.driver.isEmpty ? 'unknown' : mount.driver} · ${formatBytes(mount.usedSpace)} / ${formatBytes(mount.totalSpace)}',
+                      trailing: OlBadge(
+                        label: mount.isUp ? '正常' : '离线',
+                        fg: mount.isUp ? const Color(0xFF0B7A63) : const Color(0xFF7C8FA3),
+                        bg: mount.isUp ? const Color(0xFFE7FBF5) : const Color(0xFFF1F5F9),
+                      ),
                     ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                OlGhostButton(
-                  label: '打开网页后台',
-                  icon: 'external',
-                  onTap: () async {
-                    final url = profile?.baseUrl;
-                    if (url == null) return;
-                    final uri = Uri.tryParse(url);
-                    if (uri != null) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    }
-                  },
-                ),
-                const SizedBox(width: 8),
-                OlGhostButton(label: '刷新', icon: 'refresh', onTap: () => ref.invalidate(storagesProvider)),
-              ],
-            ),
-          ],
+                ],
+              );
+            },
+          ),
         ),
+        const SizedBox(height: 6),
+        const _InfoStrip(text: '存储配置、驱动参数与用户权限都在网页端管理；客户端不做写入，也不缓存凭据。'),
       ],
     );
   }
 }
 
-class _MountRow extends StatelessWidget {
-  final StorageMount mount;
-  const _MountRow({required this.mount});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final ratio = mount.usageRatio;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-      decoration: BoxDecoration(color: p.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: p.line2)),
-      child: Row(
-        children: [
-          OlDot(size: 6, color: mount.isUp ? OlTokens.ok : OlTokens.warn),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(baseName(mount.mountPath), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink)),
-                const SizedBox(height: 2),
-                Text(
-                  '${mount.driver.isEmpty ? 'unknown' : mount.driver} · ${mount.mountPath}',
-                  style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: p.ink4),
-                ),
-              ],
-            ),
-          ),
-          if (ratio != null)
-            SizedBox(
-              width: 96,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${(ratio * 100).round()}%', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink2)),
-                  const SizedBox(height: 3),
-                  OlUsageBar(value: ratio),
-                ],
-              ),
-            )
-          else
-            Text(mount.isUp ? '正常' : '异常', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: mount.isUp ? const Color(0xFF0B7A63) : OlTokens.warnDeep)),
-        ],
-      ),
-    );
-  }
-}
-
+// ---------------------------------------------------------------------------
+// 传输 / 播放 / 通知
+// ---------------------------------------------------------------------------
 class _TransferSection extends ConsumerWidget {
   const _TransferSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
     final settings = ref.watch(appSettingsProvider);
+    final profile = ref.watch(sessionProvider).profile;
+    final notifier = ref.watch(appSettingsProvider.notifier);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const _SectionHead(title: '传输', subtitle: '并发、限速与完成后行为'),
+        _GroupLabel('限速'),
         _Card(
-          title: '传输',
-          subtitle: '并发与限速对当前实例生效；限速只作用于下载流。',
-          icon: 'arrow-down',
-          children: [
-            _Line(
-              label: '并发任务数',
-              trailing: OlSeg<int>(
-                items: const [OlSegItem(1, '1'), OlSegItem(2, '2'), OlSegItem(4, '4'), OlSegItem(6, '6')],
-                value: settings.concurrency,
-                onChanged: (v) {
-                  ref.read(appSettingsProvider.notifier).setConcurrency(v);
-                  ref.read(transfersProvider.notifier).setConcurrency(v);
-                },
+          child: Column(
+            children: [
+              _Row(
+                icon: 'download',
+                title: '下载限速',
+                subtitle: '0 表示不限速',
+                trailing: _ValuePill('${settings.downLimitKbps} KB/s'),
+                onTap: () => _editNumber(
+                  context,
+                  title: '下载限速',
+                  current: settings.downLimitKbps,
+                  onDone: notifier.setDownLimit,
+                ),
               ),
-            ),
-            _Line(
-              label: '下载限速',
-              hint: '0 表示不限速',
-              trailing: Wrap(
-                spacing: 5,
-                children: [
-                  for (final option in const [0, 1024, 5120, 10240])
-                    OlChip(
-                      label: option == 0 ? '不限' : '${option ~/ 1024}M',
-                      height: 22,
-                      selected: settings.downLimitKbps == option,
-                      onTap: () => ref.read(appSettingsProvider.notifier).setDownLimit(option),
-                    ),
-                ],
+              _Row(
+                icon: 'upload',
+                title: '上传限速',
+                subtitle: '0 表示不限速',
+                trailing: _ValuePill('${settings.upLimitKbps} KB/s'),
+                onTap: () => _editNumber(
+                  context,
+                  title: '上传限速',
+                  current: settings.upLimitKbps,
+                  onDone: notifier.setUpLimit,
+                ),
               ),
-            ),
-            _Line(
-              label: '切换服务器时暂停旧任务',
-              trailing: OlSwitch(value: settings.pauseOnSwitch, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setPauseOnSwitch(v)),
-            ),
-            const DownloadDirLine(),
-          ],
+              _Row(
+                icon: 'zap',
+                title: '并发任务数',
+                subtitle: '同时进行的传输数量',
+                trailing: _ValuePill('${settings.concurrency}'),
+                onTap: () => _editNumber(
+                  context,
+                  title: '并发任务数',
+                  current: settings.concurrency,
+                  onDone: notifier.setConcurrency,
+                  max: 8,
+                ),
+              ),
+            ],
+          ),
         ),
+        _GroupLabel('行为'),
         _Card(
-          title: '断点续传',
-          icon: 'rotate',
-          children: [
-            Text(
-              '下载使用 Range 续传：暂停或重启应用后，从已写入的字节继续。服务端不支持 Range 时会自动重新下载。',
-              style: TextStyle(fontSize: 10.5, height: 1.7, color: context.ol.ink3),
-            ),
-          ],
+          child: Column(
+            children: [
+              _Row(
+                icon: 'wifi',
+                title: '仅在 Wi-Fi 下传输',
+                subtitle: '移动网络下排队等待',
+                trailing: OlSwitch(value: settings.wifiOnly, small: true, onChanged: notifier.setWifiOnly),
+              ),
+              _Row(
+                icon: 'cloud',
+                title: '后台保持传输',
+                subtitle: '关闭窗口后继续下载',
+                trailing: OlSwitch(value: settings.backgroundTransfer, small: true, onChanged: notifier.setBackgroundTransfer),
+              ),
+              _Row(
+                icon: 'anchor',
+                title: '切换服务器时暂停旧任务',
+                subtitle: '避免多实例抢占带宽',
+                trailing: OlSwitch(value: settings.pauseOnSwitch, small: true, onChanged: notifier.setPauseOnSwitch),
+              ),
+            ],
+          ),
+        ),
+        _GroupLabel('下载位置'),
+        _Card(
+          padding: const EdgeInsets.all(11),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile == null
+                          ? '未连接服务器'
+                          : ref.read(serverStoreProvider).readDownloadDir(profile.id) ?? '默认目录（按实例隔离）',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink2),
+                    ),
+                    const SizedBox(height: 3),
+                    Text('大文件走前台服务/断点续传；可随时更改', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OlSoftButton(label: '更改', height: 24, onTap: () => showDownloadDirSheet(context, ref)),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Future<void> _editNumber(
+    BuildContext context, {
+    required String title,
+    required int current,
+    required ValueChanged<int> onDone,
+    int max = 1024 * 1024,
+  }) async {
+    final controller = TextEditingController(text: '$current');
+    final value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: '0 表示不限'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop((int.tryParse(controller.text.trim()) ?? 0).clamp(0, max).toInt()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null) onDone(value);
+  }
+}
+
+class _ValuePill extends StatelessWidget {
+  final String text;
+  const _ValuePill(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: p.line2)),
+      child: Text(text, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink2)),
     );
   }
 }
@@ -435,29 +566,65 @@ class _PlaybackSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
-    return _Card(
-      title: '播放与预览',
-      subtitle: '媒体使用 media_kit（libmpv），Range 直读不落地。',
-      icon: 'play',
+    final notifier = ref.watch(appSettingsProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Line(
-          label: '记住播放进度',
-          trailing: OlSwitch(value: settings.resumePlayback, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setResumePlayback(v)),
-        ),
-        _Line(
-          label: '播完自动下一个',
-          trailing: OlSwitch(value: settings.autoPlayNext, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setAutoPlayNext(v)),
-        ),
-        _Line(
-          label: '默认倍速',
-          trailing: OlSeg<double>(
-            items: const [OlSegItem(0.75, '0.75×'), OlSegItem(1.0, '1×'), OlSegItem(1.25, '1.25×'), OlSegItem(1.5, '1.5×')],
-            value: settings.playbackSpeed,
-            onChanged: (v) => ref.read(appSettingsProvider.notifier).setPlaybackSpeed(v),
+        const _SectionHead(title: '播放与预览', subtitle: '断点续播、自动播放与默认倍速'),
+        _Card(
+          child: Column(
+            children: [
+              _Row(
+                icon: 'clock',
+                title: '断点续播',
+                subtitle: '记住上次播放位置',
+                trailing: OlSwitch(value: settings.resumePlayback, small: true, onChanged: notifier.setResumePlayback),
+              ),
+              _Row(
+                icon: 'play',
+                title: '自动播放下一集',
+                subtitle: '同目录视频按顺序连播',
+                trailing: OlSwitch(value: settings.autoPlayNext, small: true, onChanged: notifier.setAutoPlayNext),
+              ),
+              _Row(
+                icon: 'zap',
+                title: '默认倍速',
+                subtitle: '播放器首次打开时使用',
+                trailing: _ValuePill('${settings.playbackSpeed.toStringAsFixed(1)}×'),
+                onTap: () => _pickSpeed(context, notifier, settings.playbackSpeed),
+              ),
+              _Row(
+                icon: 'film',
+                title: '优先直连播放',
+                subtitle: 'Range 直读，不落地缓存',
+                trailing: Text('固定', style: TextStyle(fontSize: 9.5, color: context.ol.ink4)),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _pickSpeed(BuildContext context, AppSettingsNotifier notifier, double current) async {
+    final value = await showModalBottomSheet<double>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final speed in const [0.75, 1.0, 1.25, 1.5, 2.0])
+              ListTile(
+                dense: true,
+                title: Text('${speed.toStringAsFixed(2)}×', style: const TextStyle(fontSize: 12.5)),
+                trailing: speed == current ? const OlIcon('check', size: 14, color: Color(0xFF0EA5E9)) : null,
+                onTap: () => Navigator.of(sheetContext).pop(speed),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (value != null) notifier.setPlaybackSpeed(value);
   }
 }
 
@@ -467,73 +634,206 @@ class _NotifySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
-    return _Card(
-      title: '通知与托盘',
-      subtitle: 'Windows 使用托盘图标四态；Android 使用前台服务通知。',
-      icon: 'bell',
+    final notifier = ref.watch(appSettingsProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Line(
-          label: '关闭窗口时收进托盘',
-          hint: '固定行为：只有托盘菜单「退出」才结束进程',
-          trailing: Text('始终开启', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: context.ol.ink4)),
-        ),
-        _Line(
-          label: '传输完成时通知',
-          trailing: OlSwitch(value: settings.trayNotify, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setTrayNotify(v)),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '托盘图标状态：空闲 / 传输中（旋转弧）/ 失败（红点）/ 已暂停（暂停角标）。',
-          style: TextStyle(fontSize: 9.5, height: 1.6, color: context.ol.ink4),
+        const _SectionHead(title: '通知', subtitle: '传输完成、失败与托盘提示'),
+        _Card(
+          child: Column(
+            children: [
+              _Row(
+                icon: 'bell',
+                title: '任务完成通知',
+                subtitle: '下载/上传结束后提示',
+                trailing: OlSwitch(value: settings.trayNotify, small: true, onChanged: notifier.setTrayNotify),
+              ),
+              _Row(
+                icon: 'minimize',
+                title: '关闭到托盘',
+                subtitle: '关闭窗口不退出应用（W9 固定行为）',
+                trailing: OlSwitch(value: settings.closeToTray, small: true, onChanged: notifier.setCloseToTray),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
+// ---------------------------------------------------------------------------
+// 外观
+// ---------------------------------------------------------------------------
+class _AppearanceSection extends ConsumerWidget {
+  const _AppearanceSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final notifier = ref.watch(appSettingsProvider.notifier);
+    final p = context.ol;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionHead(title: '外观', subtitle: '默认跟随系统；播放器始终深色'),
+        _GroupLabel('主题'),
+        _Card(
+          padding: const EdgeInsets.all(11),
+          child: Row(
+            children: [
+              _ThemeCard(
+                label: '浅色',
+                selected: settings.themeMode == ThemeMode.light,
+                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFFE9F1F8)]),
+                onTap: () => notifier.setTheme(ThemeMode.light),
+              ),
+              const SizedBox(width: 9),
+              _ThemeCard(
+                label: '深色',
+                selected: settings.themeMode == ThemeMode.dark,
+                gradient: const LinearGradient(colors: [Color(0xFF0D1A29), Color(0xFF13293B)]),
+                onTap: () => notifier.setTheme(ThemeMode.dark),
+              ),
+              const SizedBox(width: 9),
+              _ThemeCard(
+                label: '跟随系统',
+                selected: settings.themeMode == ThemeMode.system,
+                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFF0D1A29)]),
+                onTap: () => notifier.setTheme(ThemeMode.system),
+              ),
+            ],
+          ),
+        ),
+        _GroupLabel('列表'),
+        _Card(
+          child: Column(
+            children: [
+              _Row(
+                icon: 'panel',
+                title: '紧凑列表',
+                subtitle: '行高 36px，单屏显示更多',
+                trailing: Text('固定 44px', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+              ),
+              _Row(
+                icon: 'image',
+                title: '显示缩略图',
+                subtitle: '图片与视频封面预览',
+                trailing: Text('自动', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeCard extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final LinearGradient gradient;
+  final VoidCallback onTap;
+  const _ThemeCard({required this.label, required this.selected, required this.gradient, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              height: 54,
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: selected ? OlTokens.sky600 : p.line2, width: selected ? 2 : 1),
+              ),
+              child: selected
+                  ? const Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: EdgeInsets.all(5),
+                        child: OlIcon('check', size: 12, color: Color(0xFF0EA5E9)),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? p.ink : p.ink3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 隐私与安全 / 关于
+// ---------------------------------------------------------------------------
 class _SecuritySection extends ConsumerWidget {
   const _SecuritySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(sessionProvider).profile;
     final p = context.ol;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const _SectionHead(title: '隐私与安全', subtitle: '凭据只存系统安全存储，不上传、不写日志'),
         _Card(
-          title: '隐私与安全',
-          icon: 'shield',
-          children: [
-            Text(
-              '密码只在登录时使用一次；Token 写入系统安全存储（Windows Credential Manager / Android Keystore），不写入 prefs.json、日志与崩溃上报。',
-              style: TextStyle(fontSize: 10.5, height: 1.75, color: p.ink3),
-            ),
-            const SizedBox(height: 8),
-            _Line(label: '当前实例', trailing: Text(profile?.displayHost ?? '—', style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink4))),
-            _Line(label: 'HTTP 明文', hint: '仅内网地址放行，公网强制 HTTPS', trailing: const OlBadge(label: '已限制', bg: Color(0xFFFFF5E2), fg: Color(0xFFB47405), border: Color(0xFFF7E0B8))),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                OlGhostButton(label: '锁定（清除本机令牌）', icon: 'lock', onTap: () async {
-                  final confirmed = await olConfirm(
-                    context,
-                    title: '清除本机令牌？',
-                    message: '下次打开需要重新输入密码。服务器列表与偏好会保留。',
-                    confirm: '清除',
-                    danger: true,
-                  );
-                  if (!confirmed) return;
-                  await ref.read(sessionProvider.notifier).signOut();
-                  if (context.mounted) context.go('/login');
-                }),
-                const SizedBox(width: 8),
-                OlDangerButton(label: '退出登录', icon: 'logout', onTap: () async {
-                  await ref.read(sessionProvider.notifier).signOut();
-                  if (context.mounted) context.go('/login');
-                }),
-              ],
-            ),
-          ],
+          child: Column(
+            children: [
+              _Row(
+                icon: 'key',
+                title: 'Token 存储',
+                subtitle: 'Windows 凭据管理器 / Android Keystore',
+                trailing: Text('已启用', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: const Color(0xFF0B7A63))),
+              ),
+              _Row(
+                icon: 'globe',
+                title: '明文 HTTP',
+                subtitle: '仅内网地址放行，其余强制 HTTPS',
+                trailing: Text('内网', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+              ),
+              _Row(
+                icon: 'database',
+                title: '本地缓存',
+                subtitle: '目录列表与缩略图，按服务器隔离',
+                trailing: OlGhostButton(
+                  label: '清理',
+                  height: 24,
+                  fontSize: 9.5,
+                  onTap: () {
+                    ref.invalidate(filesProvider);
+                    olToast(context, '已清理当前目录缓存');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OlDangerButton(
+            label: '退出登录',
+            icon: 'logout',
+            height: 34,
+            onTap: () async {
+              await ref.read(sessionProvider.notifier).signOut();
+              if (context.mounted) context.go('/login');
+            },
+          ),
         ),
       ],
     );
@@ -545,272 +845,208 @@ class _AboutSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
     final session = ref.watch(sessionProvider);
-    final p = context.ol;
-    return _Card(
-      title: '关于与更新',
-      icon: 'info',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Line(label: '客户端版本', trailing: Text(AppInfo.versionLabel, style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
-        _Line(label: '服务端版本', trailing: Text(session.profile?.version ?? session.site?.version ?? '未知', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
-        _Line(label: '站点名称', trailing: Text(session.site?.title ?? session.profile?.siteTitle ?? '—', style: TextStyle(fontSize: 10.5, color: p.ink3))),
-        const SizedBox(height: 8),
-        Text(
-          'OpenList Client 是 OpenList 的第三方原生客户端，仅通过你填写的服务地址访问数据，不做遥测上报。管理后台只做只读展示。',
-          style: TextStyle(fontSize: 10, height: 1.7, color: p.ink4),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            OlGhostButton(label: '项目主页', icon: 'external', onTap: () async {
-              await launchUrl(Uri.parse('https://github.com/OpenListTeam/OpenList'), mode: LaunchMode.externalApplication);
-            }),
-            const SizedBox(width: 8),
-            OlGhostButton(label: '检查更新', icon: 'refresh', onTap: () => olToast(context, '当前已是最新版本（${AppInfo.version}）')),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ServersShortcut extends ConsumerWidget {
-  const _ServersShortcut();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(serverListProvider);
-    final p = context.ol;
-    return _Card(
-      title: '服务器管理',
-      subtitle: '${state.count} 个实例 · 数量不限 · 配置与缓存按实例隔离',
-      icon: 'server',
-      children: [
-        for (final server in state.servers.take(6))
-          _Line(
-            label: server.name,
-            hint: '${server.baseUrl} · ${server.username}',
-            trailing: server.id == state.activeId
-                ? const OlBadge(label: '当前')
-                : OlChip(label: '切换', onTap: () async {
-                    await ref.read(sessionProvider.notifier).switchTo(server.id);
-                    await ref.read(filesProvider.notifier).attach();
-                  }, height: 22),
-          ),
-        const SizedBox(height: 8),
-        OlPrimaryButton(label: '打开服务器管理', icon: 'settings', onTap: () => context.go('/servers')),
-        const SizedBox(height: 6),
-        Text('凭据保存在系统安全存储；删除服务器不会影响服务端数据。', style: TextStyle(fontSize: 9, color: p.ink4)),
-      ],
-    );
-  }
-}
-
-class _DiagnosticsSection extends ConsumerWidget {
-  const _DiagnosticsSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    final profile = session.profile;
-    final p = context.ol;
-    return _Card(
-      title: '连接诊断',
-      subtitle: '最近的连接结果，用于排查超时、TLS 与版本问题。',
-      icon: 'zap',
-      children: [
-        _Line(label: '地址', trailing: Text(profile?.baseUrl ?? '—', style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3))),
-        _Line(label: '延迟', trailing: Text(session.latencyMs == null ? '—' : '${session.latencyMs} ms', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink2))),
-        _Line(label: '站点', trailing: Text(session.site?.title ?? '—', style: TextStyle(fontSize: 10.5, color: p.ink3))),
-        _Line(label: 'API 版本', trailing: Text(session.site?.version ?? session.site?.apiVersion ?? '—', style: TextStyle(fontSize: 10.5, color: p.ink3))),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            OlGhostButton(label: '重新探测', icon: 'refresh', onTap: () async {
-              if (profile == null) return;
-              final result = await ref.read(sessionProvider.notifier).probe(profile.baseUrl);
-              if (!context.mounted) return;
-              olToast(
-                context,
-                result.ok ? '连接正常 · ${result.latencyMs} ms' : (result.error ?? '连接失败'),
-                error: !result.ok,
-              );
-            }),
-            const SizedBox(width: 8),
-            OlGhostButton(label: '重新登录', icon: 'key', onTap: () => context.go('/login')),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// ------------------------------------------------------------------ mobile
-
-class _MobileProfile extends ConsumerWidget {
-  const _MobileProfile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    final profile = session.profile;
-    final serverState = ref.watch(serverListProvider);
-    final mounts = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
-    final shareCount = ref.watch(sharesProvider).valueOrNull?.length ?? 0;
-    final settings = ref.watch(appSettingsProvider);
-    final transferLimitLabel = settings.downLimitKbps == 0 ? '不限速' : '限速 ${settings.downLimitKbps ~/ 1024} MB/s';
-    final p = context.ol;
-
-    final topInset = MediaQuery.paddingOf(context).top + 6;
-    const heroRow = 46.0;
-    const heroBottom = 62.0;
-    final heroHeight = topInset + heroRow + heroBottom;
-
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        SizedBox(
-          height: heroHeight + 42,
-          child: Stack(
+        const _SectionHead(title: '关于与更新', subtitle: '版本信息与项目链接'),
+        _Card(
+          child: Column(
             children: [
-              Container(
-                height: heroHeight,
-                padding: EdgeInsets.fromLTRB(20, topInset, 20, 0),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0B2233), Color(0xFF0D3B46)]),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(gradient: OlTokens.gradientBrand, borderRadius: BorderRadius.circular(15)),
-                      alignment: Alignment.center,
-                      child: Text(
-                        (profile?.username.isNotEmpty ?? false) ? profile!.username.substring(0, 1).toUpperCase() : 'O',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF04121D)),
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(profile?.username ?? '未登录', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const OlIcon('shield', size: 10, color: Color(0xFF8FA8BD)),
-                              const SizedBox(width: 3),
-                              Flexible(
-                                child: Text(
-                                  '${session.user?.isAdmin == true ? '管理员' : '普通用户'} · ${profile?.displayHost ?? '未连接'}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => context.push('/servers'),
-                      child: const OlIcon('settings', size: 17, color: Color(0xFF8FA8BD)),
-                    ),
-                  ],
+              _Row(
+                icon: 'layers',
+                title: 'OpenList Client',
+                subtitle: 'Windows 便携版 · Android · 单代码库',
+                trailing: Text(AppInfo.versionLabel, style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3)),
+              ),
+              _Row(
+                icon: 'server',
+                title: '服务端',
+                subtitle: session.profile?.baseUrl ?? '未连接',
+                trailing: Text(session.profile?.version ?? '—', style: TextStyle(fontSize: 10, color: p.ink3)),
+              ),
+              _Row(
+                icon: 'external',
+                title: '项目主页',
+                subtitle: 'github.com/david88558855/OpenList-Client',
+                trailing: const OlIcon('chev-r', size: 13, color: Color(0xFF0EA5E9)),
+                onTap: () => launchUrl(
+                  Uri.parse('https://github.com/david88558855/OpenList-Client'),
+                  mode: LaunchMode.externalApplication,
                 ),
               ),
-              Positioned(
-                left: 18,
-                right: 18,
-                top: heroHeight - 44,
-                child: _UsageCard(mounts: mounts, onTap: () => context.go('/settings?tab=storage')),
+              _Row(
+                icon: 'refresh',
+                title: '检查更新',
+                subtitle: '便携版 zip 解压即用',
+                trailing: Text('已是最新', style: TextStyle(fontSize: 9.5, color: p.ink4)),
               ),
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-          child: Column(
-            children: [
-              _SettingsGroup(rows: [
-                _MobileTile(icon: 'server', label: '服务器管理', value: '${serverState.count} 个 · 点击切换', onTap: () => context.push('/servers')),
-                const DownloadDirTile(),
-                _MobileTile(icon: 'database', label: '存储挂载', value: '${mounts.length} 个 · 只读', onTap: () => context.go('/settings?tab=storage')),
-                _MobileTile(icon: 'share', label: '我的分享', value: '$shareCount 个有效', onTap: () => context.push('/favorites?tab=share')),
-              ]),
-              _SettingsGroup(rows: [
-                _MobileTile(
-                  icon: 'arrow-down',
-                  label: '传输设置',
-                  value: transferLimitLabel,
-                  onTap: () => context.go('/settings?tab=transfer'),
+        const SizedBox(height: 8),
+        Text(
+          '第三方程式库版权归各自作者所有；OpenList 品牌素材归 OpenList Team。',
+          style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A6 · Android 我的
+// ---------------------------------------------------------------------------
+class _MobileSettings extends ConsumerWidget {
+  const _MobileSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final session = ref.watch(sessionProvider);
+    final profile = session.profile;
+    return ColoredBox(
+      color: p.card,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 96),
+        children: [
+          Container(
+            padding: EdgeInsets.fromLTRB(OlGap.pageMobile, MediaQuery.paddingOf(context).top + 16, OlGap.pageMobile, 18),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0B2233), Color(0xFF0D3B46)],
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(gradient: OlTokens.gradientBrand, borderRadius: BorderRadius.circular(14)),
+                  child: const Center(child: OlIcon('user', size: 22, color: Colors.white)),
                 ),
-                _MobileTile(
-                  icon: 'play',
-                  label: '播放与缓存',
-                  value: ref.watch(appSettingsProvider).resumePlayback ? '断点续播' : '不记忆',
-                  onTap: () => context.go('/settings?tab=playback'),
-                ),
-                _MobileTile(icon: 'sun', label: '外观', value: _themeLabel(ref.watch(appSettingsProvider).themeMode), onTap: () => context.go('/settings?tab=appearance')),
-              ]),
-              _SettingsGroup(rows: [
-                _MobileTile(icon: 'key', label: '隐私与安全', value: '凭据已加密', onTap: () => context.go('/settings?tab=security')),
-                _MobileTile(icon: 'bell', label: '通知', value: ref.watch(appSettingsProvider).trayNotify ? '已开启' : '已关闭', onTap: () => context.go('/settings?tab=notify')),
-                _MobileTile(icon: 'info', label: '关于 OpenList', value: '${AppInfo.version} · 最新', onTap: () => context.go('/settings?tab=about')),
-              ]),
-              const SizedBox(height: 2),
-              GestureDetector(
-                onTap: () async {
-                  await ref.read(sessionProvider.notifier).signOut();
-                  if (context.mounted) context.go('/login');
-                },
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFFFF7F8), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF3DDE2))),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OlIcon('logout', size: 14, color: Color(0xFFD92D4B)),
-                      SizedBox(width: 7),
-                      Text('退出登录', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFD92D4B))),
+                      Text(
+                        profile?.username ?? '未登录',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        profile == null ? '未连接服务器' : '${profile.displayHost} · ${profile.version ?? session.site?.version ?? 'API v4'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF9DB4C8)),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Text('${AppInfo.shortLabel} · Android · API v4', style: TextStyle(fontSize: 8.5, color: p.ink4)),
-              const SizedBox(height: 16),
-            ],
+                OlBadge(
+                  label: session.signedIn ? '已连接' : '离线',
+                  fg: const Color(0xFF0B5C4C),
+                  bg: const Color(0xFF7DD3FC),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MobileGroup(
+                  title: '账户',
+                  children: [
+                    _MobileTile(icon: 'server', label: '服务器管理', value: '切换 / 添加 / 编辑', onTap: () => context.go('/servers')),
+                    _MobileTile(icon: 'database', label: '存储挂载', value: '只读健康与容量', onTap: () => context.go('/settings?tab=storage')),
+                    _MobileTile(icon: 'logout', label: '退出登录', value: '', danger: true, onTap: () async {
+                      await ref.read(sessionProvider.notifier).signOut();
+                      if (context.mounted) context.go('/login');
+                    }),
+                  ],
+                ),
+                _MobileGroup(
+                  title: '传输与播放',
+                  children: [
+                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速 / 下载目录', onTap: () => context.go('/settings?tab=transfer')),
+                    _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings?tab=playback')),
+                    _MobileTile(icon: 'bell', label: '通知', value: '完成与失败提示', onTap: () => context.go('/settings?tab=notify')),
+                  ],
+                ),
+                _MobileGroup(
+                  title: '应用',
+                  children: [
+                    _MobileTile(icon: 'sun', label: '外观', value: '跟随系统', onTap: () => context.go('/settings?tab=appearance')),
+                    _MobileTile(icon: 'key', label: '隐私与安全', value: '凭据已加密', onTap: () => context.go('/settings?tab=security')),
+                    _MobileTile(icon: 'info', label: '关于 OpenList', value: AppInfo.version, onTap: () => context.go('/settings?tab=about')),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${AppInfo.shortLabel} · Android · API v4',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 8.5, color: p.ink4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileGroup extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _MobileGroup({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 10, 2, 6),
+          child: Text(
+            title,
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1, color: p.ink4),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: p.line2),
+          ),
+          child: Column(children: children),
         ),
       ],
     );
   }
-
-  String _themeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return '浅色';
-      case ThemeMode.dark:
-        return '深色';
-      case ThemeMode.system:
-        return '跟随系统';
-    }
-  }
-
 }
 
 class _MobileTile extends StatelessWidget {
   final String icon;
   final String label;
-  final String? value;
+  final String value;
+  final bool danger;
   final VoidCallback onTap;
-
-  const _MobileTile({required this.icon, required this.label, required this.onTap, this.value});
+  const _MobileTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -818,195 +1054,26 @@ class _MobileTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 46,
-        padding: const EdgeInsets.symmetric(horizontal: 13),
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
         child: Row(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEFF7FC),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(child: OlIcon(icon, size: 14, color: p.isDark ? const Color(0xFF7DD3FC) : const Color(0xFF3D7E9E))),
-            ),
+            OlIcon(icon, size: 15, color: danger ? const Color(0xFFD92D4B) : p.ink3),
             const SizedBox(width: 10),
-            Expanded(child: Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink))),
-            if (value != null) Text(value!, style: TextStyle(fontSize: 9.5, color: p.ink4)),
-            const SizedBox(width: 5),
-            OlIcon('chev-r', size: 13, color: p.isDark ? const Color(0xFF35485C) : const Color(0xFFC2CFDB)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 设置分组卡片（设计稿 .gset：圆角 16、白底、1px 描边、行间 1px 分隔）
-class _SettingsGroup extends StatelessWidget {
-  final List<Widget> rows;
-  const _SettingsGroup({required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final children = <Widget>[];
-    for (var i = 0; i < rows.length; i++) {
-      children.add(rows[i]);
-      if (i != rows.length - 1) {
-        children.add(Divider(height: 1, thickness: 1, color: p.isDark ? const Color(0xFF1A2A3C) : const Color(0xFFF4F7FA)));
-      }
-    }
-    return Container(
-      margin: const EdgeInsets.only(bottom: 11),
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFEDF2F8)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
-    );
-  }
-}
-
-/// 用量卡（设计稿 .usage-card：白底圆角 18、上移 44 叠在头部渐变上）
-class _UsageCard extends StatelessWidget {
-  final List<StorageMount> mounts;
-  final VoidCallback onTap;
-
-  const _UsageCard({required this.mounts, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    var total = 0;
-    var used = 0;
-    for (final m in mounts) {
-      total += m.totalSpace ?? 0;
-      used += m.usedSpace ?? 0;
-    }
-    final ratio = total > 0 ? (used / total).clamp(0.0, 1.0).toDouble() : 0.0;
-    final down = mounts.where((m) => !m.isUp).length;
-    final top = [...mounts]..sort((a, b) => (b.usedSpace ?? 0).compareTo(a.usedSpace ?? 0));
-    final chips = top.take(2).map((m) => '${baseName(m.mountPath)} ${formatBytes(m.usedSpace ?? 0)}').toList();
-    final rest = top.length > 2 ? total - top.take(2).fold<int>(0, (a, m) => a + (m.usedSpace ?? 0)) : 0;
-    if (rest > 0) chips.add('其他 ${formatBytes(rest)}');
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(15, 14, 13, 14),
-        decoration: BoxDecoration(
-          color: p.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFEDF2F8)),
-          boxShadow: const [BoxShadow(color: Color(0x7314A5E9), blurRadius: 30, offset: Offset(0, 16), spreadRadius: -22)],
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 58,
-              height: 58,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 58,
-                    height: 58,
-                    child: CircularProgressIndicator(
-                      value: ratio,
-                      strokeWidth: 7,
-                      backgroundColor: p.isDark ? const Color(0xFF22303F) : const Color(0xFFE8F0F7),
-                      valueColor: const AlwaysStoppedAnimation(OlTokens.sky600),
-                    ),
-                  ),
-                  Text('${(ratio * 100).round()}%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: p.ink)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    total > 0 ? '${formatBytes(used, digits: 1)} / ${formatBytes(total, digits: 1)}' : '存储用量 —',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${mounts.length} 个挂载点${down > 0 ? ' · $down 个需要关注' : ''}',
-                    style: TextStyle(fontSize: 9.5, color: p.ink3),
-                  ),
-                  if (chips.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        for (var i = 0; i < chips.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              chips[i],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: p.ink4),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ],
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: danger ? const Color(0xFFD92D4B) : p.ink),
               ),
             ),
-            OlIcon('chev-r', size: 14, color: p.isDark ? const Color(0xFF35485C) : const Color(0xFFC2CFDB)),
+            if (value.isNotEmpty)
+              Text(value, style: TextStyle(fontSize: 9.5, color: p.ink4)),
+            const SizedBox(width: 5),
+            OlIcon('chev-r', size: 13, color: p.ink4),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MobileSection extends ConsumerWidget {
-  final String section;
-  const _MobileSection({required this.section});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final titles = {
-      'servers': '服务器管理',
-      'storage': '存储挂载',
-      'transfer': '传输',
-      'playback': '播放与预览',
-      'appearance': '外观',
-      'notify': '通知',
-      'security': '隐私与安全',
-      'about': '关于与更新',
-      'diagnostics': '连接诊断',
-    };
-    return Column(
-      children: [
-        Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              OlIconButton(icon: 'chev-l', size: 30, iconSize: 18, onTap: () => context.go('/settings')),
-              const SizedBox(width: 4),
-              Text(titles[section] ?? '设置', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: p.ink)),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-            child: _SectionBody(section: section),
-          ),
-        ),
-      ],
     );
   }
 }

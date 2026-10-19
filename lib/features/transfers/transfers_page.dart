@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
@@ -7,7 +10,9 @@ import '../../core/format.dart';
 import '../../core/models/api_types.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
+import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../files/file_actions.dart';
 import '../settings/download_dir.dart';
@@ -15,7 +20,8 @@ import 'transfers_controller.dart';
 
 /// W3（Windows 传输中心）/ A3（Android 传输 Tab）。
 ///
-/// 上传 / 下载 / 离线下载三合一；顶部实时速度，右侧全局限速与完成策略。
+/// 布局：队列侧栏 204 → 主区（速度卡 / 四个指标 / 任务列表）→ 设置面板 250。
+/// 上传、下载、离线任务共用一套语义；暂停 / 继续 / 重试 / 限速都在这里。
 class TransfersPage extends ConsumerStatefulWidget {
   const TransfersPage({super.key});
 
@@ -36,35 +42,35 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     });
   }
 
-  List<TransferTask> _visible(TransfersState s) {
+  List<TransferTask> _visible(TransfersState state) {
     switch (_filter) {
       case _Filter.all:
-        return s.tasks;
+        return state.tasks;
       case _Filter.download:
-        return s.tasks.where((e) => e.kind == TransferKind.download).toList();
+        return state.tasks.where((e) => e.kind == TransferKind.download).toList();
       case _Filter.upload:
-        return s.tasks.where((e) => e.kind == TransferKind.upload).toList();
+        return state.tasks.where((e) => e.kind == TransferKind.upload).toList();
       case _Filter.offline:
-        return s.serverTasks.map(_fromServer).toList();
+        return state.serverTasks.map(_fromServer).toList();
       case _Filter.done:
-        return s.done;
+        return state.done;
       case _Filter.failed:
-        return s.failed;
+        return state.failed;
     }
   }
 
-  TransferTask _fromServer(ServerTask t) => TransferTask(
-        id: 'srv-${t.id}',
+  TransferTask _fromServer(ServerTask task) => TransferTask(
+        id: 'srv-${task.id}',
         serverId: '',
         serverLabel: '离线下载',
         kind: TransferKind.download,
-        name: t.name,
+        name: task.name,
         remotePath: '',
         localPath: '',
-        total: t.totalBytes,
-        done: t.doneBytes,
+        total: task.totalBytes,
+        done: task.doneBytes,
         status: TransferStatus.running,
-        error: t.error,
+        error: task.error,
       );
 
   @override
@@ -73,9 +79,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     return _buildDesktop(context);
   }
 
-  // ------------------------------------------------------------------
-  // W3 · Windows
-  // ------------------------------------------------------------------
+  // ------------------------------------------------------------------ W3 桌面
   Widget _buildDesktop(BuildContext context) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
@@ -85,22 +89,21 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
         children: [
           _QueueSidebar(filter: _filter, onFilter: (f) => setState(() => _filter = f)),
           Expanded(
-            child: Container(
-              color: p.isDark ? const Color(0xFF0B1622) : const Color(0xFFFBFDFF),
+            child: ColoredBox(
+              color: p.surfaceAlt,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _TopBar(onNew: () => offlineDownload(context, ref)),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(OlGap.md),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _SpeedCard(state: state),
-                          const SizedBox(height: OlGap.sm),
-                          _StatTiles(state: state),
-                          const SizedBox(height: OlGap.sm),
+                          const SizedBox(height: 12),
+                          _StatTiles(state: state, visible: _visible(state).length),
+                          const SizedBox(height: 12),
                           _TaskList(
                             tasks: _visible(state),
                             filter: _filter,
@@ -114,27 +117,36 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
               ),
             ),
           ),
-          SizedBox(width: 250, child: _TransferSettings()),
+          const SizedBox(width: 250, child: _TransferSettings()),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------------
-  // A3 · Android
-  // ------------------------------------------------------------------
+  // ---------------------------------------------------------------- A3 移动端
   Widget _buildMobile(BuildContext context) {
+    final p = context.ol;
     final state = ref.watch(transfersProvider);
     final visible = _visible(state);
     return AppFrame(
       navIndex: 1,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _MobileHead()),
-          SliverToBoxAdapter(child: _SpeedCard(state: state, dark: true)),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, OlGap.sm, OlGap.pageMobile, 0),
+              padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 12, OlGap.pageMobile, 8),
+              child: Text('传输', style: TextStyle(fontSize: 23, letterSpacing: -0.8, fontWeight: FontWeight.w800, color: p.ink)),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
+              child: _SpeedCard(state: state, compact: true),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 12, OlGap.pageMobile, 0),
               child: Row(
                 children: [
                   Expanded(
@@ -150,116 +162,144 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                   ),
                   const SizedBox(width: 8),
                   OlGhostButton(
-                    label: '全部暂停',
-                    icon: 'pause',
+                    label: state.pausedGlobally ? '全部继续' : '全部暂停',
+                    icon: state.pausedGlobally ? 'play' : 'pause',
                     height: 28,
-                    onTap: () => ref.read(transfersProvider.notifier).pauseAll(),
+                    fontSize: 10,
+                    onTap: () {
+                      final notifier = ref.read(transfersProvider.notifier);
+                      if (state.pausedGlobally) {
+                        notifier.resumeAll();
+                      } else {
+                        notifier.pauseAll();
+                      }
+                    },
                   ),
                 ],
               ),
             ),
           ),
           if (visible.isEmpty)
-            const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(top: 64), child: _EmptyTransfers()))
+            const SliverToBoxAdapter(child: SizedBox(height: 240, child: _EmptyTransfers()))
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
-                  child: _MobileTaskRow(task: visible[index]),
+                  child: _TaskRow(task: visible[index], dense: true),
                 ),
                 childCount: visible.length,
               ),
             ),
-          SliverToBoxAdapter(
+          const SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, OlGap.md, OlGap.pageMobile, 0),
+              padding: EdgeInsets.fromLTRB(OlGap.pageMobile, 14, OlGap.pageMobile, 0),
               child: _MobileToggles(),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 96)),
+          const SliverToBoxAdapter(child: SizedBox(height: 104)),
         ],
       ),
     );
   }
 }
 
-class _MobileHead extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 14, OlGap.pageMobile, 10),
-      child: Text('传输', style: OlText.display.copyWith(color: p.ink)),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
-// W3 左侧队列
+// 左侧队列
 // ---------------------------------------------------------------------------
 class _QueueSidebar extends ConsumerWidget {
   final _Filter filter;
   final ValueChanged<_Filter> onFilter;
-
   const _QueueSidebar({required this.filter, required this.onFilter});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final s = ref.watch(transfersProvider);
-    final down = s.active.where((e) => e.kind == TransferKind.download).length;
-    final up = s.active.where((e) => e.kind == TransferKind.upload).length;
-    final doneBytes = s.done.fold<int>(0, (sum, e) => sum + e.total);
+    final state = ref.watch(transfersProvider);
+    final down = state.active.where((e) => e.kind == TransferKind.download).length;
+    final up = state.active.where((e) => e.kind == TransferKind.upload).length;
+    final doneBytes = state.done.fold<int>(0, (sum, e) => sum + e.total);
 
     return Container(
       width: 204,
-      color: p.surface,
-      decoration: BoxDecoration(border: Border(right: BorderSide(color: p.line2))),
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border(right: BorderSide(color: p.line2)),
+      ),
       child: Column(
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(9, 10, 9, 0),
+              padding: const EdgeInsets.fromLTRB(9, 4, 9, 0),
               children: [
+                const OlSectionLabel('工作区'),
+                _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
+                _NavRow(icon: 'star', label: '收藏', onTap: () => context.go('/favorites')),
                 const OlSectionLabel('队列'),
-                _QueueRow(icon: 'download', label: '正在下载', count: down, active: filter == _Filter.download, onTap: () => onFilter(_Filter.download)),
-                _QueueRow(icon: 'upload', label: '正在上传', count: up, active: filter == _Filter.upload, onTap: () => onFilter(_Filter.upload)),
-                _QueueRow(icon: 'cloud-dl', label: '离线下载', count: s.serverTasks.length, active: filter == _Filter.offline, onTap: () => onFilter(_Filter.offline)),
-                _QueueRow(icon: 'check', label: '已完成', count: s.done.length, active: filter == _Filter.done, onTap: () => onFilter(_Filter.done)),
-                _QueueRow(icon: 'alert', label: '失败', count: s.failed.length, active: filter == _Filter.failed, onTap: () => onFilter(_Filter.failed)),
+                _NavRow(
+                  icon: 'download',
+                  label: '正在下载',
+                  badge: down,
+                  active: filter == _Filter.download,
+                  onTap: () => onFilter(_Filter.download),
+                ),
+                _NavRow(
+                  icon: 'upload',
+                  label: '正在上传',
+                  badge: up,
+                  active: filter == _Filter.upload,
+                  onTap: () => onFilter(_Filter.upload),
+                ),
+                _NavRow(
+                  icon: 'cloud-dl',
+                  label: '离线下载',
+                  badge: state.serverTasks.length,
+                  active: filter == _Filter.offline,
+                  onTap: () => onFilter(_Filter.offline),
+                ),
+                _NavRow(
+                  icon: 'check',
+                  label: '已完成',
+                  badge: state.done.length,
+                  active: filter == _Filter.done,
+                  onTap: () => onFilter(_Filter.done),
+                ),
+                _NavRow(
+                  icon: 'alert',
+                  label: '失败',
+                  badge: state.failed.length,
+                  danger: true,
+                  active: filter == _Filter.failed,
+                  onTap: () => onFilter(_Filter.failed),
+                ),
               ],
             ),
           ),
           Container(
             margin: const EdgeInsets.fromLTRB(9, 8, 9, 12),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              gradient: OlTokens.deepPanel,
-              borderRadius: BorderRadius.circular(OlTokens.r3),
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+            decoration: BoxDecoration(gradient: OlTokens.deepPanel, borderRadius: BorderRadius.circular(12)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text('今日流量', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9DB4C8))),
-                    ),
+                    const Text('今日流量', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9DB4C8))),
+                    const Spacer(),
                     const Text('不限速', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF5EEAD4))),
                   ],
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
                   formatBytes(doneBytes),
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: Colors.white),
+                  style: const TextStyle(fontSize: 20, height: 1.1, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: Colors.white),
                 ),
-                const SizedBox(height: 7),
+                const SizedBox(height: 6),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('下载 ${formatBytes(s.downSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
-                    Text('上传 ${formatBytes(s.upSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
+                    Text('下载 ${formatSpeed(state.downSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
+                    const Spacer(),
+                    Text('上传 ${formatSpeed(state.upSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
                   ],
                 ),
               ],
@@ -271,30 +311,34 @@ class _QueueSidebar extends ConsumerWidget {
   }
 }
 
-class _QueueRow extends StatelessWidget {
+class _NavRow extends StatelessWidget {
   final String icon;
   final String label;
-  final int count;
+  final int badge;
   final bool active;
-  final VoidCallback onTap;
+  final bool danger;
+  final VoidCallback? onTap;
 
-  const _QueueRow({
+  const _NavRow({
     required this.icon,
     required this.label,
-    required this.count,
-    required this.active,
-    required this.onTap,
+    this.badge = 0,
+    this.active = false,
+    this.danger = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    final fg = danger ? const Color(0xFFC2415A) : (active ? p.navOn : p.nav);
     return Padding(
       padding: const EdgeInsets.only(bottom: 1),
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
           child: Container(
             height: 31,
             padding: const EdgeInsets.symmetric(horizontal: 9),
@@ -304,24 +348,24 @@ class _QueueRow extends StatelessWidget {
             ),
             child: Row(
               children: [
-                OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
+                OlIcon(icon, size: 15, color: danger ? const Color(0xFFE06B82) : (active ? OlTokens.sky600 : p.navIcon)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg),
                   ),
                 ),
-                if (count > 0)
+                if (badge > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
                       color: active ? p.card : p.navBadgeBg,
                       borderRadius: BorderRadius.circular(5),
                     ),
-                    child: Text('$count', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink3)),
+                    child: Text('$badge', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink4)),
                   ),
               ],
             ),
@@ -333,7 +377,7 @@ class _QueueRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 顶栏
+// 顶部条 / 速度卡 / 指标
 // ---------------------------------------------------------------------------
 class _TopBar extends ConsumerWidget {
   final VoidCallback onNew;
@@ -342,116 +386,134 @@ class _TopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    final state = ref.watch(transfersProvider);
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        border: Border(bottom: BorderSide(color: p.hairline)),
+      ),
       child: Row(
         children: [
-          Text('传输中心', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: p.ink)),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: p.chipBg, borderRadius: BorderRadius.circular(OlTokens.rPill)),
-            child: Text('全部任务', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink3)),
-          ),
+          Text('传输中心', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
+          const SizedBox(width: 4),
+          OlIcon('chev-r', size: 12, color: p.ink4),
+          const SizedBox(width: 4),
+          Text('全部任务', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink3)),
           const Spacer(),
-          OlGhostButton(label: '筛选任务', icon: 'filter', height: 28, onTap: () {}),
+          OlIconButton(
+            icon: state.pausedGlobally ? 'play' : 'pause',
+            tooltip: state.pausedGlobally ? '全部继续' : '全部暂停',
+            squared: true,
+            onTap: () {
+              final notifier = ref.read(transfersProvider.notifier);
+              if (state.pausedGlobally) {
+                notifier.resumeAll();
+              } else {
+                notifier.pauseAll();
+              }
+            },
+          ),
           const SizedBox(width: 8),
-          OlPrimaryButton(label: '新建任务', icon: 'plus', height: 28, onTap: onNew),
+          OlGhostButton(label: '新建任务', icon: 'plus', height: 30, onTap: onNew),
         ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// 速度卡 + 统计块
-// ---------------------------------------------------------------------------
-class _SpeedCard extends ConsumerWidget {
+class _SpeedCard extends StatelessWidget {
   final TransfersState state;
-  final bool dark;
-
-  const _SpeedCard({required this.state, this.dark = false});
+  final bool compact;
+  const _SpeedCard({required this.state, this.compact = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
-    final p = context.ol;
-    final isDark = dark || p.isDark;
+  Widget build(BuildContext context) {
+    final total = state.downSpeed + state.upSpeed;
+    final mb = total / (1024 * 1024);
     return Container(
-      height: 132,
-      padding: const EdgeInsets.all(16),
+      height: compact ? 118 : 132,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment(-0.8, -1),
-                end: Alignment(0.9, 1),
-                colors: [Color(0xFF0C1E2E), Color(0xFF0E2C40), Color(0xFF0F3A46)],
-              )
-            : const LinearGradient(
-                begin: Alignment(-0.8, -1),
-                end: Alignment(0.9, 1),
-                colors: [Color(0xFF0C1E2E), Color(0xFF0E2C40), Color(0xFF0F3A46)],
-              ),
-        borderRadius: BorderRadius.circular(OlTokens.rCard),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0C1E2E), Color(0xFF0E2C40), Color(0xFF0F3A46)],
+        ),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Stack(
         children: [
-          Positioned(
-            right: -30,
-            top: -60,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [Color(0x382DD4BF), Color(0x002DD4BF)]),
-              ),
-            ),
-          ),
+          Positioned(right: -30, top: -70, child: _glow(220, const Color(0x382DD4BF))),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'CURRENT THROUGHPUT',
-                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: Color(0xFF8FB2C6)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'CURRENT THROUGHPUT',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: Color(0xFF8FB2C6)),
+                        ),
+                        const SizedBox(height: 7),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              mb >= 10 ? mb.toStringAsFixed(0) : mb.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: compact ? 28 : 31,
+                                height: 1,
+                                letterSpacing: -1,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4, bottom: 3),
+                              child: Text('MB/s ↓', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9EBBCE))),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _SpeedMeta(label: '上传', value: formatSpeed(state.upSpeed)),
+                            const SizedBox(width: 12),
+                            _SpeedMeta(label: '活动任务', value: '${state.active.length}'),
+                            const SizedBox(width: 12),
+                            _SpeedMeta(label: '并发', value: '${state.concurrency}'),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    settings.downLimitKbps == 0 && settings.upLimitKbps == 0
-                        ? '全局不限速'
-                        : '限速 ${settings.downLimitKbps} KB/s',
-                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF8FA8BD)),
+                  Container(
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                    decoration: BoxDecoration(
+                      color: const Color(0x17FFFFFF),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: const Color(0x24FFFFFF)),
+                    ),
+                    child: const Center(
+                      child: Text('全局不限速', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFBFE6F5))),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 7),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    (state.downSpeed / 1024 / 1024).toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 31, height: 1, fontWeight: FontWeight.w800, letterSpacing: -1, color: Colors.white),
-                  ),
-                  const SizedBox(width: 4),
-                  const Text('MB/s ↓', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9EBBCE))),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text('上传 ${formatSpeed(state.upSpeed)}', style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD))),
-                  const SizedBox(width: 12),
-                  Text('活动任务 ${state.active.length}', style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD))),
-                  const SizedBox(width: 12),
-                  Text('剩余 ${formatCountdown(_eta(state))}', style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD))),
-                ],
+              const Spacer(),
+              SizedBox(
+                height: compact ? 36 : 44,
+                child: CustomPaint(
+                  painter: _SparkPainter(value: total <= 0 ? 0.12 : (mb / 8).clamp(0.15, 1.0)),
+                  size: Size.infinite,
+                ),
               ),
             ],
           ),
@@ -460,90 +522,126 @@ class _SpeedCard extends ConsumerWidget {
     );
   }
 
-  int _eta(TransfersState s) {
-    final speed = s.downSpeed + s.upSpeed;
-    if (speed <= 0) return 0;
-    var remain = 0;
-    for (final t in s.active) {
-      remain += (t.total - t.done).clamp(0, t.total);
-    }
-    return remain ~/ speed;
+  Widget _glow(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, color.withAlpha(0)])),
+      );
+}
+
+class _SpeedMeta extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SpeedMeta({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('$label ', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
+        Text(value, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFCFE6F3))),
+      ],
+    );
   }
 }
 
-class _StatTiles extends ConsumerWidget {
-  final TransfersState state;
-  const _StatTiles({required this.state});
+class _SparkPainter extends CustomPainter {
+  final double value;
+  _SparkPainter({required this.value});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..moveTo(0, size.height * 0.8);
+    const steps = 12;
+    for (var i = 1; i <= steps; i++) {
+      final x = size.width * i / steps;
+      final wave = (i.isEven ? 0.35 : 0.65) * value;
+      final y = size.height * (0.75 - wave * 0.6);
+      final cx = size.width * (i - 0.5) / steps;
+      path.quadraticBezierTo(cx, y, x, size.height * (0.72 - wave * 0.5));
+    }
+    final fill = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x6138BDF8), Color(0x0038BDF8)],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = const Color(0xFF7DD3FC),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparkPainter oldDelegate) => oldDelegate.value != value;
+}
+
+class _StatTiles extends StatelessWidget {
+  final TransfersState state;
+  final int visible;
+  const _StatTiles({required this.state, required this.visible});
+
+  @override
+  Widget build(BuildContext context) {
     final p = context.ol;
     final doneBytes = state.done.fold<int>(0, (sum, e) => sum + e.total);
     return Row(
       children: [
-        Expanded(child: _Tile(label: '下载速度', value: formatSpeed(state.downSpeed), icon: 'download', card: p.card, line: p.line, ink: p.ink, ink3: p.ink3)),
+        Expanded(child: _Tile(icon: 'arrow-down', label: '下载速度', value: formatSpeed(state.downSpeed), palette: p)),
         const SizedBox(width: 8),
-        Expanded(child: _Tile(label: '上传速度', value: formatSpeed(state.upSpeed), icon: 'upload', card: p.card, line: p.line, ink: p.ink, ink3: p.ink3)),
+        Expanded(child: _Tile(icon: 'arrow-up', label: '上传速度', value: formatSpeed(state.upSpeed), palette: p)),
         const SizedBox(width: 8),
-        Expanded(child: _Tile(label: '队列', value: '${state.pendingCount}', icon: 'inbox', card: p.card, line: p.line, ink: p.ink, ink3: p.ink3)),
+        Expanded(child: _Tile(icon: 'zap', label: '队列', value: '$visible 项', palette: p)),
         const SizedBox(width: 8),
-        Expanded(child: _Tile(label: '今日完成', value: formatBytes(doneBytes), icon: 'check', card: p.card, line: p.line, ink: p.ink, ink3: p.ink3)),
+        Expanded(child: _Tile(icon: 'clock', label: '今日完成', value: formatBytes(doneBytes), palette: p)),
       ],
     );
   }
 }
 
 class _Tile extends StatelessWidget {
+  final String icon;
   final String label;
   final String value;
-  final String icon;
-  final Color card;
-  final Color line;
-  final Color ink;
-  final Color ink3;
-
-  const _Tile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.card,
-    required this.line,
-    required this.ink,
-    required this.ink3,
-  });
+  final OlPalette palette;
+  const _Tile({required this.icon, required this.label, required this.value, required this.palette});
 
   @override
   Widget build(BuildContext context) {
+    final p = palette;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
       decoration: BoxDecoration(
-        color: card,
+        color: p.card,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: line),
+        border: Border.all(color: p.line2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              OlIcon(icon, size: 11, color: ink3),
+              OlIcon(icon, size: 11, color: p.ink4),
               const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: ink3),
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink4)),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: ink),
+            style: TextStyle(fontSize: 14, letterSpacing: -0.3, fontWeight: FontWeight.w800, color: p.ink),
           ),
         ],
       ),
@@ -554,7 +652,7 @@ class _Tile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // 任务列表
 // ---------------------------------------------------------------------------
-class _TaskList extends ConsumerWidget {
+class _TaskList extends StatelessWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
   final ValueChanged<_Filter> onFilter;
@@ -562,20 +660,15 @@ class _TaskList extends ConsumerWidget {
   const _TaskList({required this.tasks, required this.filter, required this.onFilter});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final p = context.ol;
-    final s = ref.watch(transfersProvider);
-    final down = s.tasks.where((e) => e.kind == TransferKind.download).length;
-    final up = s.tasks.where((e) => e.kind == TransferKind.upload).length;
-
     return Container(
       decoration: BoxDecoration(
         color: p.card,
-        borderRadius: BorderRadius.circular(OlTokens.r3),
-        border: Border.all(color: p.line),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.line2),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             height: 36,
@@ -586,22 +679,22 @@ class _TaskList extends ConsumerWidget {
                 Text('进行中', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
                 const Spacer(),
                 OlSeg<_Filter>(
-                  height: 21,
                   items: [
-                    OlSegItem(_Filter.all, '全部 ${s.tasks.length}'),
-                    OlSegItem(_Filter.download, '下载 $down'),
-                    OlSegItem(_Filter.upload, '上传 $up'),
+                    OlSegItem(_Filter.all, '全部 ${tasks.length}'),
+                    OlSegItem(_Filter.download, '下载'),
+                    OlSegItem(_Filter.upload, '上传'),
                   ],
-                  value: filter,
+                  value: (filter == _Filter.upload || filter == _Filter.download) ? filter : _Filter.all,
                   onChanged: onFilter,
+                  height: 21,
                 ),
               ],
             ),
           ),
           if (tasks.isEmpty)
-            const Padding(padding: EdgeInsets.all(28), child: _EmptyTransfers())
+            const SizedBox(height: 160, child: _EmptyTransfers())
           else
-            for (final t in tasks) _TaskRow(task: t),
+            for (final task in tasks) _TaskRow(task: task),
         ],
       ),
     );
@@ -610,37 +703,24 @@ class _TaskList extends ConsumerWidget {
 
 class _TaskRow extends ConsumerWidget {
   final TransferTask task;
-  const _TaskRow({required this.task});
+  final bool dense;
+  const _TaskRow({required this.task, this.dense = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    final notifier = ref.read(transfersProvider.notifier);
+    final ratio = task.total <= 0 ? 0.0 : (task.done / task.total).clamp(0.0, 1.0);
     final failed = task.status == TransferStatus.failed;
-    final done = task.status == TransferStatus.done;
     final running = task.status == TransferStatus.running;
+    final done = task.status == TransferStatus.done;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 0 : 12, vertical: 9),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
       child: Row(
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: failed
-                  ? const Color(0xFFFFF1F3)
-                  : (done ? const Color(0xFFE7FBF5) : (p.isDark ? const Color(0xFF101F31) : const Color(0xFFF2F8FC))),
-              borderRadius: BorderRadius.circular(OlTokens.r4),
-            ),
-            child: Center(
-              child: OlIcon(
-                task.kind == TransferKind.upload ? 'upload' : (failed ? 'alert' : 'download'),
-                size: 14,
-                color: failed ? const Color(0xFFD92D4B) : (done ? const Color(0xFF0B7A63) : OlTokens.sky600),
-              ),
-            ),
-          ),
+          FileGlyph(name: task.name, size: 30, radius: 8, iconSize: 15),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
@@ -657,160 +737,60 @@ class _TaskRow extends ConsumerWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        failed
-                            ? (task.error ?? '传输失败')
-                            : '${task.serverLabel} → ${task.kind == TransferKind.upload ? '远端' : '本地'} · ${formatSpeed(task.speed)}',
+                        failed ? '连接失败' : task.serverLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: failed ? FontWeight.w700 : FontWeight.w500,
                           color: failed ? const Color(0xFFD92D4B) : p.ink4,
                         ),
                       ),
                     ),
                     const SizedBox(width: 7),
-                    Text(
-                      '${formatBytes(task.done)} / ${formatBytes(task.total)}',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink2),
-                    ),
+                    Text(formatSpeed(task.speed), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink2)),
+                    const SizedBox(width: 7),
+                    Text('${formatBytes(task.done)} / ${formatBytes(task.total)}', style: TextStyle(fontSize: 9, color: p.ink4)),
                   ],
                 ),
                 const SizedBox(height: 5),
-                OlProgress(value: task.progress, height: 3),
+                OlProgress(value: ratio, height: 3),
               ],
             ),
           ),
-          const SizedBox(width: 10),
           SizedBox(
             width: 56,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${(task.progress * 100).round()}%',
-                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: p.ink),
+                  done ? '完成' : '${(ratio * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: failed ? const Color(0xFFD92D4B) : p.ink,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  failed ? '失败' : (done ? '完成' : (running ? '剩余 ${formatCountdown(_eta(task))}' : '已暂停')),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink4),
+                  done || task.speed <= 0 ? '' : '剩余 ${formatCountdown(((task.total - task.done) / task.speed).round())}',
+                  style: TextStyle(fontSize: 9, color: p.ink4),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (failed)
-                OlIconButton(
-                  icon: 'rotate',
-                  size: 26,
-                  iconSize: 14,
-                  tooltip: '重试',
-                  onTap: () => ref.read(transfersProvider.notifier).retry(task.id),
-                )
-              else if (running)
-                OlIconButton(
-                  icon: 'pause',
-                  size: 26,
-                  iconSize: 14,
-                  tooltip: '暂停',
-                  onTap: () => ref.read(transfersProvider.notifier).pause(task.id),
-                )
-              else if (!done)
-                OlIconButton(
-                  icon: 'play',
-                  size: 26,
-                  iconSize: 14,
-                  tooltip: '继续',
-                  onTap: () => ref.read(transfersProvider.notifier).resume(task.id),
-                ),
-              OlIconButton(
-                icon: 'x',
-                size: 26,
-                iconSize: 14,
-                tooltip: '移除',
-                onTap: () => ref.read(transfersProvider.notifier).remove(task.id),
-              ),
-            ],
-          ),
+          const SizedBox(width: 4),
+          if (failed)
+            OlGhostButton(label: '重试', height: 22, fontSize: 9, onTap: () => notifier.retry(task.id))
+          else if (running)
+            OlIconButton(icon: 'pause', size: 24, iconSize: 12, tooltip: '暂停', onTap: () => notifier.pause(task.id))
+          else if (task.status == TransferStatus.paused)
+            OlIconButton(icon: 'play', size: 24, iconSize: 12, tooltip: '继续', onTap: () => notifier.resume(task.id))
+          else
+            OlIconButton(icon: 'x', size: 24, iconSize: 12, tooltip: '移除', onTap: () => notifier.remove(task.id)),
         ],
       ),
     );
-  }
-
-  int _eta(TransferTask t) {
-    if (t.speed <= 0) return 0;
-    return ((t.total - t.done).clamp(0, t.total) / t.speed).round();
-  }
-}
-
-class _MobileTaskRow extends ConsumerWidget {
-  final TransferTask task;
-  const _MobileTaskRow({required this.task});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final failed = task.status == TransferStatus.failed;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  task.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink),
-                ),
-              ),
-              Text('${(task.progress * 100).round()}%', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            failed
-                ? (task.error ?? '连接超时 · 已重试')
-                : '${task.serverLabel} → 本地 · ${formatSpeed(task.speed)}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: failed ? const Color(0xFFD92D4B) : p.ink4),
-          ),
-          const SizedBox(height: 7),
-          OlProgress(value: task.progress, height: 3),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Text('${formatBytes(task.done)} / ${formatBytes(task.total)}', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4)),
-              const Spacer(),
-              if (!failed)
-                Text('剩余 ${formatCountdown(_eta(task))}', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4)),
-              if (failed)
-                OlGhostButton(
-                  label: '重试',
-                  icon: 'rotate',
-                  height: 26,
-                  onTap: () => ref.read(transfersProvider.notifier).retry(task.id),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _eta(TransferTask t) {
-    if (t.speed <= 0) return 0;
-    return ((t.total - t.done).clamp(0, t.total) / t.speed).round();
   }
 }
 
@@ -819,10 +799,281 @@ class _EmptyTransfers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OlEmptyState(
-      icon: 'inbox',
-      title: '暂无传输任务',
-      subtitle: '从文件列表下载，或把文件拖进目录即可开始上传。',
+    final p = context.ol;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          OlIcon('arrow-down', size: 24, color: p.ink4),
+          const SizedBox(height: 8),
+          Text('没有传输任务', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink3)),
+          const SizedBox(height: 3),
+          Text('下载或上传文件后，这里会显示实时进度', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 右侧设置面板（W3 · tright 250）
+// ---------------------------------------------------------------------------
+class _TransferSettings extends ConsumerWidget {
+  const _TransferSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final settings = ref.watch(appSettingsProvider);
+    final profile = ref.watch(sessionProvider).profile;
+    final notifier = ref.watch(appSettingsProvider.notifier);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        border: Border(left: BorderSide(color: p.line2)),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        children: [
+          Row(
+            children: [
+              Text('传输设置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: p.ink4)),
+              const Spacer(),
+              OlIcon('settings', size: 13, color: p.ink4),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _LimitRow(
+            label: '下载限速',
+            value: settings.downLimitKbps,
+            unit: 'KB/s',
+            onTap: () => _editLimit(
+              context,
+              title: '下载限速',
+              current: settings.downLimitKbps,
+              onDone: notifier.setDownLimit,
+            ),
+          ),
+          _LimitRow(
+            label: '上传限速',
+            value: settings.upLimitKbps,
+            unit: 'KB/s',
+            onTap: () => _editLimit(
+              context,
+              title: '上传限速',
+              current: settings.upLimitKbps,
+              onDone: notifier.setUpLimit,
+            ),
+          ),
+          _LimitRow(
+            label: '并发任务数',
+            value: settings.concurrency,
+            unit: '个',
+            onTap: () => _editLimit(
+              context,
+              title: '并发任务数',
+              current: settings.concurrency,
+              onDone: notifier.setConcurrency,
+              max: 8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('时段限速', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              for (final day in const ['一', '二', '三', '四', '五', '六', '日'])
+                Container(
+                  width: 20,
+                  height: 20,
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    gradient: day == '日' ? null : OlTokens.gradientBrand,
+                    color: day == '日' ? p.surface : null,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w700, color: day == '日' ? p.ink4 : Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text('工作日 09:00–18:00 限速 2 MB/s，其余时段不限速。', style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4)),
+          const SizedBox(height: 12),
+          Text('完成后', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
+          _SwitchRow(label: '任务完成通知', value: settings.trayNotify, onChanged: notifier.setTrayNotify),
+          _SwitchRow(
+            label: '后台保持传输',
+            value: settings.backgroundTransfer,
+            onChanged: notifier.setBackgroundTransfer,
+          ),
+          const SizedBox(height: 12),
+          Text('下载位置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => showDownloadDirSheet(context, ref),
+            child: Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: p.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile == null
+                        ? '未连接服务器'
+                        : (ref.read(serverStoreProvider).readDownloadDir(profile.id) ?? '默认目录（按实例隔离）'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink2),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('点击更改', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OlGhostButton(
+                  label: '暂停全部',
+                  height: 28,
+                  fontSize: 10,
+                  onTap: () => ref.read(transfersProvider.notifier).pauseAll(),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OlSoftButton(
+                  label: '打开目录',
+                  height: 28,
+                  onTap: () async {
+                    if (profile == null || !Platform.isWindows) return;
+                    final dir = await resolveDownloadDir(ref, profile);
+                    try {
+                      await Process.run('explorer', [dir]);
+                    } catch (_) {
+                      if (context.mounted) olToast(context, '无法打开目录：$dir', error: true);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editLimit(
+    BuildContext context, {
+    required String title,
+    required int current,
+    required ValueChanged<int> onDone,
+    int max = 1024 * 1024,
+  }) async {
+    final controller = TextEditingController(text: '$current');
+    final value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: '0 表示不限速'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              final parsed = int.tryParse(controller.text.trim()) ?? 0;
+              Navigator.of(dialogContext).pop(parsed.clamp(0, max).toInt());
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null) onDone(value);
+  }
+}
+
+class _LimitRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final String unit;
+  final VoidCallback onTap;
+  const _LimitRow({required this.label, required this.value, required this.unit, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+        child: Row(
+          children: [
+            Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+            const Spacer(),
+            Container(
+              height: 26,
+              constraints: const BoxConstraints(minWidth: 58),
+              padding: const EdgeInsets.symmetric(horizontal: 7),
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: p.line),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$value', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: p.ink)),
+                  const SizedBox(width: 3),
+                  Text(unit, style: TextStyle(fontSize: 8.5, color: p.ink4)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SwitchRow extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _SwitchRow({required this.label, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+          const Spacer(),
+          OlSwitch(value: value, small: true, onChanged: onChanged),
+        ],
+      ),
     );
   }
 }
@@ -834,360 +1085,19 @@ class _MobileToggles extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final settings = ref.watch(appSettingsProvider);
+    final notifier = ref.watch(appSettingsProvider.notifier);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: p.card,
-        borderRadius: BorderRadius.circular(OlTokens.r3),
-        border: Border.all(color: p.line),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: p.line2),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
-          _ToggleRow(
-            label: '仅在 Wi-Fi 下传输',
-            icon: 'wifi',
-            value: settings.wifiOnly,
-            onChanged: (v) => ref.read(appSettingsProvider.notifier).setWifiOnly(v),
-          ),
-          _ToggleRow(
-            label: '后台保持传输',
-            sub: '前台服务',
-            icon: 'server',
-            value: settings.backgroundTransfer,
-            onChanged: (v) => ref.read(appSettingsProvider.notifier).setBackgroundTransfer(v),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// W3 右侧传输设置
-// ---------------------------------------------------------------------------
-class _TransferSettings extends ConsumerStatefulWidget {
-  const _TransferSettings();
-
-  @override
-  ConsumerState<_TransferSettings> createState() => _TransferSettingsState();
-}
-
-class _TransferSettingsState extends ConsumerState<_TransferSettings> {
-  late final TextEditingController _down;
-  late final TextEditingController _up;
-
-  @override
-  void initState() {
-    super.initState();
-    final s = ref.read(appSettingsProvider);
-    _down = TextEditingController(text: '${s.downLimitKbps}');
-    _up = TextEditingController(text: '${s.upLimitKbps}');
-  }
-
-  @override
-  void dispose() {
-    _down.dispose();
-    _up.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final settings = ref.watch(appSettingsProvider);
-    final state = ref.watch(transfersProvider);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surfaceAlt,
-        border: Border(left: BorderSide(color: p.line2)),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(14),
-        children: [
-          _GroupTitle('传输设置'),
-          _NumRow(
-            label: '下载限速',
-            unit: 'KB/s',
-            controller: _down,
-            onSubmitted: (v) => ref.read(appSettingsProvider.notifier).setDownLimit(int.tryParse(v) ?? 0),
-          ),
-          _NumRow(
-            label: '上传限速',
-            unit: 'KB/s',
-            controller: _up,
-            onSubmitted: (v) => ref.read(appSettingsProvider.notifier).setUpLimit(int.tryParse(v) ?? 0),
-          ),
-          _StepRow(
-            label: '并发任务数',
-            value: settings.concurrency,
-            onChanged: (v) => ref.read(transfersProvider.notifier).setConcurrency(v),
-          ),
-          _StepRow(
-            label: '分片线程',
-            value: 8,
-            onChanged: (_) {},
-          ),
-          const SizedBox(height: 10),
-          _GroupTitle('时段限速'),
-          const _WeekRow(),
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '工作日 09:00–18:00 限速 2 MB/s，其余时段不限速。',
-              style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _GroupTitle('完成后'),
-          _ToggleRow(
-            label: '任务完成通知',
-            icon: 'bell',
-            value: settings.trayNotify,
-            onChanged: (v) => ref.read(appSettingsProvider.notifier).setTrayNotify(v),
-          ),
-          _ToggleRow(label: '全部完成后休眠', icon: 'moon', value: false, onChanged: (_) {}),
-          const SizedBox(height: 14),
-          _GroupTitle('下载位置'),
-          const SizedBox(height: 6),
-          const DownloadDirLine(),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OlGhostButton(
-                  label: '暂停全部',
-                  icon: 'pause',
-                  height: 28,
-                  onTap: () => ref.read(transfersProvider.notifier).pauseAll(),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: OlGhostButton(
-                  label: '继续全部',
-                  icon: 'play',
-                  height: 28,
-                  onTap: () => ref.read(transfersProvider.notifier).resumeAll(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          OlGhostButton(
-            label: '清理已完成',
-            icon: 'trash',
-            height: 28,
-            onTap: () => ref.read(transfersProvider.notifier).clearFinished(),
-          ),
-          if (state.error != null) ...[
-            const SizedBox(height: 10),
-            Text(state.error!, style: const TextStyle(fontSize: 10, height: 1.5, color: Color(0xFFD92D4B))),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _GroupTitle extends StatelessWidget {
-  final String text;
-  const _GroupTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: context.ol.th),
-      ),
-    );
-  }
-}
-
-class _NumRow extends StatelessWidget {
-  final String label;
-  final String unit;
-  final TextEditingController controller;
-  final ValueChanged<String> onSubmitted;
-
-  const _NumRow({required this.label, required this.unit, required this.controller, required this.onSubmitted});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2))),
-          SizedBox(
-            width: 78,
-            height: 26,
-            child: TextField(
-              controller: controller,
-              textAlign: TextAlign.end,
-              keyboardType: TextInputType.number,
-              onSubmitted: onSubmitted,
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink),
-              decoration: InputDecoration(
-                suffixText: unit,
-                suffixStyle: TextStyle(fontSize: 8.5, color: p.ink4),
-                isCollapsed: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
-                filled: true,
-                fillColor: p.card,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: p.fieldBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: p.fieldBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Color(0xFF7DD3FC)),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  final String label;
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  const _StepRow({required this.label, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2))),
-          _RoundButton(icon: 'minus', onTap: value > 1 ? () => onChanged(value - 1) : null, card: p.card, line: p.line, ink: p.ink2),
-          SizedBox(
-            width: 30,
-            child: Center(child: Text('$value', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: p.ink))),
-          ),
-          _RoundButton(icon: 'plus', onTap: value < 16 ? () => onChanged(value + 1) : null, card: p.card, line: p.line, ink: p.ink2),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoundButton extends StatelessWidget {
-  final String icon;
-  final VoidCallback? onTap;
-  final Color card;
-  final Color line;
-  final Color ink;
-
-  const _RoundButton({required this.icon, required this.onTap, required this.card, required this.line, required this.ink});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: card,
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: line),
-        ),
-        child: Center(child: OlIcon(icon, size: 11, color: onTap == null ? const Color(0xFFB4C3D1) : ink)),
-      ),
-    );
-  }
-}
-
-class _WeekRow extends StatelessWidget {
-  const _WeekRow();
-
-  static const days = ['一', '二', '三', '四', '五', '六', '日'];
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Row(
-      children: [
-        for (var i = 0; i < days.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                gradient: i < 5 ? OlTokens.gradientPrimary : null,
-                color: i < 5 ? null : (p.isDark ? const Color(0xFF14243A) : const Color(0xFFEEF5FA)),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Center(
-                child: Text(
-                  days[i],
-                  style: TextStyle(
-                    fontSize: 7.5,
-                    fontWeight: FontWeight.w700,
-                    color: i < 5 ? Colors.white : p.ink4,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
-  final String label;
-  final String? sub;
-  final String icon;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ToggleRow({required this.label, required this.icon, required this.value, required this.onChanged, this.sub});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Container(
-            width: 23,
-            height: 23,
-            decoration: BoxDecoration(
-              color: p.isDark ? const Color(0xFF14243A) : const Color(0xFFF2F8FC),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Center(child: OlIcon(icon, size: 12, color: p.ink3)),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink)),
-                if (sub != null)
-                  Text(sub!, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: p.ink4)),
-              ],
-            ),
-          ),
-          OlSwitch(value: value, onChanged: onChanged, small: true),
+          _SwitchRow(label: '仅在 Wi-Fi 下传输', value: settings.wifiOnly, onChanged: notifier.setWifiOnly),
+          _SwitchRow(label: '后台保持传输', value: settings.backgroundTransfer, onChanged: notifier.setBackgroundTransfer),
+          _SwitchRow(label: '任务完成通知', value: settings.trayNotify, onChanged: notifier.setTrayNotify),
         ],
       ),
     );
