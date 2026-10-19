@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.0.5 · 2026-10-19
+
+### 修复（阻塞验收）
+- **K-01 托盘图标不显示**：`tray_manager` 在 Windows 上走
+  `LoadImage(..., IMAGE_ICON, ..., LR_LOADFROMFILE)`，**只认 ICO/BMP**，之前的 PNG
+  得到 NULL HICON，通知区域只剩空白占位。现在 `tool/gen_app_icons.py` 为四态各生成
+  多尺寸 ICO（16/20/24/32/48，覆盖 100%–200% DPI），`TrayService` 在 Windows 用
+  `.ico`、失败自动重试三次；CI 增加「托盘四态 ICO 存在且合法」门禁。
+- **K-02 退出需多次点击**：根因是 `tray_manager` 0.2.x 的 Windows 插件在
+  `_methodCallHandler` 里已经调用过 `MenuItem.onClick`，而本项目的
+  `onTrayMenuItemClick` 又调用了一次，退出动作被触发两遍。现在动作只由菜单驱动，
+  退出路径改为**幂等、单次、按序**：断开订阅 → 取消关闭拦截 → `NIM_DELETE` →
+  destroy 窗口 → `exit(0)`，每步都有超时兜底。
+- **K-03 图标同源回归**：exe 图标与 Android 启动图标继续由同一套几何数据生成，
+  构建脚本复制 `assets/windows/app_icon.ico` 到 runner 资源；文档补充四项同源核对。
+
+### 修复（编译与运行）
+- 修正上一版遗留的 19 处编译错误：非法字重 `FontWeight.w550/w650/w750`、
+  `List` 上调用不存在的 `forServer()/isFavorite()`、`void` 返回值被 `await`、
+  `||` 右操作数不是 bool。
+- 侧栏挂载点跳转失效：`/files?path=` 复用同一路由时 `initState` 不会重跑，
+  补 `didUpdateWidget` 响应新路径。
+- 搜索页 scope 语义反了：「当前目录」被当成全盘搜索、「全部挂载」只在根目录找；
+  现按接口语义（0 全部 / 1 当前目录）映射，定位后带路径回文件页。
+- 客户端版本号统一到 `AppInfo`，清理设置页/侧栏硬编码的 1.0.3。
+
+### 设计稿
+- `design/OpenList-Client-Design.html` 同步为最新的 v2.0 交付版（仅文档用途，
+  构建全链路排除）。
+
 ## v1.0.4 · 2026-10-19
 
 ### 布局与功能一致性（对齐设计稿）

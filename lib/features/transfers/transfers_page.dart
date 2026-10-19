@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
@@ -8,7 +7,6 @@ import '../../core/format.dart';
 import '../../core/models/api_types.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../files/file_actions.dart';
@@ -146,7 +144,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                         OlSegItem(_Filter.done, '已完成'),
                         OlSegItem(_Filter.failed, '失败'),
                       ],
-                      value: _filter == _Filter.done || _Filter.failed ? _filter : _Filter.all,
+                      value: (_filter == _Filter.done || _filter == _Filter.failed) ? _filter : _Filter.all,
                       onChanged: (f) => setState(() => _filter = f),
                     ),
                   ),
@@ -313,7 +311,7 @@ class _QueueRow extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w650, color: active ? p.navOn : p.nav),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
                   ),
                 ),
                 if (count > 0)
@@ -652,7 +650,7 @@ class _TaskRow extends ConsumerWidget {
                   task.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w750, color: p.ink),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink),
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -666,7 +664,7 @@ class _TaskRow extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 9,
-                          fontWeight: FontWeight.w550,
+                          fontWeight: FontWeight.w500,
                           color: failed ? const Color(0xFFD92D4B) : p.ink4,
                         ),
                       ),
@@ -772,7 +770,7 @@ class _MobileTaskRow extends ConsumerWidget {
                   task.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w750, color: p.ink),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink),
                 ),
               ),
               Text('${(task.progress * 100).round()}%', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink)),
@@ -785,7 +783,7 @@ class _MobileTaskRow extends ConsumerWidget {
                 : '${task.serverLabel} → 本地 · ${formatSpeed(task.speed)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w550, color: failed ? const Color(0xFFD92D4B) : p.ink4),
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: failed ? const Color(0xFFD92D4B) : p.ink4),
           ),
           const SizedBox(height: 7),
           OlProgress(value: task.progress, height: 3),

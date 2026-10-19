@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/app_info.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
@@ -74,7 +75,7 @@ class SettingsSidebar extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
             child: Text(
-              'OpenList Client 1.0.3\n${session.profile?.version ?? session.site?.version ?? 'API v4'} · ${_platformLabel()}\n便携数据 · userdata/',
+              '${AppInfo.shortLabel}\n${session.profile?.version ?? session.site?.version ?? 'API v4'} · ${_platformLabel()}\n便携数据 · userdata/',
               style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
             ),
           ),

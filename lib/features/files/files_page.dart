@@ -11,9 +11,7 @@ import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
-import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
-import '../transfers/transfers_controller.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
 
@@ -39,9 +37,24 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final path = widget.initialPath;
     if (path != null && path.isNotEmpty && path != '/') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         ref.read(filesProvider.notifier).open(path);
       });
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant FilesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 侧栏挂载点走 /files?path=…，同一路由重建时 State 不会重建，
+    // 必须在这里响应新的 path，否则点击挂载点没有反应。
+    final path = widget.initialPath;
+    if (path == null || path.isEmpty || path == '/') return;
+    if (path == oldWidget.initialPath) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(filesProvider.notifier).open(path);
+    });
   }
 
   void _onScroll() {
@@ -330,7 +343,12 @@ class _FilesSidebar extends ConsumerWidget {
                 const OlSectionLabel('工作区'),
                 _NavRow(icon: 'folder', label: '所有文件', badge: files.total, active: true, route: '/files'),
                 _NavRow(icon: 'clock', label: '最近使用', route: '/favorites?tab=recent'),
-                _NavRow(icon: 'star', label: '收藏', badge: favorites.forServer(serverId).length, route: '/favorites'),
+                _NavRow(
+                  icon: 'star',
+                  label: '收藏',
+                  badge: favorites.where((e) => e.serverId == serverId).length,
+                  route: '/favorites',
+                ),
                 _NavRow(icon: 'share', label: '我的分享', badge: 0, route: '/favorites?tab=star'),
                 _NavRow(icon: 'arrow-down', label: '传输任务', badge: transfers.pendingCount, route: '/transfers'),
                 const OlSectionLabel('挂载点'),
@@ -385,7 +403,7 @@ class _NavRow extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w650, color: active ? p.navOn : p.nav),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
                   ),
                 ),
                 if (showBadge)
@@ -442,7 +460,7 @@ class _MountTile extends StatelessWidget {
                     mount.driver.isEmpty ? mount.mountPath : mount.driver,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w650, color: p.ink2),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink2),
                   ),
                 ),
                 Text(
@@ -572,7 +590,7 @@ class _BreadcrumbBar extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: i == segs.length - 1 ? 14 : 13,
-                          fontWeight: i == segs.length - 1 ? FontWeight.w800 : FontWeight.w650,
+                          fontWeight: i == segs.length - 1 ? FontWeight.w800 : FontWeight.w600,
                           color: i == segs.length - 1 ? p.ink : p.ink3,
                         ),
                       ),
@@ -621,7 +639,7 @@ class _SearchMini extends StatelessWidget {
                   '搜索当前目录',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w550, color: p.ink4),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: p.ink4),
                 ),
               ),
               const OlKbd('Ctrl K'),
@@ -870,14 +888,14 @@ class _FileRowState extends State<_FileRow> {
                 flex: 2,
                 child: Text(
                   item.isDir ? '—' : formatBytes(item.size),
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w550, color: p.ink3),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: p.ink3),
                 ),
               ),
               Expanded(
                 flex: 3,
                 child: Text(
                   formatDate(item.modified),
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w550, color: p.ink3),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: p.ink3),
                 ),
               ),
               SizedBox(
@@ -887,10 +905,10 @@ class _FileRowState extends State<_FileRow> {
                         icon: 'more',
                         size: 24,
                         iconSize: 14,
-                        onTap: () async {
+                        onTap: () {
                           final box = context.findRenderObject() as RenderBox?;
                           final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(20, 40));
-                          await widget.onSecondaryTap(pos);
+                          widget.onSecondaryTap(pos);
                         },
                       )
                     : null,
@@ -1311,7 +1329,7 @@ class _DetailBody extends ConsumerWidget {
     final fullPath = joinPath(dir, item.name);
     final favorites = ref.watch(favoritesProvider);
     final serverId = ref.read(sessionProvider).profile?.id;
-    final isFav = favorites.isFavorite(serverId, fullPath);
+    final isFav = favorites.any((e) => e.serverId == serverId && e.path == fullPath);
     final siblings = ref.read(filesProvider.notifier).siblingsOf(item.name);
 
     return ListView(
@@ -1778,7 +1796,7 @@ class _MobileRow extends StatelessWidget {
                           : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w550, color: p.ink4),
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: p.ink4),
                     ),
                   ],
                 ),

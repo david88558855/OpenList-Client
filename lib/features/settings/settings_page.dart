@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
+import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
@@ -550,7 +551,7 @@ class _AboutSection extends ConsumerWidget {
       title: '关于与更新',
       icon: 'info',
       children: [
-        _Line(label: '客户端版本', trailing: Text('1.0.3 (4)', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
+        _Line(label: '客户端版本', trailing: Text(AppInfo.versionLabel, style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
         _Line(label: '服务端版本', trailing: Text(session.profile?.version ?? session.site?.version ?? '未知', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
         _Line(label: '站点名称', trailing: Text(session.site?.title ?? session.profile?.siteTitle ?? '—', style: TextStyle(fontSize: 10.5, color: p.ink3))),
         const SizedBox(height: 8),
@@ -565,7 +566,7 @@ class _AboutSection extends ConsumerWidget {
               await launchUrl(Uri.parse('https://github.com/OpenListTeam/OpenList'), mode: LaunchMode.externalApplication);
             }),
             const SizedBox(width: 8),
-            OlGhostButton(label: '检查更新', icon: 'refresh', onTap: () => olToast(context, '当前已是最新版本（1.0.3）')),
+            OlGhostButton(label: '检查更新', icon: 'refresh', onTap: () => olToast(context, '当前已是最新版本（${AppInfo.version}）')),
           ],
         ),
       ],
@@ -759,7 +760,7 @@ class _MobileProfile extends ConsumerWidget {
               _SettingsGroup(rows: [
                 _MobileTile(icon: 'key', label: '隐私与安全', value: '凭据已加密', onTap: () => context.go('/settings?tab=security')),
                 _MobileTile(icon: 'bell', label: '通知', value: ref.watch(appSettingsProvider).trayNotify ? '已开启' : '已关闭', onTap: () => context.go('/settings?tab=notify')),
-                _MobileTile(icon: 'info', label: '关于 OpenList', value: '1.0.3 · 最新', onTap: () => context.go('/settings?tab=about')),
+                _MobileTile(icon: 'info', label: '关于 OpenList', value: '${AppInfo.version} · 最新', onTap: () => context.go('/settings?tab=about')),
               ]),
               const SizedBox(height: 2),
               GestureDetector(
@@ -781,7 +782,7 @@ class _MobileProfile extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Text('OpenList Client 1.0.3 · Android · API v4', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+              Text('${AppInfo.shortLabel} · Android · API v4', style: TextStyle(fontSize: 8.5, color: p.ink4)),
               const SizedBox(height: 16),
             ],
           ),

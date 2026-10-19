@@ -126,10 +126,11 @@ def ico_entry(rows, size):
     return header + bytes(body) + mask
 
 
-def build_ico(sizes):
+def build_ico(sizes, painter=None):
+    painter = painter or shade
     images = []
     for size in sizes:
-        images.append((size, ico_entry(shade(size), size)))
+        images.append((size, ico_entry(painter(size), size)))
     offset = 6 + 16 * len(images)
     head = struct.pack("<HHH", 0, 1, len(images))
     entries = b""
@@ -188,11 +189,21 @@ def main():
         "error": (0xF4, 0x3F, 0x5E),
         "paused": (0x94, 0xA3, 0xB8),
     }
+    # Windows 通知区域只认 .ico（Shell_NotifyIcon + LoadImage 不支持 PNG），
+    # 因此每种状态都产出多尺寸 ICO（16/20/24/32/48），覆盖 100%~200% DPI。
+    tray_sizes = [16, 20, 24, 32, 48]
     for name, color in states.items():
         rows = badge(base, 64, color) if color else base
         data = png(rows, 64)
         (tray_dir / f"tray_{name}.png").write_bytes(data)
-        print(f"assets/tray/tray_{name}.png  {len(data)} bytes")
+
+        def painter(size, _color=color):
+            scaled = shade(size)
+            return badge(scaled, size, _color) if _color else scaled
+
+        ico = build_ico(tray_sizes, painter)
+        (tray_dir / f"tray_{name}.ico").write_bytes(ico)
+        print(f"assets/tray/tray_{name}.png  {len(data)} bytes / .ico {len(ico)} bytes")
 
 
 if __name__ == "__main__":

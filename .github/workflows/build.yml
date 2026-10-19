@@ -42,6 +42,29 @@ jobs:
           echo "design/ tracked files: $n"
           [ "$n" -gt 0 ] || { echo "FAIL: design/ 未入库"; exit 1; }
 
+      # K-01 回归：Windows 通知区域只认 ICO（Shell_NotifyIcon + LoadImage），
+      # PNG 会得到 NULL HICON，表现为托盘空白。四态图标缺一即阻断。
+      - name: 托盘四态图标必须为 .ico
+        run: |
+          set -e
+          for s in idle transferring error paused; do
+            f="assets/tray/tray_${s}.ico"
+            [ -f "$f" ] || { echo "FAIL: 缺少 $f"; exit 1; }
+            head -c 4 "$f" | od -An -tx1 | tr -d ' \n' | grep -q '00000100' || { echo "FAIL: $f 不是合法 ICO"; exit 1; }
+          done
+          echo "OK: 托盘四态 ICO 就绪"
+
+      - name: 版本号一致性（pubspec ↔ lib/core/app_info.dart）
+        run: |
+          set -e
+          pubver=$(sed -n 's/^version: *\([0-9][0-9.]*\)+\([0-9][0-9]*\).*/\1/p' pubspec.yaml)
+          pubbuild=$(sed -n 's/^version: *[0-9][0-9.]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml)
+          libver=$(sed -n "s/.*static const version = '\([0-9][0-9.]*\)';.*/\1/p" lib/core/app_info.dart)
+          libbuild=$(sed -n "s/.*static const build = \([0-9][0-9]*\);.*/\1/p" lib/core/app_info.dart)
+          echo "pubspec=$pubver+$pubbuild app_info=$libver+$libbuild"
+          [ "$pubver" = "$libver" ] || { echo "FAIL: 版本号不一致"; exit 1; }
+          [ "$pubbuild" = "$libbuild" ] || { echo "FAIL: build 号不一致"; exit 1; }
+
   android-arm64:
     name: Android arm64 APK
     needs: analyze

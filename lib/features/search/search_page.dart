@@ -74,9 +74,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       _loading = true;
       _error = null;
     });
-    final parent = _scope == 0 ? ref.read(filesProvider).path : '/';
+    // 设计稿 06：scope 0 = 全部挂载，scope 1 = 当前目录。
+    // 本页 _scope 是 UI 语义（0 当前目录 / 1 全部挂载），必须转成接口语义，
+    // 否则「当前目录」会搜全盘、「全部挂载」只在根目录里找。
+    final currentOnly = _scope == 0;
+    final parent = currentOnly ? ref.read(filesProvider).path : '/';
     try {
-      final results = await api.search(parent: parent, keywords: keyword, scope: _scope);
+      final results = await api.search(
+        parent: parent,
+        keywords: keyword,
+        scope: currentOnly ? 1 : 0,
+      );
       if (!mounted) return;
       setState(() {
         _results = results;
@@ -98,7 +106,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     if (item.isDir) {
       final path = item.parent ?? joinPath(ref.read(filesProvider).path, item.name);
       await ref.read(filesProvider.notifier).open(path);
-      if (mounted) context.go('/files');
+      // 带上 path 回到文件页，保证跨目录定位后地址栏与列表一致。
+      if (mounted) context.go('/files?path=${Uri.encodeComponent(path)}');
     } else {
       await openItem(context, ref, item);
     }

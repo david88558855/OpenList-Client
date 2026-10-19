@@ -9,7 +9,6 @@ import '../../core/models/server_profile.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
-import 'session.dart';
 
 /// W1（Windows 连接页）/ A1（Android 沉浸式登录）。
 ///
@@ -433,7 +432,7 @@ class _MountRow extends StatelessWidget {
         children: [
           Container(width: 7, height: 7, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2.5))),
           const SizedBox(width: 8),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w650, color: Color(0xFFCFE6F3)))),
+          Expanded(child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFCFE6F3)))),
           Text(size, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF8FA8BD))),
         ],
       ),
@@ -555,7 +554,7 @@ class _FormCard extends StatelessWidget {
             children: [
               OlSwitch(value: keepSignedIn, onChanged: onKeep, small: true),
               const SizedBox(width: 8),
-              Text('保持登录', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w650, color: p.ink2)),
+              Text('保持登录', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink2)),
             ],
           ),
           const SizedBox(height: OlGap.lg),
