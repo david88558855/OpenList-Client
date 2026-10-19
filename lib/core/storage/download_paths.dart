@@ -35,7 +35,7 @@ Future<String> androidPublicDownloadRoot() async {
   final path = external ?? '';
   final cut = path.indexOf('/Android/');
   final storageRoot = cut > 0 ? path.substring(0, cut) : '/storage/emulated/0';
-  return '$storageRoot/Download';
+  return storageRoot + '/Download';
 }
 
 /// 系统默认下载根目录：Android 为公共 Download，桌面为系统下载文件夹。
@@ -57,9 +57,8 @@ Future<String> resolveDownloadDirFor(ServerStore store, ServerProfile profile) a
   if (saved != null && saved.isNotEmpty) return saved;
   final base = await defaultDownloadBase();
   final sep = Platform.pathSeparator;
-  return profile.isolatedDownload
-      ? '$base${sep}OpenList${sep}${safePathSegment(profile.name)}'
-      : '$base${sep}OpenList';
+  final root = base + sep + 'OpenList';
+  return profile.isolatedDownload ? root + sep + safePathSegment(profile.name) : root;
 }
 
 /// 解析并确保目录存在；Android 未授予「所有文件访问权限」时退回应用私有目录，
@@ -72,7 +71,7 @@ Future<String> ensureDownloadDirFor(ServerStore store, ServerProfile profile) as
   } catch (error) {
     debugPrint('download: 无法创建 $dir（$error），退回应用私有目录');
     final fallback = await getApplicationDocumentsDirectory();
-    final alt = '${fallback.path}${Platform.pathSeparator}OpenList';
+    final alt = fallback.path + Platform.pathSeparator + 'OpenList';
     await Directory(alt).create(recursive: true);
     return alt;
   }
