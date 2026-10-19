@@ -24,9 +24,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # 提供 android-36 平台与 licenses，避免 Gradle 首次拉 SDK 时卡住
-      - uses: android-actions/setup-android@v3
-
+      # ubuntu-latest 已预装 Android SDK 并接受 licenses；缺的平台/NDK 由 Gradle 自动下载。
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
