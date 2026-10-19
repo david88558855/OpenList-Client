@@ -89,6 +89,21 @@ class OlGap {
   static const touchMin = 44.0;
 }
 
+/// 移动端专用的尺寸修正（v2.2）。
+class OlMobile {
+  const OlMobile._();
+
+  /// Android 字号下限放大比例：设计稿的 9–11px 在真机上偏小，
+  /// 统一放大到 1.12 倍（且不覆盖系统更大的无障碍字号）。
+  static const textScale = 1.12;
+
+  /// 移动端列表行高（设计稿 A2）。
+  static const rowHeight = 58.0;
+
+  /// 移动端触控最小尺寸。
+  static const touch = 44.0;
+}
+
 /// Theme-aware palette. Every surface used by a screen comes from here so the
 /// W7 dark variant is a palette swap, not a second layout.
 ///

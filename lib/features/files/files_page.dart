@@ -53,7 +53,8 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   void _openInitial() {
     final path = widget.initialPath;
-    if (path == null || path.isEmpty || path == '/') return;
+    // null 表示没有显式路径（保留当前目录）；显式 "/" 要能回到根目录。
+    if (path == null || path.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(filesProvider.notifier).open(path);
@@ -131,6 +132,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           _Toolbar(
                             kind: _kind,
                             onKind: (k) => setState(() => _kind = k),
+                            visible: _filtered(state.items).map((e) => e.name).toList(),
                             batch: _batch,
                             onBatch: (v) => setState(() {
                               _batch = v;
@@ -186,7 +188,14 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   Widget _buildMobile(BuildContext context) {
     final state = ref.watch(filesProvider);
     final items = _filtered(state.items);
-    return AppFrame(
+    return PopScope(
+      // v2.2：Android 物理返回键在子目录里应回到上一级，而不是直接退出应用。
+      canPop: state.path == '/',
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        ref.read(filesProvider.notifier).goUp();
+      },
+      child: AppFrame(
       navIndex: 0,
       child: Stack(
         children: [
@@ -284,10 +293,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                 count: state.selected.length,
                 onSelectAll: () {
                   final notifier = ref.read(filesProvider.notifier);
-                  if (state.selected.length == items.length) {
+                  final allSelected = items.isNotEmpty && items.every((e) => state.selected.contains(e.name));
+                  if (allSelected) {
                     notifier.clearSelection();
                   } else {
-                    notifier.selectAll();
+                    notifier.selectOnly(items.map((e) => e.name));
                   }
                 },
                 onDownload: () async {
@@ -322,6 +332,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }
@@ -727,9 +738,16 @@ class _SearchMini extends StatelessWidget {
 class _Toolbar extends ConsumerWidget {
   final FileKind? kind;
   final ValueChanged<FileKind?> onKind;
+  final List<String> visible;
   final bool batch;
   final ValueChanged<bool> onBatch;
-  const _Toolbar({required this.kind, required this.onKind, required this.batch, required this.onBatch});
+  const _Toolbar({
+    required this.kind,
+    required this.onKind,
+    required this.visible,
+    required this.batch,
+    required this.onBatch,
+  });
 
   Future<void> _sortMenu(BuildContext context, WidgetRef ref, Offset pos) async {
     final state = ref.read(filesProvider);
@@ -767,7 +785,7 @@ class _Toolbar extends ConsumerWidget {
     final p = context.ol;
     final state = ref.watch(filesProvider);
     final selected = state.selected.length;
-    final allSelected = state.items.isNotEmpty && selected == state.items.length;
+    final allSelected = visible.isNotEmpty && visible.every(state.selected.contains);
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -781,7 +799,7 @@ class _Toolbar extends ConsumerWidget {
               if (allSelected) {
                 notifier.clearSelection();
               } else {
-                notifier.selectAll();
+                notifier.selectOnly(visible);
               }
             },
           ),

@@ -32,9 +32,18 @@ class OpenListApp extends ConsumerWidget {
         // 系统栏透明 + 图标亮度跟随主题；页面自己画到屏幕边缘，不再出现
         // 状态栏/导航栏的系统底色带（浅色主题下的“白条”就是它）。
         final dark = Theme.of(context).brightness == Brightness.dark;
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: olSystemBars(dark: dark),
-          child: child ?? const SizedBox.shrink(),
+        final media = MediaQuery.of(context);
+        // v2.2：Android 上设计稿的 9–11px 小字在真机上偏小，统一放大 12%。
+        // 桌面（宽度 ≥ 900）保持原尺寸，避免破坏 Windows 的紧凑密度。
+        final scaled = media.size.width < 900
+            ? media.copyWith(textScaler: media.textScaler.clamp(minScaleFactor: OlMobile.textScale))
+            : media;
+        return MediaQuery(
+          data: scaled,
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: olSystemBars(dark: dark),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

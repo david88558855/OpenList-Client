@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,9 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
-import '../../core/format.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
+import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import 'download_dir.dart';
 import 'settings_sidebar.dart';
@@ -32,7 +34,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   late String _tab = widget.tab;
 
-  static const _known = {'servers', 'storage', 'transfer', 'playback', 'appearance', 'about'};
+  static const _known = {'servers', 'transfer', 'download', 'playback', 'appearance', 'about'};
 
   @override
   void didUpdateWidget(covariant SettingsPage oldWidget) {
@@ -48,7 +50,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (context.isNarrow) return const AppFrame(navIndex: 3, child: _MobileSettings());
+    if (context.isNarrow) {
+      // A6：/settings 是「我的」列表；/settings/<tab> 是分区页（带返回）。
+      final showList = _tab == 'servers' || _tab == 'profile' || !_known.contains(_tab);
+      if (showList) return const AppFrame(navIndex: 3, child: _MobileSettings());
+      return _MobileSectionPage(tab: _tab);
+    }
     return AppFrame(
       showNav: false,
       child: Row(
@@ -82,10 +89,10 @@ class _SectionBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     switch (section) {
-      case 'storage':
-        return const _StorageSection();
       case 'transfer':
         return const _TransferSection();
+      case 'download':
+        return const _DownloadSection();
       case 'playback':
         return const _PlaybackSection();
       case 'about':
@@ -362,52 +369,141 @@ class _InfoStrip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // 存储挂载（只读）
 // ---------------------------------------------------------------------------
-class _StorageSection extends ConsumerWidget {
-  const _StorageSection();
+// ---------------------------------------------------------------------------
+// 下载目录（v2.2：独立分区，替代原「存储挂载」入口）
+// ---------------------------------------------------------------------------
+class _DownloadSection extends ConsumerStatefulWidget {
+  const _DownloadSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DownloadSection> createState() => _DownloadSectionState();
+}
+
+class _DownloadSectionState extends ConsumerState<_DownloadSection> {
+  String? _dir;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final profile = ref.read(sessionProvider).profile;
+    if (profile == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final dir = await resolveDownloadDir(ref, profile);
+    if (!mounted) return;
+    setState(() {
+      _dir = dir;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final p = context.ol;
-    final storages = ref.watch(storagesProvider);
+    final profile = ref.watch(sessionProvider).profile;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHead(title: '存储挂载', subtitle: '健康状态与容量来自服务端，只读展示'),
-        _GroupLabel('挂载点（只读）'),
+        const _SectionHead(title: '下载目录', subtitle: '下载与断点续传的落盘位置，按实例隔离'),
+        _GroupLabel('当前目录'),
         _Card(
-          child: storages.when(
-            loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator(minHeight: 2)),
-            error: (error, stack) => Padding(
-              padding: const EdgeInsets.all(14),
-              child: Text('读取失败：$error', style: TextStyle(fontSize: 10.5, color: const Color(0xFFD92D4B))),
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text('没有可展示的挂载点（需要管理员权限）', style: TextStyle(fontSize: 10.5, color: p.ink4)),
-                );
-              }
-              return Column(
+          padding: const EdgeInsets.all(11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  for (final mount in items)
-                    _Row(
-                      icon: 'hard-drive',
-                      title: mount.mountPath == '/' ? '根目录' : mount.mountPath,
-                      subtitle: '${mount.driver.isEmpty ? 'unknown' : mount.driver} · ${formatBytes(mount.usedSpace)} / ${formatBytes(mount.totalSpace)}',
-                      trailing: OlBadge(
-                        label: mount.isUp ? '正常' : '离线',
-                        fg: mount.isUp ? const Color(0xFF0B7A63) : const Color(0xFF7C8FA3),
-                        bg: mount.isUp ? const Color(0xFFE7FBF5) : const Color(0xFFF1F5F9),
-                      ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(9)),
+                    child: Center(child: OlIcon('download', size: 15, color: p.ink3)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      profile == null
+                          ? '未连接服务器'
+                          : (_loading ? '读取中…' : (_dir ?? '默认目录（按实例隔离）')),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, height: 1.5, fontWeight: FontWeight.w600, color: p.ink2),
                     ),
+                  ),
                 ],
-              );
-            },
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OlSoftButton(
+                      label: '更改目录',
+                      icon: 'folder',
+                      height: 30,
+                      onTap: profile == null
+                          ? null
+                          : () async {
+                              await showDownloadDirSheet(context, ref);
+                              await _load();
+                            },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OlGhostButton(
+                      label: Platform.isAndroid ? '授权说明' : '打开目录',
+                      icon: Platform.isAndroid ? 'shield' : 'external',
+                      height: 30,
+                      onTap: () {
+                        if (Platform.isAndroid) {
+                          olToast(context, 'Android 使用系统文件选择器（SAF）授权目录，更改目录时按提示授权');
+                          return;
+                        }
+                        final dir = _dir;
+                        if (dir == null) return;
+                        Process.run('explorer', [dir]);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        _GroupLabel('其他'),
+        _Card(
+          child: Column(
+            children: [
+              _Row(
+                icon: 'refresh',
+                title: '恢复默认目录',
+                subtitle: '清除本实例的自定义目录',
+                trailing: Text('重置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink3)),
+                onTap: profile == null
+                    ? null
+                    : () async {
+                        await ref.read(serverStoreProvider).clearDownloadDir(profile.id);
+                        await _load();
+                        if (context.mounted) olToast(context, '已恢复默认目录');
+                      },
+              ),
+              _Row(
+                icon: 'hard-drive',
+                title: '按实例隔离',
+                subtitle: '多服务器各自独立目录，避免同名覆盖',
+                trailing: Text(profile?.isolatedDownload == true ? '已开启' : '已关闭', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 6),
-        const _InfoStrip(text: '存储配置、驱动参数与用户权限都在网页端管理；客户端不做写入，也不缓存凭据。'),
+        const _InfoStrip(text: 'Android 需通过系统文件选择器授权目录；Windows 便携版默认落在「下载/OpenList」。大文件走前台服务与断点续传。'),
       ],
     );
   }
@@ -421,14 +517,12 @@ class _TransferSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
     final settings = ref.watch(appSettingsProvider);
-    final profile = ref.watch(sessionProvider).profile;
     final notifier = ref.watch(appSettingsProvider.notifier);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHead(title: '传输', subtitle: '并发、限速与完成后行为'),
+        const _SectionHead(title: '传输', subtitle: '并发与限速'),
         _GroupLabel('限速'),
         _Card(
           child: Column(
@@ -495,33 +589,6 @@ class _TransferSection extends ConsumerWidget {
                 subtitle: '避免多实例抢占带宽',
                 trailing: OlSwitch(value: settings.pauseOnSwitch, small: true, onChanged: notifier.setPauseOnSwitch),
               ),
-            ],
-          ),
-        ),
-        _GroupLabel('下载位置'),
-        _Card(
-          padding: const EdgeInsets.all(11),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile == null
-                          ? '未连接服务器'
-                          : ref.read(serverStoreProvider).readDownloadDir(profile.id) ?? '默认目录（按实例隔离）',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink2),
-                    ),
-                    const SizedBox(height: 3),
-                    Text('大文件走前台服务/断点续传；可随时更改', style: TextStyle(fontSize: 8.5, color: p.ink4)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              OlSoftButton(label: '更改', height: 24, onTap: () => showDownloadDirSheet(context, ref)),
             ],
           ),
         ),
@@ -831,6 +898,62 @@ class _AboutSection extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // A6 · Android 我的
 // ---------------------------------------------------------------------------
+
+/// A6 分区页：带返回的分区详情（v2.2）。
+class _MobileSectionPage extends ConsumerWidget {
+  final String tab;
+  const _MobileSectionPage({required this.tab});
+
+  static const _titles = {
+    'transfer': '传输',
+    'download': '下载目录',
+    'playback': '播放与预览',
+    'appearance': '外观',
+    'about': '关于与更新',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go('/settings');
+      },
+      child: AppFrame(
+        navIndex: 3,
+        showNav: false,
+        child: ColoredBox(
+          color: p.card,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 54,
+                child: Row(
+                  children: [
+                    OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => context.go('/settings')),
+                    const SizedBox(width: 2),
+                    Text(
+                      _titles[tab] ?? '设置',
+                      style: TextStyle(fontSize: 17, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                  child: _SectionBody(section: tab),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileSettings extends ConsumerWidget {
   const _MobileSettings();
 
@@ -844,8 +967,12 @@ class _MobileSettings extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          Container(
-            padding: EdgeInsets.fromLTRB(OlGap.pageMobile, MediaQuery.paddingOf(context).top + 16, OlGap.pageMobile, 18),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 10, OlGap.pageMobile, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -887,6 +1014,8 @@ class _MobileSettings extends ConsumerWidget {
                 ),
               ],
             ),
+              ),
+            ),
           ),
           const SizedBox(height: 10),
           Padding(
@@ -898,13 +1027,13 @@ class _MobileSettings extends ConsumerWidget {
                   title: '账户',
                   children: [
                     _MobileTile(icon: 'server', label: '服务器管理', value: '切换 / 添加 / 编辑', onTap: () => context.push('/servers')),
-                    _MobileTile(icon: 'database', label: '存储挂载', value: '只读健康与容量', onTap: () => context.go('/settings/storage')),
                   ],
                 ),
                 _MobileGroup(
                   title: '传输与播放',
                   children: [
-                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速 / 下载目录', onTap: () => context.go('/settings/transfer')),
+                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速', onTap: () => context.go('/settings/transfer')),
+                    _MobileTile(icon: 'download', label: '下载目录', value: '查看 / 更改 / 授权', onTap: () => context.go('/settings/download')),
                     _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
                   ],
                 ),

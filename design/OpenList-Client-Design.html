@@ -1,10 +1,10 @@
 <!--
-  OpenList Client · Design + Handoff · v2.1（交付版）
+  OpenList Client · Design + Handoff · v2.2（交付版）
   唯一权威依据：本文件。所有界面、间距、字号、颜色均可在此直接读取。
   实现方请先读 08 — 开工交接：工程结构、design/ 目录约定、路由、API、验收标准。
   已知问题见 09 — Known Issues（K-01 / K-02 已修复，保留追溯）。
-  交互修订见 10 — Revisions v2.1：登录入口、面包屑、点击语义、批量模式、设置分区、
-  退出登录位置、Windows 单实例与托盘唤起，共 12 项，已同步到 W1 / W2 / W6 / W9 画板。
+  交互修订见 10 — Revisions v2.1（R-01~R-12）与 11 — Revisions v2.2（R-13~R-18）：
+  设置信息架构调整、下载目录独立分区、Android 字号与圆角、系统返回键、点击无反应修复。
   本文件自包含，无外部图片/字体/JS 依赖。画板：W1–W9（Windows）、A1–A8（Android）。
 -->
 <!DOCTYPE html>
@@ -12,7 +12,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenList Client · 设计稿 + 开工交接 v2.1</title>
+<title>OpenList Client · 设计稿 + 开工交接 v2.2</title>
 <style>
 :root{
   --sky:#38BDF8; --sky-600:#0EA5E9; --sky-700:#0284C7;
@@ -863,6 +863,7 @@ h3{letter-spacing:-.015em}
     <a href="#handoff"><svg class="ic"><use href="#i-file"/></svg>开工交接</a>
     <a href="#issues" style="color:#8A5B05"><svg class="ic" style="color:#E9A93B"><use href="#i-alert"/></svg>已知问题 2</a>
     <a href="#revisions"><svg class="ic"><use href="#i-check"/></svg>交互修订 12</a>
+    <a href="#revisions2"><svg class="ic"><use href="#i-check"/></svg>修订 v2.2 · 6</a>
   </nav>
   <div class="rail-foot">
     <b>v2.0 · 交付版 · 2026.10.19</b>
@@ -1808,7 +1809,7 @@ h3{letter-spacing:-.015em}
             <div class="dnav"><svg class="ic"><use href="#i-play"/></svg>播放与预览</div>
             <div class="dnav"><svg class="ic"><use href="#i-sun"/></svg>外观</div>
             <div class="dnav"><svg class="ic"><use href="#i-info"/></svg>关于与更新<span class="nt">新</span></div>
-            <div style="padding:10px 9px 0;font-size:8.5px;color:#A2B2C2">v2.1：移除「通知」「隐私与安全」；退出登录移到「关于」页底部</div>
+            <div style="padding:10px 9px 0;font-size:8.5px;color:#A2B2C2">v2.1：移除「通知」「隐私与安全」，退出登录移到「关于」底部<br>v2.2：移除「存储挂载」，新增「下载目录」分区</div>
             <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.2<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
           </aside>
           <div class="scontent">
@@ -2741,7 +2742,8 @@ h3{letter-spacing:-.015em}
 
     <!-- A6 -->
     <div class="screen" style="margin-top:20px">
-      <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>设置</h3><p>服务器管理、下载目录与偏好集中在此；下载目录在 Android 需授权。</p></div></div>
+      <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>设置</h3><p>服务器管理、下载目录与偏好集中在此；下载目录在 Android 需授权。</p>
+      <p style="margin-top:4px;color:#8A5B05"><b>v2.2：</b>顶部「已连接服务器」改 18px 圆角卡片（左右各 14px 外边距）；整页字号在 9–12px 基础上放大 12%；分区详情为独立页，带返回。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus light" style="position:absolute;left:0;right:0;top:0;z-index:20"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
@@ -3487,7 +3489,7 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <script type="application/json" id="handoff-spec">
   {
     "product": "OpenList Client",
-    "designVersion": "2.1",
+    "designVersion": "2.2",
     "platforms": ["windows", "android"],
     "stack": {
       "framework": "Flutter 3.x",
@@ -3778,6 +3780,76 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
     <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.6</code>（设计稿 v2.1）。W2 画板中的「批量」按钮、
     W6 的导航顺序、W9 的唤起与单实例说明均已同步更新；如后续再改交互，在本节追加 R-13 起的新编号，并同步对应画板。
+  </div>
+</section>
+<!-- REVISIONS v2.2 -->
+<section class="sec" id="revisions2">
+  <div class="sec-head">
+    <div class="eyebrow">11 — Revisions</div>
+    <h2>v2.2 · 设置信息架构与 Android 可用性</h2>
+    <p>v2.1 交付后的第二轮真机反馈：设置项冗余与缺失并存、Android 字号偏小、顶部卡片没有圆角、
+    分区页点不开、系统返回键直接退出应用。以下 6 项为最终口径，已同步 W6 / A6 画板与代码。</p>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table class="rev-tbl">
+      <thead><tr><th style="width:52px">ID</th><th style="width:64px">端</th><th style="width:150px">位置</th><th style="width:250px">问题</th><th>期望行为（验收口径）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>R-13</b></td><td><span class="rev-tag web">W6</span></td>
+          <td>设置导航 · 存储挂载</td>
+          <td>只读的存储挂载分区与文件页重复，占位不用</td>
+          <td><b>删除</b>「存储挂载」分区（桌面侧栏、移动分组、分区实现同步移除）；容量信息只在文件页挂载树体现</td>
+        </tr>
+        <tr>
+          <td><b>R-14</b></td><td><span class="rev-tag web">W6</span><span class="rev-tag mob" style="margin-left:4px">A6</span></td>
+          <td>设置 · 下载目录</td>
+          <td>设置里找不到下载目录</td>
+          <td>新增<b>下载目录</b>分区：显示当前目录、更改目录（SAF/文件选择器）、打开目录（Windows）、
+          恢复默认、按实例隔离说明；传输分区不再重复该入口</td>
+        </tr>
+        <tr>
+          <td><b>R-15</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>Android · 全站字号</td>
+          <td>9–11px 小字在真机上偏小，按钮文字看不清</td>
+          <td>窄屏（&lt; 900）统一把字号下限放大 <b>12%</b>（1.12×，且尊重系统更大的无障碍字号）；桌面保持原密度</td>
+        </tr>
+        <tr>
+          <td><b>R-16</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>Android · 顶部「已连接服务器」</td>
+          <td>深色头部通栏贴边，没有圆角，与卡片语言不一致</td>
+          <td>改为 <b>18px 圆角卡片</b>，左右各 14/18px 外边距，内部 padding 14</td>
+        </tr>
+        <tr>
+          <td><b>R-17</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>Android · 传输设置 / 播放与预览</td>
+          <td>点击闪一下没反应（移动端始终渲染「我的」列表，忽略 tab）</td>
+          <td>分区详情改为<b>独立页面</b>：带返回的顶栏 + 滚动内容；返回按钮与系统返回都回到「我的」列表</td>
+        </tr>
+        <tr>
+          <td><b>R-18</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>Android · 系统返回键</td>
+          <td>子目录里按返回直接退出到桌面</td>
+          <td>文件页非根目录时，系统返回<b>回到上一级目录</b>；根目录才允许退出应用。批量模式下返回先退出批量</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pi" style="background:#E9FBF5;color:#0B7A63"><svg class="ic"><use href="#i-check"/></svg></span><h4>回归清单（v2.2 验收）</h4></div>
+    <div class="h-list">
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>设置导航</b>：服务器管理 / 传输 / 下载目录 / 播放与预览 / 外观 / 关于，共 6 项，无存储挂载</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>下载目录</b>：能看到路径、能改、能恢复默认；Android 提示 SAF 授权</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>Android 字号</b>：列表副标题、按钮文字在 360dp 宽屏上不截断、不拥挤</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>分区页</b>：传输设置 / 播放与预览一点即开，返回回到「我的」</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>返回键</b>：a/b/c 目录里按系统返回逐级回退，到根目录才退出</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
+    <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.7</code>（设计稿 v2.2）。
+    与 10 章冲突时以编号更大者为准；后续交互调整从 R-19 继续编号。
   </div>
 </section>
 </div>

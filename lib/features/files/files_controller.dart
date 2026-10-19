@@ -241,6 +241,11 @@ class FilesNotifier extends StateNotifier<FilesState> {
     state = state.copyWith(selected: state.items.map((e) => e.name).toSet());
   }
 
+  /// 只勾选给定名字（批量「全选」用：仅作用于当前筛选结果）。
+  void selectOnly(Iterable<String> names) {
+    state = state.copyWith(selected: names.toSet());
+  }
+
   void clearSelection() => state = state.copyWith(selected: const {});
 
   Future<String?> mutate(Future<void> Function(OpenListApi api) action, {bool refreshAfter = true}) async {

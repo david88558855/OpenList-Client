@@ -780,7 +780,14 @@ class _TaskRow extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 4),
-          if (failed)
+          // 离线下载任务由服务端执行，本地暂停/重试无意义（v2.2 审计）。
+          if (task.id.startsWith('srv-'))
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Center(child: OlIcon('cloud-dl', size: 12, color: p.ink4)),
+            )
+          else if (failed)
             OlGhostButton(label: '重试', height: 22, fontSize: 9, onTap: () => notifier.retry(task.id))
           else if (running)
             OlIconButton(icon: 'pause', size: 24, iconSize: 12, tooltip: '暂停', onTap: () => notifier.pause(task.id))

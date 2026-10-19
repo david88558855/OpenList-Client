@@ -21,8 +21,8 @@ class SettingsSidebar extends ConsumerWidget {
 
   static const items = <List<String>>[
     ['servers', '服务器管理', 'server', '/servers'],
-    ['storage', '存储挂载', 'database', '/settings/storage'],
     ['transfer', '传输', 'arrow-down', '/settings/transfer'],
+    ['download', '下载目录', 'download', '/settings/download'],
     ['playback', '播放与预览', 'play', '/settings/playback'],
     ['appearance', '外观', 'sun', '/settings/appearance'],
     ['about', '关于与更新', 'info', '/settings/about'],
@@ -32,7 +32,6 @@ class SettingsSidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
-    final storages = ref.watch(storagesProvider).valueOrNull ?? const [];
 
     void open(String key, String route) {
       if (key == 'servers') {
@@ -80,15 +79,6 @@ class SettingsSidebar extends ConsumerWidget {
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active == item[0] ? p.navOn : p.nav),
                         ),
                       ),
-                      if (item[0] == 'storage' && storages.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: active == item[0] ? p.card : p.navBadgeBg,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text('${storages.length}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink3)),
-                        ),
                     ],
                   ),
                 ),

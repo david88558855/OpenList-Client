@@ -55,7 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/settings',
-        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'appearance'),
+        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'servers'),
       ),
       // 设置分区用独立路径：只改 query 时同一条路由不会重建页面，
       // 表现为「点了没反应」（v1.0.5 的 bug）。
