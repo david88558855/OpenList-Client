@@ -58,14 +58,24 @@ class _ServersPageState extends ConsumerState<ServersPage> {
     return list;
   }
 
-  Future<void> _switchTo(ServerProfile profile) async {
+  /// 点击服务器 = 切换为当前实例，并直接进入它上次浏览的文件夹。
+  Future<void> _switchTo(ServerProfile profile, {bool open = true}) async {
     final settings = ref.read(appSettingsProvider);
     if (settings.pauseOnSwitch) {
       await ref.read(transfersProvider.notifier).pauseAll();
     }
     await ref.read(sessionProvider.notifier).switchTo(profile.id);
     await ref.read(filesProvider.notifier).attach();
-    if (context.mounted) olToast(context, '已切换到 ${profile.name}');
+    if (!context.mounted) return;
+    if (!ref.read(sessionProvider).signedIn) {
+      olToast(context, '「${profile.name}」需要重新登录');
+      return;
+    }
+    if (open) {
+      context.go('/files');
+    } else {
+      olToast(context, '已切换到 ${profile.name}');
+    }
   }
 
   Widget _buildDesktop(BuildContext context) {
@@ -333,7 +343,10 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                 ),
                 const SizedBox(height: 8),
                 for (final server in others) ...[
-                  _MobileServerCard(
+                  GestureDetector(
+                    // 整卡可点：切换并打开该服务器的文件夹
+                    onTap: () => _switchTo(server),
+                    child: _MobileServerCard(
                     profile: server,
                     onSwitch: () => _switchTo(server),
                     onEdit: () => context.push('/servers/edit/${server.id}'),
@@ -349,6 +362,7 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                       await ref.read(serverListProvider.notifier).remove(server.id);
                       if (context.mounted) olToast(context, '已删除 ${server.name}');
                     },
+                  ),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -585,7 +599,7 @@ class _ServerRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            if (!current) _TinyButton(label: '切换', primary: true, onTap: onSwitch),
+            if (!current) _TinyButton(label: '打开', primary: true, onTap: onSwitch),
             const SizedBox(width: 4),
             _TinyButton(label: '编辑', onTap: onEdit),
             GestureDetector(
@@ -797,7 +811,7 @@ class _MobileServerCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _TinyButton(label: profile.health == ServerHealth.timeout ? '重连' : '切换', primary: true, onTap: onSwitch),
+              _TinyButton(label: profile.health == ServerHealth.timeout ? '重连' : '打开', primary: true, onTap: onSwitch),
               const SizedBox(width: 5),
               _TinyButton(label: '编辑', onTap: onEdit),
               const Spacer(),

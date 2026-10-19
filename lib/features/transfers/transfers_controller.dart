@@ -386,9 +386,11 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   Future<String> _downloadDir(ServerProfile profile) async {
     final store = ref.read(serverStoreProvider);
-    if (profile.isolatedDownload) {
-      final saved = store.readDownloadDir(profile.id);
-      if (saved != null && saved.isNotEmpty) return saved;
+    // 用户在设置里显式选择过的目录优先，其次再按实例隔离规则推导。
+    final saved = store.readDownloadDir(profile.id);
+    if (saved != null && saved.isNotEmpty) {
+      await Directory(saved).create(recursive: true);
+      return saved;
     }
     String base;
     if (Platform.isAndroid) {

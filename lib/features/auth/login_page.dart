@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
-import '../../core/format.dart';
 import '../../core/models/server_profile.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
@@ -110,26 +109,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  Future<void> _useRecent(ServerProfile profile) async {
-    _url.text = profile.baseUrl;
-    _user.text = profile.username;
-    if (profile.id == ref.read(serverListProvider).activeId && ref.read(sessionProvider).signedIn) {
-      if (mounted) context.go('/files');
-      return;
-    }
-    setState(() => _busy = true);
-    await ref.read(sessionProvider.notifier).switchTo(profile.id);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (ref.read(sessionProvider).signedIn) {
-      await ref.read(filesProvider.notifier).attach();
-      if (mounted) context.go('/files');
-    } else {
-      _urlFocus.requestFocus();
-      setState(() => _error = '请输入密码以重新连接「${profile.name}」');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 900;
@@ -216,7 +195,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildForm(BuildContext context, {required bool compact}) {
     final p = context.ol;
     final servers = ref.watch(serverListProvider).servers;
-    final recent = servers.take(4).toList();
 
     final form = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -338,17 +316,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             _error = null;
           }),
         ),
-        if (recent.isNotEmpty) ...[
+        if (servers.isNotEmpty) ...[
           const SizedBox(height: 20),
           Container(
             padding: EdgeInsets.only(top: 12, left: 2, right: 2),
             decoration: BoxDecoration(border: Border(top: BorderSide(color: compact ? const Color(0x1AFFFFFF) : p.line2))),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
                     Text(
-                      '我的服务器',
+                      '服务器',
                       style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
@@ -357,26 +336,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const Spacer(),
-                    GestureDetector(
-                      onTap: () => context.go('/servers'),
+                    Text(
+                      '${servers.length} 个已保存',
+                      style: TextStyle(fontSize: 8.5, color: compact ? const Color(0xFF5E7488) : p.ink4),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                _ServerEntryRow(dark: compact, onTap: () => context.go('/servers')),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    OlIcon('info', size: 9, color: compact ? const Color(0xFF5E7488) : p.ink4),
+                    const SizedBox(width: 4),
+                    Expanded(
                       child: Text(
-                        '管理',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: compact ? const Color(0xFF7DD3FC) : const Color(0xFF0A93C4),
-                        ),
+                        '登录页只保留管理入口；进入后点服务器即切换并打开其文件夹',
+                        style: TextStyle(fontSize: 8, color: compact ? const Color(0xFF5E7488) : p.ink4),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                for (final server in recent)
-                  _RecentServerRow(
-                    profile: server,
-                    dark: compact,
-                    onTap: () => _useRecent(server),
-                  ),
               ],
             ),
           ),
@@ -593,66 +573,6 @@ class _AltButton extends StatelessWidget {
   }
 }
 
-class _RecentServerRow extends StatelessWidget {
-  final ServerProfile profile;
-  final bool dark;
-  final VoidCallback onTap;
-
-  const _RecentServerRow({required this.profile, required this.dark, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final dotColor = switch (profile.health) {
-      ServerHealth.ok => OlTokens.ok,
-      ServerHealth.timeout => OlTokens.warn,
-      ServerHealth.unauthorized => OlTokens.danger,
-      ServerHealth.unknown => p.ink4,
-    };
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(top: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0x0AFFFFFF) : p.surfaceAlt,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: dark ? const Color(0x12FFFFFF) : p.line2),
-          ),
-          child: Row(
-            children: [
-              OlIcon('server', size: 14, color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0A93C4)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  profile.displayHost,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: dark ? const Color(0xFFC7D8E6) : p.ink2,
-                  ),
-                ),
-              ),
-              Text(
-                relativeTime(profile.lastUsed),
-                style: TextStyle(fontSize: 8.5, color: dark ? const Color(0xFF6E879C) : p.ink4),
-              ),
-              const SizedBox(width: 6),
-              OlDot(size: 5, color: dotColor),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Left art panel (W1): grid, glow, brand, copy, features, mounted card.
 class _LoginArt extends StatelessWidget {
   final List<ServerProfile> servers;
   const _LoginArt({required this.servers});
@@ -871,4 +791,53 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPainter oldDelegate) => oldDelegate.spacing != spacing;
+}
+
+/// 登录页唯一的服务器入口：不展开列表，点进入服务器管理。
+class _ServerEntryRow extends StatelessWidget {
+  final bool dark;
+  final VoidCallback onTap;
+
+  const _ServerEntryRow({required this.dark, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0x0DFFFFFF) : Colors.white,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: dark ? const Color(0x1FFFFFFF) : p.line),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: dark ? const Color(0x1F7DD3FC) : const Color(0xFFE9F8FF), borderRadius: BorderRadius.circular(9)),
+                child: Center(child: OlIcon('server', size: 15, color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0A93C4))),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('服务器管理', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: dark ? const Color(0xFFE6F1FA) : p.ink)),
+                    const SizedBox(height: 2),
+                    Text('切换 / 添加 / 编辑，数量不限', style: TextStyle(fontSize: 9.5, color: dark ? const Color(0xFF8FA8BD) : p.ink3)),
+                  ],
+                ),
+              ),
+              OlIcon('chev-r', size: 14, color: dark ? const Color(0xFF5E7488) : p.ink4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

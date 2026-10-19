@@ -7,7 +7,6 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/theme/tokens.dart';
 import '../core/widgets/ol_controls.dart';
-import '../core/widgets/ol_dialogs.dart';
 import '../core/widgets/ol_icon.dart';
 import 'providers.dart';
 
@@ -105,7 +104,6 @@ class OlTitleBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
-    final servers = ref.watch(serverListProvider);
     final profile = session.profile;
     final canDrag = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
@@ -129,23 +127,8 @@ class OlTitleBar extends ConsumerWidget {
           const SizedBox(width: 7),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTapDown: (details) async {
-              final items = <OlMenuItem>[];
-              for (final s in servers.servers) {
-                items.add(OlMenuItem(
-                  s.id == servers.activeId ? '${s.name} · 当前' : s.name,
-                  'server',
-                  () async {
-                    if (s.id == servers.activeId) return;
-                    await ref.read(sessionProvider.notifier).switchTo(s.id);
-                    await ref.read(filesProvider.notifier).attach();
-                  },
-                ));
-              }
-              items.add(OlMenuItem('管理服务器…', 'settings', () => context.go('/servers')));
-              items.add(OlMenuItem('添加服务器…', 'plus', () => context.go('/servers/edit/new')));
-              await showOlMenu(context, position: details.globalPosition, items: items);
-            },
+            // 已登录界面不再展开服务器列表，统一进服务器管理页。
+            onTap: () => context.go('/servers'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(
@@ -157,7 +140,7 @@ class OlTitleBar extends ConsumerWidget {
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.isDark ? const Color(0xFF7890A6) : const Color(0xFF7C8FA3)),
                   ),
                   const SizedBox(width: 4),
-                  OlIcon('chev-d', size: 9, color: p.ink4),
+                  OlIcon('chev-r', size: 9, color: p.ink4),
                 ],
               ),
             ),
@@ -262,7 +245,7 @@ class _BottomNav extends ConsumerWidget {
       _NavItem('文件', 'folder', '/files'),
       _NavItem('传输', 'arrow-down', '/transfers', badge: pending),
       _NavItem('收藏', 'star', '/favorites'),
-      _NavItem('我的', 'user', '/settings'),
+      _NavItem('设置', 'settings', '/settings'),
     ];
     return Container(
       height: 70 + bottomInset,

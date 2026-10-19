@@ -204,10 +204,14 @@ h3{letter-spacing:-.015em}
 /* main */
 .dmain{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;position:relative}
 .dtop{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid #F0F4F9}
-.crumb{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#93A5B8;font-weight:600;min-width:0}
-.crumb .ic{width:12px;height:12px;color:#B2C1CF}
-.crumb b{color:#17293D;font-weight:800;font-size:12.5px}
-.crumb .cbtn{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#93A5B8;background:#F4F8FC}
+.crumb{display:flex;align-items:center;gap:2px;font-size:13px;color:#6B8298;font-weight:650;min-width:0}
+.crumb .ic{width:13px;height:13px;color:#B2C1CF;flex:none}
+.crumb .seg{padding:3px 6px;border-radius:6px;color:inherit;text-decoration:none;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s}
+.crumb a.seg:hover{background:#EFF7FD;color:#0A93C4}
+.crumb .seg.cur{color:#17293D;font-weight:800;font-size:14px}
+.crumb .sep{display:grid;place-items:center;flex:none}
+.crumb .sep .ic{width:12px;height:12px;color:#C2CFDB}
+.crumb .cbtn{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:#93A5B8;background:#F4F8FC;flex:none}
 .searchmini{margin-left:auto;width:186px;height:30px;background:#F4F8FC;border:1px solid #E9F0F7;border-radius:8px;display:flex;align-items:center;gap:6px;padding:0 9px;color:#9AABBC;font-size:11px;font-weight:550}
 .searchmini .kbd{margin-left:auto;font-family:var(--mono);font-size:8.5px;background:#fff;border:1px solid #E3EBF3;border-radius:4px;padding:1px 4px;color:#8FA1B3}
 .iconbtn{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#5E7288;border:1px solid transparent;flex:none}
@@ -436,8 +440,10 @@ h3{letter-spacing:-.015em}
 .win.dark .mount:hover{background:rgba(255,255,255,.04)}
 .win.dark .dmain{background:#0D1A29}
 .win.dark .dtop{border-color:#182838}
-.win.dark .crumb{color:#6B8298}
-.win.dark .crumb b{color:#D7E4EF}
+.win.dark .crumb{color:#8FA8BD}
+.win.dark .crumb a.seg:hover{background:#16283A;color:#7DD3FC}
+.win.dark .crumb .seg.cur{color:#E6F1FA}
+.win.dark .crumb .sep .ic{color:#43596E}
 .win.dark .crumb .cbtn{background:#14243A;color:#7E95AA}
 .win.dark .searchmini{background:#101F31;border-color:#1C2E43;color:#6B8298}
 .win.dark .searchmini .kbd{background:#16273C;border-color:#243A52;color:#7E95AA}
@@ -501,8 +507,10 @@ h3{letter-spacing:-.015em}
 .storage-scroll{display:flex;gap:10px;padding:2px 18px 4px;overflow:hidden;flex:none}
 .stcard{
   width:152px;height:96px;flex:none;border-radius:16px;padding:12px;color:#fff;position:relative;overflow:hidden;
-  background:linear-gradient(145deg,#0E3A52,#0C6470);
+  background:linear-gradient(145deg,#0E3A52,#0C6470);cursor:pointer;transition:transform .16s,box-shadow .16s;
 }
+.stcard:hover{transform:translateY(-2px);box-shadow:0 10px 22px -14px rgba(8,40,60,.8)}
+.stcard .st-go{margin-left:auto;width:11px;height:11px;color:rgba(255,255,255,.6);flex:none}
 .stcard:after{content:"";position:absolute;right:-18px;bottom:-24px;width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.1)}
 .stcard.alt{background:linear-gradient(145deg,#3B2C6E,#5B4BB7)}
 .stcard.alt:after{background:rgba(255,255,255,.12)}
@@ -527,11 +535,46 @@ h3{letter-spacing:-.015em}
 .prow .pi2 span{display:block;font-size:9.5px;color:#9AABBC;margin-top:2px;font-weight:550}
 .prow .pend{color:#B2C1CF;font-size:9px;text-align:right;flex:none}
 .pfab{
-  position:absolute;right:18px;bottom:86px;width:50px;height:50px;border-radius:17px;z-index:12;
+  position:absolute;right:18px;bottom:86px;width:58px;height:58px;border-radius:20px;z-index:12;
   background:linear-gradient(140deg,#38BDF8,#1FC8C6);display:grid;place-items:center;color:#fff;
-  box-shadow:0 14px 26px -10px rgba(14,165,233,.85), inset 0 1px 0 rgba(255,255,255,.4);
+  box-shadow:0 16px 30px -10px rgba(14,165,233,.9), inset 0 1px 0 rgba(255,255,255,.4);
+  transition:transform .18s ease, box-shadow .18s ease;
 }
-.pfab .ic{width:22px;height:22px;stroke-width:2.2}
+.pfab .ic{width:24px;height:24px;stroke-width:2.3}
+.pfab.open{transform:rotate(45deg);box-shadow:0 12px 24px -12px rgba(14,165,233,.7)}
+
+/* FAB 展开态演示卡 */
+.demos{display:flex;gap:16px;flex-wrap:wrap;padding:16px 0 2px}
+.demo-card{border:1px solid #E6EDF5;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 20px 44px -36px rgba(13,27,42,.5)}
+.demo-cap{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid #F0F4F9;background:#FBFDFF;font-size:10.5px;font-weight:800;color:#22364B}
+.demo-cap span{margin-left:auto;font-size:9px;font-weight:600;color:#9AABBC}
+.fd-stage{position:relative;width:362px;height:232px;overflow:hidden;background:#fff}
+.fd-list{position:absolute;inset:0;padding:8px 14px}
+.fd-line{display:flex;align-items:center;gap:9px;height:44px;border-bottom:1px solid #F5F8FB;font-size:10.5px;color:#7C8FA3;font-weight:600}
+.fd-line i{width:28px;height:28px;border-radius:9px;background:#EFF7FC;flex:none}
+.fd-line em{flex:1;height:7px;border-radius:4px;background:#EEF4F9}
+.fd-dim{position:absolute;inset:0;background:rgba(7,17,29,.16);z-index:2}
+.fd-menu{position:absolute;right:16px;bottom:98px;width:176px;padding:5px;background:#fff;border-radius:15px;border:1px solid #E9F0F7;box-shadow:0 24px 46px -22px rgba(13,27,42,.42);z-index:5}
+.fd-item{display:flex;align-items:center;gap:9px;height:37px;padding:0 10px;border-radius:10px;font-size:11.5px;font-weight:700;color:#22364B}
+.fd-item .ic{width:15px;height:15px;color:#0A93C4}
+.fd-item.on{background:#F1F9FF}
+.fd-fab{position:absolute;right:16px;bottom:26px;width:58px;height:58px;border-radius:20px;background:linear-gradient(140deg,#38BDF8,#1FC8C6);display:grid;place-items:center;color:#fff;z-index:6;transform:rotate(45deg);box-shadow:0 16px 30px -12px rgba(14,165,233,.9)}
+.fd-fab .ic{width:24px;height:24px;stroke-width:2.3}
+
+/* 下载目录 / 授权演示 */
+.sd-stage{position:relative;width:362px;height:232px;overflow:hidden;background:linear-gradient(160deg,#F7FBFE,#EDF5FB)}
+.sd-dim{position:absolute;inset:0;background:rgba(7,17,29,.26)}
+.sd-sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;padding:9px 14px 13px;box-shadow:0 -18px 40px -22px rgba(7,17,29,.4)}
+.sd-grab{width:34px;height:4px;border-radius:2px;background:#DEE7F0;margin:0 auto 9px}
+.sd-t{font-size:12.5px;font-weight:800;color:#17293D;letter-spacing:-.01em}
+.sd-path{display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px 9px;border-radius:9px;background:#F5F9FC;border:1px solid #E9F0F7;font-family:var(--mono);font-size:9px;color:#3F566D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sd-path .ic{width:12px;height:12px;color:#7C8FA3;flex:none}
+.sd-sub{font-size:9px;color:#9AABBC;margin-top:5px}
+.sd-warn{display:flex;gap:6px;margin-top:9px;padding:8px 9px;border-radius:9px;background:#FFF8EC;border:1px solid #FBE7C2;font-size:9px;line-height:1.55;color:#8A5B05}
+.sd-warn .ic{width:12px;height:12px;color:#C98106;flex:none;margin-top:1px}
+.sd-acts{display:flex;gap:8px;margin-top:10px}
+.sd-acts span{flex:1;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;border:1px solid #E3EBF3;color:#50647A;background:#fff}
+.sd-acts span.pri{background:linear-gradient(135deg,#38BDF8,#22C7C7);border:0;color:#fff}
 
 /* Android login */
 .phone.login-bg{background:#07131F}
@@ -561,6 +604,13 @@ h3{letter-spacing:-.015em}
 .lg-srv .ic{width:14px;height:14px;color:#7DD3FC}
 .lg-srv b{font-size:10px;color:#C7D8E6;font-weight:700;flex:1}
 .lg-srv span{font-size:8.5px;color:#6E879C}
+.lg-entry{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(125,211,252,.18);margin-top:7px;text-decoration:none;transition:background .16s,border-color .16s}
+.lg-entry:hover{background:rgba(125,211,252,.12);border-color:rgba(125,211,252,.34)}
+.lg-entry .le-ic{width:26px;height:26px;border-radius:8px;background:rgba(125,211,252,.14);display:grid;place-items:center;flex:none}
+.lg-entry .le-ic .ic{width:13px;height:13px;color:#7DD3FC}
+.lg-entry .le-main{flex:1;min-width:0}
+.lg-entry .le-main b{display:block;font-size:11.5px;font-weight:800;color:#E6F1FA}
+.lg-entry .le-main em{display:block;font-style:normal;font-size:8.5px;color:#8FA8BD;margin-top:2px}
 
 /* Android transfers */
 .pspeed{margin:4px 18px 0;border-radius:18px;padding:15px 16px;background:linear-gradient(135deg,#0C2133,#0E3A46);color:#fff;position:relative;overflow:hidden;flex:none}
@@ -729,7 +779,6 @@ h3{letter-spacing:-.015em}
 <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></symbol>
 <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
 <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l3 3"/></symbol>
-<symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M20 20v.01M20 17h.01M17 20h.01"/></symbol>
 <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
 <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6 1.6A4 4 0 0 0 7 19Z"/></symbol>
 <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
@@ -855,7 +904,7 @@ h3{letter-spacing:-.015em}
       </div>
       <div style="background:#fff;border:1px solid #DCEFE9;border-radius:10px;padding:9px 10px">
         <div style="font-size:8px;font-weight:800;letter-spacing:.1em;color:#9EAFC0;text-transform:uppercase">Windows</div>
-        <div style="font-size:11px;font-weight:800;color:#17293D;margin-top:3px">安装版 + 便携版</div>
+        <div style="font-size:11px;font-weight:800;color:#17293D;margin-top:3px">便携版 zip</div>
         <div style="font-size:8.5px;color:#8FA1B3;margin-top:2px">默认托盘常驻</div>
       </div>
       <div style="background:#fff;border:1px solid #DCEFE9;border-radius:10px;padding:9px 10px">
@@ -885,8 +934,8 @@ h3{letter-spacing:-.015em}
         <div style="font-size:10px;line-height:1.8;color:#7C8FA3;margin-top:6px">跨挂载点检索<br>类型 / 时间筛选<br>最近搜索<br>结果定位</div>
       </div>
       <div style="background:#F7FBFE;border:1px solid #E8F1F8;border-radius:14px;padding:14px">
-        <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:#0B5C7E"><svg class="ic" style="width:15px;height:15px"><use href="#i-user"/></svg>我的</div>
-        <div style="font-size:10px;line-height:1.8;color:#7C8FA3;margin-top:6px">服务器与账户<br>传输 / 播放设置<br>外观与缓存<br>存储管理</div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:#0B5C7E"><svg class="ic" style="width:15px;height:15px"><use href="#i-settings"/></svg>设置</div>
+        <div style="font-size:10px;line-height:1.8;color:#7C8FA3;margin-top:6px">服务器管理<br>下载目录（需授权）<br>传输 / 播放设置<br>外观与缓存</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:10px;color:#9AABBC">
@@ -1042,7 +1091,7 @@ h3{letter-spacing:-.015em}
 .login-btn{height:42px;border-radius:10px;background:linear-gradient(135deg,#38BDF8,#22C7C7);display:flex;align-items:center;justify-content:center;gap:7px;color:#fff;font-size:12px;font-weight:800;box-shadow:0 12px 24px -12px rgba(56,189,248,1)}
 .login-or{display:flex;align-items:center;gap:9px;margin:16px 0;color:#B2C1CF;font-size:8.5px;font-weight:700;letter-spacing:.1em}
 .login-or:before,.login-or:after{content:"";flex:1;height:1px;background:#EDF2F8}
-.login-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.login-alt{display:grid;grid-template-columns:1fr;gap:8px}
 .login-alt div{height:36px;border:1px solid #E3EBF3;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;font-weight:700;color:#41546A;background:#fff}
 .login-alt div .ic{width:13px;height:13px;color:#7C8FA3}
 .recent-servers{margin-top:24px;border-top:1px solid #F0F4F9;padding-top:12px}
@@ -1053,6 +1102,14 @@ h3{letter-spacing:-.015em}
 .rs b{font-size:10px;font-weight:700;color:#41546A;flex:1;font-family:var(--mono)}
 .rs span{font-size:8.5px;color:#A2B2C2}
 .rs .st{width:5px;height:5px;border-radius:50%;background:#22C55E}
+.recent-servers .srv-entry{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid #E3EBF3;border-radius:11px;background:#fff;text-decoration:none;transition:border-color .16s,background .16s,box-shadow .16s}
+.recent-servers .srv-entry:hover{border-color:#BFE9F7;background:#F7FDFF;box-shadow:0 8px 20px -14px rgba(10,147,196,.55)}
+.recent-servers .srv-entry .se-ic{width:30px;height:30px;border-radius:9px;background:#E9F8FF;color:#0A93C4;display:grid;place-items:center;flex:none}
+.recent-servers .srv-entry .se-ic .ic{width:15px;height:15px}
+.recent-servers .srv-entry .se-main{flex:1;min-width:0}
+.recent-servers .srv-entry .se-main b{display:block;font-size:12px;font-weight:800;color:#17293D}
+.recent-servers .srv-entry .se-main em{display:block;font-style:normal;font-size:9.5px;color:#8FA1B3;margin-top:2px}
+.recent-servers .srv-entry .se-go{width:14px;height:14px;color:#B2C1CF;flex:none}
 /* --- W7 dark extras --- */
 .win.dark .ftile{background:rgba(125,211,252,.1);color:#7DD3FC}
 .win.dark .ftile.t-violet{background:rgba(124,92,252,.16);color:#B6A5FF}
@@ -1075,7 +1132,7 @@ h3{letter-spacing:-.015em}
   <div class="screen">
     <div class="screen-head">
       <span class="num">W1</span>
-      <div><h3>连接服务器 · 首次启动</h3><p>服务地址 + 账号密码登录，自动探测 API 版本与站点名称；也支持 API Token 与扫码授权。</p></div>
+      <div><h3>连接服务器 · 首次启动</h3><p>服务地址 + 账号密码登录，自动探测 API 版本与站点名称；也支持 API Token 登录。</p></div>
     </div>
     <div class="fit" data-w="1100" data-h="700">
       <div class="win">
@@ -1139,14 +1196,16 @@ h3{letter-spacing:-.015em}
               <div class="login-btn"><svg class="ic" style="width:14px;height:14px"><use href="#i-arrow-up"/></svg>连接并登录</div>
               <div class="login-or">OR</div>
               <div class="login-alt">
-                <div><svg class="ic"><use href="#i-key"/></svg>使用 API Token</div>
-                <div><svg class="ic"><use href="#i-qr"/></svg>扫码授权</div>
+                <div><svg class="ic"><use href="#i-key"/></svg>使用 API Token 登录</div>
               </div>
               <div class="recent-servers">
-                <div class="rt"><span>我的服务器</span><span>管理</span></div>
-                <div class="rs"><svg class="ic"><use href="#i-server"/></svg><b>pan.mydomain.com</b><span>2 天前</span><span class="st"></span></div>
-                <div class="rs"><svg class="ic"><use href="#i-server"/></svg><b>192.168.1.20:5244</b><span>上周</span><span class="st" style="background:#F59E0B"></span></div>
-                <div style="font-size:8px;color:#A2B2C2;margin-top:5px;display:flex;align-items:center;gap:4px"><svg class="ic" style="width:9px;height:9px"><use href="#i-info"/></svg>服务器数量不限，配置与缓存按实例隔离</div>
+                <div class="rt"><span>服务器</span><span>3 个已保存</span></div>
+                <a class="srv-entry" href="#srv-desktop">
+                  <span class="se-ic"><svg class="ic"><use href="#i-server"/></svg></span>
+                  <span class="se-main"><b>服务器管理</b><em>切换 / 添加 / 编辑，数量不限</em></span>
+                  <svg class="ic se-go"><use href="#i-chev-r"/></svg>
+                </a>
+                <div style="font-size:8px;color:#A2B2C2;margin-top:6px;display:flex;align-items:center;gap:4px"><svg class="ic" style="width:9px;height:9px"><use href="#i-info"/></svg>登录页只保留管理入口；进入后点目标服务器即切换并打开其文件夹</div>
               </div>
             </div>
           </div>
@@ -1168,7 +1227,7 @@ h3{letter-spacing:-.015em}
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span>
           <span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1201,9 +1260,11 @@ h3{letter-spacing:-.015em}
             <div class="dtop">
               <div class="crumb">
                 <span class="cbtn"><svg class="ic"><use href="#i-chev-l"/></svg></span>
-                <span>全部文件</span><svg class="ic"><use href="#i-chev-r"/></svg>
-                <span>影视</span><svg class="ic"><use href="#i-chev-r"/></svg>
-                <b>电影</b>
+                <a class="seg" href="#">全部文件</a>
+                <span class="sep"><svg class="ic"><use href="#i-chev-r"/></svg></span>
+                <a class="seg" href="#">影视</a>
+                <span class="sep"><svg class="ic"><use href="#i-chev-r"/></svg></span>
+                <b class="seg cur">电影</b>
               </div>
               <div class="searchmini"><svg class="ic" style="width:13px;height:13px"><use href="#i-search"/></svg>搜索当前目录<span class="kbd">Ctrl K</span></div>
               <span class="iconbtn sq"><svg class="ic"><use href="#i-refresh"/></svg></span>
@@ -1315,7 +1376,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>服务器：</b>标题栏下拉切换 / 管理，数量不限、配置隔离</span></div>
+    <div class="screen-note"><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>面包屑：</b>点任意上级段落直接跳转，13px 字号</span><span><b>服务器：</b>标题栏实例名进入服务器管理，已登录界面不展开列表</span></div>
   </div>
 
   <!-- W3 -->
@@ -1329,7 +1390,7 @@ h3{letter-spacing:-.015em}
         <div class="dtitle">
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span><span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1490,7 +1551,7 @@ h3{letter-spacing:-.015em}
         <div class="dtitle">
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span><span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1520,7 +1581,7 @@ h3{letter-spacing:-.015em}
           </aside>
           <div class="dmain">
             <div class="dtop">
-              <div class="crumb"><span class="cbtn"><svg class="ic"><use href="#i-chev-l"/></svg></span><span>全部文件</span><svg class="ic"><use href="#i-chev-r"/></svg><b>影视</b></div>
+              <div class="crumb"><span class="cbtn"><svg class="ic"><use href="#i-chev-l"/></svg></span><a class="seg" href="#">全部文件</a><span class="sep"><svg class="ic"><use href="#i-chev-r"/></svg></span><b class="seg cur">影视</b></div>
               <div class="searchmini"><svg class="ic" style="width:13px;height:13px"><use href="#i-search"/></svg>搜索<span class="kbd">Ctrl K</span></div>
               <span class="iconbtn sq"><svg class="ic"><use href="#i-refresh"/></svg></span>
               <span class="btn btn-pri"><svg class="ic"><use href="#i-upload"/></svg>上传</span>
@@ -1678,7 +1739,7 @@ h3{letter-spacing:-.015em}
         <div class="dtitle">
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span><span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1689,7 +1750,7 @@ h3{letter-spacing:-.015em}
         <div class="dbody">
           <aside class="sside">
             <div class="slabel">设置</div>
-            <div class="dnav on"><svg class="ic"><use href="#i-server"/></svg>服务器与账户</div>
+            <div class="dnav on"><svg class="ic"><use href="#i-server"/></svg>服务器管理</div>
             <div class="dnav"><svg class="ic"><use href="#i-database"/></svg>存储挂载<span class="nt">5</span></div>
             <div class="dnav"><svg class="ic"><use href="#i-arrow-down"/></svg>传输</div>
             <div class="dnav"><svg class="ic"><use href="#i-play"/></svg>播放与预览</div>
@@ -1697,11 +1758,11 @@ h3{letter-spacing:-.015em}
             <div class="dnav"><svg class="ic"><use href="#i-bell"/></svg>通知</div>
             <div class="dnav"><svg class="ic"><use href="#i-key"/></svg>隐私与安全</div>
             <div class="dnav"><svg class="ic"><use href="#i-info"/></svg>关于与更新<span class="nt">新</span></div>
-            <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.0<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
+            <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.2<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
           </aside>
           <div class="scontent">
             <div class="sh">
-              <div><h4>服务器与账户</h4><p>当前连接的 OpenList 实例与登录身份</p></div>
+              <div><h4>服务器管理</h4><p>当前连接的 OpenList 实例与登录身份</p></div>
               <span class="btn btn-ghost btn-sm"><svg class="ic"><use href="#i-plus"/></svg>添加服务器</span>
             </div>
             <div class="setcard" style="padding:9px 12px;display:flex;align-items:center;gap:11px;background:linear-gradient(120deg,#F7FCFE,#F2FBF9)">
@@ -1741,9 +1802,10 @@ h3{letter-spacing:-.015em}
                 <div class="setcard">
                   <div class="setrow"><span class="si"><svg class="ic"><use href="#i-minimize"/></svg></span><div class="sc"><b>关闭到托盘</b><span>关闭窗口不退出应用</span></div><span class="switch sm"></span></div>
                   <div class="setrow"><span class="si"><svg class="ic"><use href="#i-zap"/></svg></span><div class="sc"><b>开机自动启动</b><span>最小化启动到托盘</span></div><span class="switch sm"></span></div>
-                  <div class="setrow"><span class="si"><svg class="ic"><use href="#i-refresh"/></svg></span><div class="sc"><b>自动检查更新</b><span>当前 1.0.0 · 已是最新</span></div><span class="val">已开启</span></div>
+                  <div class="setrow"><span class="si"><svg class="ic"><use href="#i-refresh"/></svg></span><div class="sc"><b>自动检查更新</b><span>当前 1.0.2 · 已是最新</span></div><span class="val">已开启</span></div>
                 </div>
                 <div class="setcard">
+                  <div class="setrow"><span class="si"><svg class="ic"><use href="#i-download"/></svg></span><div class="sc"><b>下载目录</b><span>D://OpenList//Downloads · 可用 218 GB</span></div><span class="btn btn-soft btn-sm" style="height:22px;font-size:9px;padding:0 8px">更改</span></div>
                   <div class="setrow"><span class="si"><svg class="ic"><use href="#i-database"/></svg></span><div class="sc"><b>本地缓存</b><span>1.4 GB / 5 GB · 缩略图与缓冲</span></div><span class="btn btn-soft btn-sm" style="height:22px;font-size:9px;padding:0 8px">清理</span></div>
                 </div>
               </div>
@@ -1757,7 +1819,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>存储健康：</b>来自 <span class="mono">/api/admin/storage/list</span> 的 status</span><span><b>多服务器：</b>本地隔离配置，切换不重启</span><span><b>发行：</b>安装版 + 便携版，默认托盘常驻</span><span><b>管理：</b>A 只读，写操作跳浏览器</span></div>
+    <div class="screen-note"><span><b>存储健康：</b>来自 <span class="mono">/api/admin/storage/list</span> 的 status</span><span><b>多服务器：</b>本地隔离配置，切换不重启</span><span><b>发行：</b>仅便携版 zip，解压即用；默认托盘常驻</span><span><b>管理：</b>A 只读，写操作跳浏览器</span></div>
   </div>
 
   <!-- W7 -->
@@ -1771,7 +1833,7 @@ h3{letter-spacing:-.015em}
         <div class="dtitle">
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span><span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1802,7 +1864,7 @@ h3{letter-spacing:-.015em}
           </aside>
           <div class="dmain">
             <div class="dtop">
-              <div class="crumb"><span class="cbtn"><svg class="ic"><use href="#i-chev-l"/></svg></span><span>全部文件</span><svg class="ic"><use href="#i-chev-r"/></svg><span>影视</span><svg class="ic"><use href="#i-chev-r"/></svg><b>电影</b></div>
+              <div class="crumb"><span class="cbtn"><svg class="ic"><use href="#i-chev-l"/></svg></span><a class="seg" href="#">全部文件</a><span class="sep"><svg class="ic"><use href="#i-chev-r"/></svg></span><a class="seg" href="#">影视</a><span class="sep"><svg class="ic"><use href="#i-chev-r"/></svg></span><b class="seg cur">电影</b></div>
               <div class="searchmini"><svg class="ic" style="width:13px;height:13px"><use href="#i-search"/></svg>搜索当前目录<span class="kbd">Ctrl K</span></div>
               <span class="iconbtn sq"><svg class="ic"><use href="#i-refresh"/></svg></span>
               <span class="btn btn-pri"><svg class="ic"><use href="#i-upload"/></svg>上传</span>
@@ -1863,7 +1925,8 @@ h3{letter-spacing:-.015em}
   .srv-search{width:196px;height:28px;border:1px solid #E9F0F7;border-radius:8px;background:#F7FAFD;display:flex;align-items:center;gap:6px;padding:0 9px;font-size:10px;color:#9AABBC}
   .srv-search .ic{width:12px;height:12px}
   .srv-list{flex:1;min-height:0;display:flex;flex-direction:column}
-  .srv-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border:1px solid #E9F0F7;border-radius:10px;margin-bottom:6px;background:#fff}
+  .srv-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border:1px solid #E9F0F7;border-radius:10px;margin-bottom:6px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+  .srv-row:hover{border-color:#BFE9F7;background:#F8FDFF;box-shadow:0 8px 18px -16px rgba(10,147,196,.6)}
   .srv-row.cur{background:linear-gradient(120deg,#F5FCFE,#F7FEFC);border-color:#BFE9F7;box-shadow:0 0 0 2px rgba(56,189,248,.07)}
   .srv-row.off{background:#FCFDFF;border-style:dashed}
   .srv-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:#E9F8FF;color:#0A93C4;flex:none}
@@ -1903,17 +1966,17 @@ h3{letter-spacing:-.015em}
   .srv-crow{display:flex;align-items:center;justify-content:space-between;height:26px;font-size:9.5px;color:#50647A;font-weight:600}
   .srv-crow .seg span{height:20px;font-size:8.5px}
   </style>
-  <div class="screen">
+  <div class="screen" id="srv-desktop">
     <div class="screen-head">
       <span class="num">W8</span>
-      <div><h3>服务器管理 · 添加 / 编辑 / 删除 / 切换</h3><p>独立页面承载全部服务器操作，数量不限。左侧列表快速切换，右侧同屏编辑，不用来回跳弹窗。</p></div>
+      <div><h3>服务器管理 · 添加 / 编辑 / 删除 / 切换并打开</h3><p>独立页面承载全部服务器操作，数量不限。点击左侧任一服务器即切换并直达其文件夹，右侧同屏编辑。</p></div>
     </div>
     <div class="fit" data-w="1100" data-h="700">
       <div class="win">
         <div class="dtitle">
           <span class="mark"><svg class="ic"><use href="#i-layers"/></svg></span>
           <span class="app">OpenList</span><span class="divider"></span>
-          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-d"/></svg></span>
+          <span class="server"><i></i>pan.mydomain.com<svg class="ic" style="width:9px;height:9px;color:#A2B2C2"><use href="#i-chev-r"/></svg></span>
           <div class="drag"></div>
           <div class="winctl">
             <span class="wbtn"><svg class="ic"><use href="#i-minus"/></svg></span>
@@ -1924,7 +1987,7 @@ h3{letter-spacing:-.015em}
         <div class="dbody">
           <aside class="sside">
             <div class="slabel">设置</div>
-            <div class="dnav on"><svg class="ic"><use href="#i-server"/></svg>服务器与账户</div>
+            <div class="dnav on"><svg class="ic"><use href="#i-server"/></svg>服务器管理</div>
             <div class="dnav"><svg class="ic"><use href="#i-database"/></svg>存储挂载<span class="nt">5</span></div>
             <div class="dnav"><svg class="ic"><use href="#i-arrow-down"/></svg>传输</div>
             <div class="dnav"><svg class="ic"><use href="#i-play"/></svg>播放与预览</div>
@@ -1932,11 +1995,11 @@ h3{letter-spacing:-.015em}
             <div class="dnav"><svg class="ic"><use href="#i-bell"/></svg>通知</div>
             <div class="dnav"><svg class="ic"><use href="#i-key"/></svg>隐私与安全</div>
             <div class="dnav"><svg class="ic"><use href="#i-info"/></svg>关于与更新</div>
-            <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.0<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
+            <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.2<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
           </aside>
           <div class="scontent" style="display:flex;flex-direction:column">
             <div class="sh" style="margin-bottom:9px">
-              <div><h4>服务器管理</h4><p>3 个服务器 · 数量不限 · 配置与缓存按实例隔离</p></div>
+              <div><h4>服务器管理</h4><p>点击任意服务器 = 切换为当前并打开其上次浏览的文件夹 · 配置按实例隔离</p></div>
               <span class="btn btn-pri"><svg class="ic"><use href="#i-plus"/></svg>添加服务器</span>
             </div>
             <div class="srv-toolbar">
@@ -1958,7 +2021,7 @@ h3{letter-spacing:-.015em}
                   <span class="srv-ic violet"><svg class="ic"><use href="#i-server"/></svg></span>
                   <div class="srv-main"><b>公司 OpenList</b><span>https://drive.company.cn · zhangsan</span></div>
                   <div class="srv-meta"><b><i></i>82 ms</b>2 小时前</div>
-                  <div class="srv-act"><span class="srv-btn pri">切换</span><span class="srv-btn">编辑</span><span class="srv-icon-btn"><svg class="ic"><use href="#i-more-v"/></svg></span></div>
+                  <div class="srv-act"><span class="srv-btn pri"><svg class="ic"><use href="#i-folder"/></svg>打开</span><span class="srv-btn">编辑</span><span class="srv-icon-btn"><svg class="ic"><use href="#i-more-v"/></svg></span></div>
                 </div>
                 <div class="srv-row">
                   <span class="srv-ic amber"><svg class="ic"><use href="#i-server"/></svg></span>
@@ -2034,7 +2097,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>添加入口：</b>本页右上角 / 登录页「管理」/ 标题栏下拉</span><span><b>切换：</b>立即切换当前实例，旧任务可配置为继续或暂停</span><span><b>删除：</b>二次确认，删除后回到剩余最近使用的服务器</span></div>
+    <div class="screen-note"><span><b>入口：</b>本页右上角「添加服务器」/ 登录页「服务器管理」/ 标题栏实例名</span><span><b>点击：</b>切换为当前实例并打开其上次浏览的文件夹；旧任务可配置为继续或暂停</span><span><b>删除：</b>二次确认，删除后回到剩余最近使用的服务器</span></div>
   </div>
 
   <!-- W9 -->
@@ -2246,6 +2309,13 @@ h3{letter-spacing:-.015em}
 .p5note{padding:12px 18px 0;font-size:9px;line-height:1.65;color:#7E97AC;flex:none}
 /* A8 server management */
 /* A8 server management */
+.mcrumb{display:flex;align-items:center;gap:8px;padding:3px 18px 3px;flex:none}
+.mcrumb-path{display:flex;align-items:center;gap:1px;min-width:0;flex:1;font-size:12.5px;font-weight:700;color:#5E7288}
+.mcrumb-path .mseg{padding:2px 5px;border-radius:6px;color:inherit;text-decoration:none;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcrumb-path a.mseg:hover,.mcrumb-path a.mseg:active{background:#EFF7FD;color:#0A93C4}
+.mcrumb-path .mseg.cur{color:#17293D;font-weight:800}
+.mcrumb-path .msep{color:#C2CFDB;font-weight:700;font-size:11px;padding:0 1px}
+.mcrumb-n{font-size:11.5px;color:#8FA1B3;font-weight:600;flex:none;letter-spacing:-.01em}
 .msrv-cur{margin:2px 18px 0;border-radius:17px;padding:13px;background:linear-gradient(150deg,#0B2233,#0D3B46);color:#fff;position:relative;overflow:hidden;flex:none}
 .msrv-cur:after{content:"";position:absolute;right:-30px;top:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(45,212,191,.28),transparent 66%)}
 .msrv-cur .mc-top{display:flex;align-items:center;gap:8px;position:relative;z-index:2}
@@ -2257,7 +2327,8 @@ h3{letter-spacing:-.015em}
 .msrv-cur .mc-act span{height:25px;padding:0 9px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);font-size:9px;font-weight:700;color:#D6E4EF;display:flex;align-items:center;gap:4px}
 .msrv-sec{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 6px;font-size:9px;font-weight:800;letter-spacing:.1em;color:#A2B2C2;text-transform:uppercase;flex:none}
 .msrv-sec span{letter-spacing:0;text-transform:none;font-size:9px;color:#9AABBC;font-weight:600}
-.msrv-card{margin:0 18px 8px;border:1px solid #EDF2F8;border-radius:14px;background:#fff;padding:9px 11px;flex:none}
+.msrv-card{margin:0 18px 8px;border:1px solid #EDF2F8;border-radius:14px;background:#fff;padding:9px 11px;flex:none;cursor:pointer;transition:border-color .15s,background .15s}
+.msrv-card:hover,.msrv-card:active{border-color:#BFE9F7;background:#F8FDFF}
 .msrv-top{display:flex;align-items:center;gap:9px}
 .msrv-top b{display:block;font-size:11.5px;font-weight:750;color:#1B2F43}
 .msrv-top span{display:block;font-size:8.5px;color:#9AABBC;font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2288,14 +2359,14 @@ h3{letter-spacing:-.015em}
   <div class="sec-head">
     <div class="eyebrow">04 — Android 8.0+</div>
     <h2>拇指可达的云盘</h2>
-    <p>390×844 基准（iPhone 尺寸仅用于展示比例，Android 按 360–412dp 自适应）。底部四 Tab，核心动作交给悬浮按钮与长按菜单；服务器管理为独立二级页。</p>
+    <p>390×844 基准（iPhone 尺寸仅用于展示比例，Android 按 360–412dp 自适应）。底部四 Tab：文件 / 传输 / 收藏 / 设置；新建、上传、离线下载收进右下角悬浮按钮，右上角只留搜索与刷新；服务器管理与下载目录（需授权）在设置里。</p>
   </div>
 
   <div class="phone-grid">
 
     <!-- A1 -->
     <div class="screen" style="margin-top:20px">
-      <div class="screen-head" style="margin-bottom:10px"><span class="num">A1</span><div><h3>登录</h3><p>深色沉浸式，最近服务器一键复用。</p></div></div>
+      <div class="screen-head" style="margin-bottom:10px"><span class="num">A1</span><div><h3>登录</h3><p>深色沉浸式；服务器只留一个管理入口，不在此展开列表。</p></div></div>
       <div class="pfit">
         <div class="phone login-bg">
           <div class="glow"></div><div class="grid-lines"></div>
@@ -2316,12 +2387,15 @@ h3{letter-spacing:-.015em}
                 <div class="fl">密码</div>
                 <div class="lg-field" style="margin-bottom:14px"><svg class="ic"><use href="#i-lock"/></svg><span class="v">••••••••••</span><svg class="ic" style="color:#5E7488"><use href="#i-eye"/></svg></div>
                 <div class="lg-btn"><svg class="ic" style="width:15px;height:15px"><use href="#i-arrow-up"/></svg>连接并登录</div>
-                <div class="lg-alt"><svg class="ic" style="width:12px;height:12px;color:#7DD3FC"><use href="#i-qr"/></svg>扫码登录 · API Token</div>
+                <div class="lg-alt"><svg class="ic" style="width:12px;height:12px;color:#7DD3FC"><use href="#i-key"/></svg>使用 API Token 登录</div>
               </div>
               <div class="lg-recent">
-                <div class="rt"><span>我的服务器</span><span>管理</span></div>
-                <div class="lg-srv"><svg class="ic"><use href="#i-server"/></svg><b>pan.mydomain.com</b><span>2 天前</span></div>
-                <div class="lg-srv"><svg class="ic" style="color:#F59E0B"><use href="#i-server"/></svg><b>192.168.1.20:5244</b><span>内网</span></div>
+                <div class="rt"><span>服务器</span><span>3 个已保存</span></div>
+                <a class="lg-entry" href="#srv-mobile">
+                  <span class="le-ic"><svg class="ic"><use href="#i-server"/></svg></span>
+                  <span class="le-main"><b>服务器管理</b><em>切换 / 添加 / 编辑，数量不限</em></span>
+                  <svg class="ic" style="width:13px;height:13px;color:#5E7488"><use href="#i-chev-r"/></svg>
+                </a>
               </div>
             </div>
             <div class="pgesture" style="background:transparent"><i></i></div>
@@ -2332,16 +2406,16 @@ h3{letter-spacing:-.015em}
 
     <!-- A2 -->
     <div class="screen" style="margin-top:20px">
-      <div class="screen-head" style="margin-bottom:10px"><span class="num">A2</span><div><h3>文件</h3><p>存储概览 + 挂载切换 + 列表。</p></div></div>
+      <div class="screen-head" style="margin-bottom:10px"><span class="num">A2</span><div><h3>文件</h3><p>新建 / 上传收进右下角主按钮；右上角只留搜索与刷新；面包屑可点回上级。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
           <div class="pbody">
             <div class="phead">
-              <div class="ph-server"><span class="dot"></span>pan.mydomain.com<svg class="ic" style="width:11px;height:11px;color:#8FA1B3"><use href="#i-chev-d"/></svg></div>
+              <div class="ph-server"><span class="dot"></span>pan.mydomain.com<svg class="ic" style="width:11px;height:11px;color:#8FA1B3"><use href="#i-chev-r"/></svg></div>
               <span class="sp"></span>
               <div class="pcircle"><svg class="ic"><use href="#i-search"/></svg></div>
-              <div class="pcircle"><svg class="ic"><use href="#i-more-v"/></svg></div>
+              <div class="pcircle"><svg class="ic"><use href="#i-refresh"/></svg></div>
             </div>
             <div style="padding:0 18px 10px;display:flex;align-items:flex-end;gap:8px">
               <h3 style="margin:0;font-size:23px;font-weight:800;letter-spacing:-.035em">所有文件</h3>
@@ -2350,19 +2424,19 @@ h3{letter-spacing:-.015em}
             </div>
             <div class="storage-scroll">
               <div class="stcard">
-                <div class="st-top"><svg class="ic"><use href="#i-cloud"/></svg>阿里云盘</div>
+                <div class="st-top"><svg class="ic"><use href="#i-cloud"/></svg>阿里云盘<svg class="ic st-go"><use href="#i-chev-r"/></svg></div>
                 <div class="st-n">1.8<small>TB</small></div>
                 <div class="st-bar"><i style="width:62%"></i></div>
                 <div class="st-s">已用 1.1 TB · 62%</div>
               </div>
               <div class="stcard alt">
-                <div class="st-top"><svg class="ic"><use href="#i-cloud"/></svg>夸克网盘</div>
+                <div class="st-top"><svg class="ic"><use href="#i-cloud"/></svg>夸克网盘<svg class="ic st-go"><use href="#i-chev-r"/></svg></div>
                 <div class="st-n">640<small>GB</small></div>
                 <div class="st-bar"><i style="width:38%"></i></div>
                 <div class="st-s">已用 243 GB · 38%</div>
               </div>
               <div class="stcard amb">
-                <div class="st-top"><svg class="ic"><use href="#i-hard-drive"/></svg>家庭 NAS</div>
+                <div class="st-top"><svg class="ic"><use href="#i-hard-drive"/></svg>家庭 NAS<svg class="ic st-go"><use href="#i-chev-r"/></svg></div>
                 <div class="st-n">4.2<small>TB</small></div>
                 <div class="st-bar"><i style="width:86%"></i></div>
                 <div class="st-s">已用 3.6 TB · 86%</div>
@@ -2374,9 +2448,15 @@ h3{letter-spacing:-.015em}
               <span class="pchip"><svg class="ic"><use href="#i-image"/></svg>图片</span>
               <span class="pchip"><svg class="ic"><use href="#i-file-text"/></svg>文档</span>
             </div>
-            <div style="padding:4px 18px 2px;display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:9px;font-weight:800;letter-spacing:.1em;color:#A2B2C2;text-transform:uppercase">影视 / 电影</span>
-              <span style="font-size:9px;color:#9AABBC">8 个文件夹 · 12 个文件</span>
+            <div class="mcrumb">
+              <div class="mcrumb-path">
+                <a class="mseg" href="#">全部文件</a>
+                <span class="msep">/</span>
+                <a class="mseg" href="#">影视</a>
+                <span class="msep">/</span>
+                <b class="mseg cur">电影</b>
+              </div>
+              <span class="mcrumb-n">8 个文件夹 · 12 个文件</span>
             </div>
             <div class="plist">
               <div class="prow"><span class="ftile t-sky"><svg class="ic"><use href="#i-folder"/></svg></span><div class="pi2"><b>合集 · 诺兰作品</b><span>12 个项目 · 阿里云盘</span></div><svg class="ic" style="width:14px;height:14px;color:#C2CFDB"><use href="#i-chev-r"/></svg></div>
@@ -2392,9 +2472,30 @@ h3{letter-spacing:-.015em}
               <div class="pn on"><svg class="ic"><use href="#i-folder"/></svg>文件<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-arrow-down"/></svg>传输<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-star"/></svg>收藏<span class="dot"></span></div>
-              <div class="pn"><svg class="ic"><use href="#i-user"/></svg>我的<span class="dot"></span></div>
+              <div class="pn"><svg class="ic"><use href="#i-settings"/></svg>设置<span class="dot"></span></div>
             </div>
             <div class="pgesture"><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="demos">
+        <div class="demo-card">
+          <div class="demo-cap"><svg class="ic" style="width:13px;height:13px;color:#0A93C4"><use href="#i-plus"/></svg>右下角主按钮 · 展开态<span>点任一项执行，点遮罩收起</span></div>
+          <div class="fd-stage">
+            <div class="fd-list">
+              <div class="fd-line"><i></i><em></em></div>
+              <div class="fd-line"><i></i><em></em></div>
+              <div class="fd-line"><i></i><em></em></div>
+              <div class="fd-line"><i></i><em></em></div>
+              <div class="fd-line" style="border:0"><i></i><em></em></div>
+            </div>
+            <div class="fd-dim"></div>
+            <div class="fd-menu">
+              <div class="fd-item on"><svg class="ic"><use href="#i-folder-plus"/></svg>新建文件夹</div>
+              <div class="fd-item"><svg class="ic"><use href="#i-upload"/></svg>上传文件</div>
+              <div class="fd-item"><svg class="ic"><use href="#i-cloud-dl"/></svg>离线下载</div>
+            </div>
+            <div class="fd-fab"><svg class="ic"><use href="#i-plus"/></svg></div>
           </div>
         </div>
       </div>
@@ -2462,7 +2563,7 @@ h3{letter-spacing:-.015em}
               <div class="pn"><svg class="ic"><use href="#i-folder"/></svg>文件<span class="dot"></span></div>
               <div class="pn on"><svg class="ic"><use href="#i-arrow-down"/></svg>传输<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-star"/></svg>收藏<span class="dot"></span></div>
-              <div class="pn"><svg class="ic"><use href="#i-user"/></svg>我的<span class="dot"></span></div>
+              <div class="pn"><svg class="ic"><use href="#i-settings"/></svg>设置<span class="dot"></span></div>
             </div>
             <div class="pgesture"><i></i></div>
           </div>
@@ -2514,7 +2615,7 @@ h3{letter-spacing:-.015em}
               <div class="pn"><svg class="ic"><use href="#i-folder"/></svg>文件<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-arrow-down"/></svg>传输<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-star"/></svg>收藏<span class="dot"></span></div>
-              <div class="pn"><svg class="ic"><use href="#i-user"/></svg>我的<span class="dot"></span></div>
+              <div class="pn"><svg class="ic"><use href="#i-settings"/></svg>设置<span class="dot"></span></div>
             </div>
             <div class="pgesture"><i></i></div>
           </div>
@@ -2578,7 +2679,7 @@ h3{letter-spacing:-.015em}
 
     <!-- A6 -->
     <div class="screen" style="margin-top:20px">
-      <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>我的</h3><p>服务器、用量与设置集中在此。</p></div></div>
+      <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>设置</h3><p>服务器管理、下载目录与偏好集中在此；下载目录在 Android 需授权。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus light" style="position:absolute;left:0;right:0;top:0;z-index:20"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
@@ -2603,7 +2704,8 @@ h3{letter-spacing:-.015em}
             </div>
             <div class="plist-settings">
               <div class="gset">
-                <div class="gi"><span class="icb"><svg class="ic"><use href="#i-server"/></svg></span><b>服务器与账户</b><span class="rv">3 个 · 数量不限</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
+                <div class="gi"><span class="icb"><svg class="ic"><use href="#i-server"/></svg></span><b>服务器管理</b><span class="rv">3 个 · 点击切换</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
+                <div class="gi"><span class="icb" style="background:#FFF6E5;color:#B47405"><svg class="ic"><use href="#i-download"/></svg></span><b>下载目录</b><span class="rv" style="color:#B47405;font-weight:700">需授权</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
                 <div class="gi"><span class="icb"><svg class="ic"><use href="#i-database"/></svg></span><b>存储挂载</b><span class="rv">5 个 · 只读</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
                 <div class="gi"><span class="icb"><svg class="ic"><use href="#i-share"/></svg></span><b>我的分享</b><span class="rv">8 个有效</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
               </div>
@@ -2614,12 +2716,8 @@ h3{letter-spacing:-.015em}
               </div>
               <div class="gset">
                 <div class="gi"><span class="icb"><svg class="ic"><use href="#i-shield"/></svg></span><b>隐私与安全</b><span class="rv">生物识别已开</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
-                <div class="gi"><span class="icb"><svg class="ic"><use href="#i-info"/></svg></span><b>关于 OpenList</b><span class="rv">1.0.0 · 最新</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
-              </div>
-            </div>
-            <div class="plist-settings" style="flex:none;padding-bottom:0">
-              <div class="gset">
                 <div class="gi"><span class="icb"><svg class="ic"><use href="#i-bell"/></svg></span><b>通知</b><span class="rv">已开启</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
+                <div class="gi"><span class="icb"><svg class="ic"><use href="#i-info"/></svg></span><b>关于 OpenList</b><span class="rv">1.0.2 · 最新</span><svg class="ic chev" style="width:13px;height:13px"><use href="#i-chev-r"/></svg></div>
               </div>
             </div>
             <div style="padding:2px 18px 6px;flex:none;margin-top:auto">
@@ -2631,9 +2729,25 @@ h3{letter-spacing:-.015em}
               <div class="pn"><svg class="ic"><use href="#i-folder"/></svg>文件<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-arrow-down"/></svg>传输<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-star"/></svg>收藏<span class="dot"></span></div>
-              <div class="pn on"><svg class="ic"><use href="#i-user"/></svg>我的<span class="dot"></span></div>
+              <div class="pn on"><svg class="ic"><use href="#i-settings"/></svg>设置<span class="dot"></span></div>
             </div>
             <div class="pgesture"><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="demos">
+        <div class="demo-card">
+          <div class="demo-cap"><svg class="ic" style="width:13px;height:13px;color:#0A93C4"><use href="#i-download"/></svg>设置 · 下载目录<span>Android 11+ 授权提示</span></div>
+          <div class="sd-stage">
+            <div class="sd-dim"></div>
+            <div class="sd-sheet">
+              <div class="sd-grab"></div>
+              <div class="sd-t">下载目录</div>
+              <div class="sd-path"><svg class="ic"><use href="#i-folder"/></svg>/storage/emulated/0/Download/OpenList</div>
+              <div class="sd-sub">已用 4.2 GB · 可用 62 GB · 每个服务器独立子目录</div>
+              <div class="sd-warn"><svg class="ic"><use href="#i-shield"/></svg><div>Android 11 起写入公共「下载」目录需要「所有文件访问权限」；也可选择一个文件夹（SAF），授权一次长期有效。</div></div>
+              <div class="sd-acts"><span>使用应用目录</span><span class="pri">去授权</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2646,7 +2760,7 @@ h3{letter-spacing:-.015em}
         <div class="phone">
           <div class="pstatus"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
           <div class="pbody">
-            <div class="phead"><div class="ph-server"><span class="dot"></span>pan.mydomain.com<svg class="ic" style="width:11px;height:11px;color:#8FA1B3"><use href="#i-chev-d"/></svg></div><span class="sp"></span><div class="pcircle"><svg class="ic"><use href="#i-search"/></svg></div><div class="pcircle"><svg class="ic"><use href="#i-more-v"/></svg></div></div>
+            <div class="phead"><div class="ph-server"><span class="dot"></span>pan.mydomain.com<svg class="ic" style="width:11px;height:11px;color:#8FA1B3"><use href="#i-chev-r"/></svg></div><span class="sp"></span><div class="pcircle"><svg class="ic"><use href="#i-search"/></svg></div><div class="pcircle"><svg class="ic"><use href="#i-more-v"/></svg></div></div>
             <div style="padding:0 18px 10px"><h3 style="margin:0;font-size:23px;font-weight:800;letter-spacing:-.035em">所有文件</h3></div>
             <div class="plist">
               <div class="prow"><span class="ftile t-sky"><svg class="ic"><use href="#i-folder"/></svg></span><div class="pi2"><b>合集 · 诺兰作品</b><span>12 个项目 · 阿里云盘</span></div><svg class="ic" style="width:14px;height:14px;color:#C2CFDB"><use href="#i-chev-r"/></svg></div>
@@ -2661,7 +2775,7 @@ h3{letter-spacing:-.015em}
               <div class="pn on"><svg class="ic"><use href="#i-folder"/></svg>文件<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-arrow-down"/></svg>传输<span class="dot"></span></div>
               <div class="pn"><svg class="ic"><use href="#i-star"/></svg>收藏<span class="dot"></span></div>
-              <div class="pn"><svg class="ic"><use href="#i-user"/></svg>我的<span class="dot"></span></div>
+              <div class="pn"><svg class="ic"><use href="#i-settings"/></svg>设置<span class="dot"></span></div>
             </div>
             <div class="sheet-dim"></div>
             <div class="psheet">
@@ -2693,8 +2807,8 @@ h3{letter-spacing:-.015em}
     </div>
 
     <!-- A8 -->
-    <div class="screen" style="margin-top:20px">
-      <div class="screen-head" style="margin-bottom:10px"><span class="num">A8</span><div><h3>服务器管理</h3><p>添加、编辑、删除与切换，数量不限；「更多」内含删除。</p></div></div>
+    <div class="screen" id="srv-mobile" style="margin-top:20px">
+      <div class="screen-head" style="margin-bottom:10px"><span class="num">A8</span><div><h3>服务器管理</h3><p>点击服务器即切换为当前并打开其文件夹；「更多」内含删除。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus"><span>23:39</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
@@ -2716,10 +2830,10 @@ h3{letter-spacing:-.015em}
               <div class="mc-meta">admin · 38 ms · 5 个挂载点</div>
               <div class="mc-act"><span><svg class="ic" style="width:11px;height:11px"><use href="#i-edit"/></svg>编辑</span><span>测试连接</span><span style="margin-left:auto;width:26px;justify-content:center"><svg class="ic" style="width:12px;height:12px"><use href="#i-more"/></svg></span></div>
             </div>
-            <div class="msrv-sec">全部服务器 <span>其他 3 个</span></div>
+            <div class="msrv-sec">全部服务器 <span>点击卡片直接打开</span></div>
             <div class="msrv-card">
               <div class="msrv-top"><span class="srv-ic violet"><svg class="ic"><use href="#i-server"/></svg></span><div style="flex:1;min-width:0"><b>公司 OpenList</b><span>drive.company.cn</span></div><span class="msrv-st ok">82 ms</span></div>
-              <div class="msrv-act"><span class="msrv-btn pri">切换</span><span class="msrv-btn">编辑</span><span class="msrv-more"><svg class="ic"><use href="#i-more"/></svg></span></div>
+              <div class="msrv-act"><span class="msrv-btn pri"><svg class="ic" style="width:10px;height:10px"><use href="#i-folder"/></svg>打开</span><span class="msrv-btn">编辑</span><span class="msrv-more"><svg class="ic"><use href="#i-more"/></svg></span></div>
             </div>
             <div class="msrv-card">
               <div class="msrv-top"><span class="srv-ic amber"><svg class="ic"><use href="#i-server"/></svg></span><div style="flex:1;min-width:0"><b>VPS 备份</b><span>10.0.0.12:5244</span></div><span class="msrv-st warn">超时</span></div>
@@ -2727,7 +2841,7 @@ h3{letter-spacing:-.015em}
             </div>
             <div class="msrv-card">
               <div class="msrv-top"><span class="srv-ic" style="background:#F1F5F9;color:#7C8FA3"><svg class="ic"><use href="#i-server"/></svg></span><div style="flex:1;min-width:0"><b>测试环境</b><span>test.mydomain.com</span></div><span class="msrv-st off">未连接</span></div>
-              <div class="msrv-act"><span class="msrv-btn">连接</span><span class="msrv-btn">编辑</span><span class="msrv-more"><svg class="ic"><use href="#i-more"/></svg></span></div>
+              <div class="msrv-act"><span class="msrv-btn pri"><svg class="ic" style="width:10px;height:10px"><use href="#i-folder"/></svg>打开</span><span class="msrv-btn">编辑</span><span class="msrv-more"><svg class="ic"><use href="#i-more"/></svg></span></div>
             </div>
             <div class="msrv-add"><svg class="ic"><use href="#i-plus"/></svg>添加服务器</div>
             <div class="msrv-set">
@@ -3008,7 +3122,7 @@ h3{letter-spacing:-.015em}
       </div>
       <div style="display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #F4F8FB">
         <span class="q-num" style="background:#E7FBF5;color:#0B7A63">05</span>
-        <div style="flex:1"><b style="font-size:11.5px;font-weight:800;color:#17293D">Windows 发行形态</b><div style="font-size:10px;color:#7C8FA3;margin-top:2px">安装版 + 便携版双发，默认托盘常驻、关闭到托盘</div></div>
+        <div style="flex:1"><b style="font-size:11.5px;font-weight:800;color:#17293D">Windows 发行形态</b><div style="font-size:10px;color:#7C8FA3;margin-top:2px">仅便携版 zip（OpenList-Client-&lt;ver&gt;-windows-x64-portable.zip），解压即用、默认托盘常驻、关闭到托盘</div></div>
         <span class="badge ok">已确认</span>
       </div>
       <div style="display:flex;align-items:center;gap:11px;padding:10px 0">
@@ -3028,9 +3142,9 @@ h3{letter-spacing:-.015em}
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">新增 W9：</b>Windows 托盘菜单、四种图标状态与传输完成通知</div></div>
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">管理后台：</b>确认 A 只读；B 仅作后续可选，C 不做</div></div>
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">多服务器：</b>取消数量限制，支持任意数量实例，列表可搜索，配置完全隔离</div></div>
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">入口：</b>登录页服务器列表、标题栏下拉箭头、设置页服务器卡片</div></div>
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">入口：</b>登录页「服务器管理」、标题栏实例名、设置页服务器卡片</div></div>
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">主题：</b>设置页默认选中「跟随系统」，播放器仍强制深色</div></div>
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">Windows：</b>侧栏标注便携数据目录，补充安装版 + 便携版发行说明</div></div>
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">Windows：</b>侧栏标注便携数据目录；发行说明只保留便携版 zip</div></div>
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #F5F8FB"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">技术栈：</b>封面元信息与本节技术基线均已锁定 Flutter 3.x</div></div>
       <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0 2px"><span style="width:5px;height:5px;border-radius:50%;background:#14B8A6;margin-top:5px;flex:none"></span><div style="font-size:10px;line-height:1.55;color:#66798D"><b style="color:#41546A">状态：</b>设计冻结，等待开工指令；代码仍未创建</div></div>
     </div>
@@ -3053,7 +3167,7 @@ h3{letter-spacing:-.015em}
         <div class="phase"><span class="pn">P1 · 3d</span><div><b>脚手架与设计令牌</b><span>双端工程、主题、路由、API 客户端、安全存储</span></div></div>
         <div class="phase"><span class="pn">P2 · 5d</span><div><b>核心文件流</b><span>登录、多服务器、目录浏览、搜索、缩略图、预览</span></div></div>
         <div class="phase"><span class="pn">P3 · 5d</span><div><b>传输与播放</b><span>上传下载队列、断点续传、离线下载、media_kit 播放器</span></div></div>
-        <div class="phase"><span class="pn">P4 · 3d</span><div><b>收尾与打包</b><span>深色模式、托盘/通知、安装包 + 便携版、签名与冒烟</span></div></div>
+        <div class="phase"><span class="pn">P4 · 3d</span><div><b>收尾与打包</b><span>深色模式、托盘/通知、便携版 zip、校验与冒烟</span></div></div>
       </div>
     </div>
   </div>
@@ -3114,12 +3228,12 @@ h3{letter-spacing:-.015em}
         <span class="h-chip"><svg class="ic" style="width:10px;height:10px"><use href="#i-server"/></svg>OpenList API v4</span>
       </div>
     </div>
-    <p>直接按本文件开工，不要再自行发明视觉风格。实现顺序固定为：脚手架 → 登录/多服务器 → 文件浏览/搜索 → 传输/播放 → 托盘/打包。每个阶段产出可安装包，用真实 OpenList 实例联调后再进入下一阶段。本文件是设计稿，不是 WebView 外壳；请用 Flutter 原生组件复刻，不要把本 HTML 直接嵌进应用。</p>
+    <p>直接按本文件开工，不要再自行发明视觉风格。实现顺序固定为：脚手架 → 登录/多服务器 → 文件浏览/搜索 → 传输/播放 → 托盘/打包。每个阶段产出可直接安装的产物，用真实 OpenList 实例联调后再进入下一阶段。本文件是设计稿，不是 WebView 外壳；请用 Flutter 原生组件复刻，不要把本 HTML 直接嵌进应用。</p>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:16px;position:relative;z-index:2">
       <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 10px"><b style="display:block;font-size:10px;color:#E8F2FA">管理后台</b><span style="font-size:9px;color:#8FA8BD">A · 只读，写操作跳浏览器</span></div>
       <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 10px"><b style="display:block;font-size:10px;color:#E8F2FA">多服务器</b><span style="font-size:9px;color:#8FA8BD">不限数量，按实例隔离</span></div>
       <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 10px"><b style="display:block;font-size:10px;color:#E8F2FA">主题</b><span style="font-size:9px;color:#8FA8BD">跟随系统，播放器强制深色</span></div>
-      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 10px"><b style="display:block;font-size:10px;color:#E8F2FA">Windows</b><span style="font-size:9px;color:#8FA8BD">安装版 + 便携版 + 托盘</span></div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 10px"><b style="display:block;font-size:10px;color:#E8F2FA">Windows</b><span style="font-size:9px;color:#8FA8BD">便携版 zip + 托盘</span></div>
     </div>
   </div>
 
@@ -3172,7 +3286,7 @@ ol_prefs                <span class="c">// 主题、限速、语言、托盘偏�
         <table class="dtbl">
           <thead><tr><th>Route</th><th>画板</th><th>说明</th></tr></thead>
           <tbody>
-            <tr><td><code>/login</code></td><td>W1 / A1</td><td>地址探测 + 密码 / Token / 扫码</td></tr>
+            <tr><td><code>/login</code></td><td>W1 / A1</td><td>地址探测 + 密码 / Token</td></tr>
             <tr><td><code>/files/*path</code></td><td>W2 / A2</td><td>列表、面包屑、多选、拖拽上传</td></tr>
             <tr><td><code>/transfers</code></td><td>W3 / A3</td><td>上传 / 下载 / 离线任务</td></tr>
             <tr><td><code>/search</code></td><td>W4 / A4</td><td>跨挂载点搜索，Ctrl K</td></tr>
@@ -3251,7 +3365,7 @@ GET /d/&lt;path&gt;?sign=&lt;sign&gt;   <span class="c">// 支持 Range</span></
       <div class="phase"><span class="pn">P1</span><div><b>脚手架 + 令牌 + 安全存储</b><span>双端可启动，主题与路由就位</span></div></div>
       <div class="phase"><span class="pn">P2</span><div><b>登录 + 多服务器 + 文件浏览/搜索</b><span>真实实例可登录、可翻目录、可搜</span></div></div>
       <div class="phase"><span class="pn">P3</span><div><b>传输 + 播放</b><span>上传/下载/离线任务、Range 播放</span></div></div>
-      <div class="phase"><span class="pn">P4</span><div><b>托盘 + 打包</b><span>Windows 安装/便携、Android APK 签名</span></div></div>
+      <div class="phase"><span class="pn">P4</span><div><b>托盘 + 打包</b><span>Windows 便携 zip、Android APK 签名</span></div></div>
     </div>
     <div class="panel">
       <div class="ph"><span class="pi" style="background:#EAF8FE"><svg class="ic"><use href="#i-shield"/></svg></span><h4>Definition of Done</h4></div>

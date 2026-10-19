@@ -225,8 +225,10 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final visible = _visible(files.items);
     final p = context.ol;
 
-    return Column(
+    return Stack(
       children: [
+        Column(
+          children: [
         _MobileHeader(path: files.path),
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
@@ -271,18 +273,21 @@ class _FilesPageState extends ConsumerState<FilesPage> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 6),
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  files.path == '/' ? '根目录' : files.path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(children: _breadcrumb(context, files.path)),
                 ),
               ),
-              Text('${files.folderCount} 个文件夹 · ${files.fileCount} 个文件', style: TextStyle(fontSize: 9, color: p.ink4)),
+              const SizedBox(width: 8),
+              Text(
+                '${files.folderCount} 个文件夹 · ${files.fileCount} 个文件',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink3),
+              ),
             ],
           ),
         ),
@@ -323,6 +328,73 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                       ),
           ),
         ),
+      ],
+        ),
+        Positioned(right: 18, bottom: 16, child: _MobileFab(onTap: () => _showCreateMenu(context))),
+      ],
+    );
+  }
+
+  /// 面包屑：逐级可点，点任意上级直接跳转。
+  List<Widget> _breadcrumb(BuildContext context, String path) {
+    final p = context.ol;
+    final segments = segmentsOf(path);
+    final widgets = <Widget>[
+      GestureDetector(
+        onTap: segments.isEmpty ? null : () => ref.read(filesProvider.notifier).open('/'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text(
+            '全部文件',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: segments.isEmpty ? FontWeight.w800 : FontWeight.w700,
+              color: segments.isEmpty ? p.ink : p.ink3,
+            ),
+          ),
+        ),
+      ),
+    ];
+    for (var i = 0; i < segments.length; i++) {
+      final isLast = i == segments.length - 1;
+      final target = '/${segments.take(i + 1).join('/')}';
+      widgets.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1),
+        child: Text('/', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink4)),
+      ));
+      widgets.add(GestureDetector(
+        onTap: isLast ? null : () => ref.read(filesProvider.notifier).open(target),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 108),
+            child: Text(
+              segments[i],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isLast ? FontWeight.w800 : FontWeight.w700,
+                color: isLast ? p.ink : p.ink3,
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+    return widgets;
+  }
+
+  /// 右下角主按钮：新建文件夹 / 上传文件 / 离线下载。
+  Future<void> _showCreateMenu(BuildContext context) async {
+    final size = MediaQuery.sizeOf(context);
+    await showOlMenu(
+      context,
+      position: Offset(size.width - 204, size.height - 16 - 58 - 136),
+      items: [
+        OlMenuItem('新建文件夹', 'folder-plus', () => createFolder(context, ref)),
+        OlMenuItem('上传文件', 'upload', () => pickAndUpload(context, ref)),
+        OlMenuItem('离线下载', 'cloud-dl', () => offlineDownload(context, ref)),
       ],
     );
   }
@@ -799,22 +871,39 @@ class _DesktopTopBar extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => ref.read(filesProvider.notifier).open('/'),
-                    child: Text('全部文件', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink4)),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => ref.read(filesProvider.notifier).open('/'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                        child: Text('全部文件', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: segments.isEmpty ? p.ink : p.ink3)),
+                      ),
+                    ),
                   ),
                   for (var i = 0; i < segments.length; i++) ...[
-                    const Padding(padding: EdgeInsets.symmetric(horizontal: 3), child: OlIcon('chev-r', size: 12, color: Color(0xFFB2C1CF))),
-                    GestureDetector(
-                      onTap: i == segments.length - 1
-                          ? null
-                          : () => ref.read(filesProvider.notifier).open('/${segments.take(i + 1).join('/')}'),
-                      child: Text(
-                        segments[i],
-                        style: TextStyle(
-                          fontSize: i == segments.length - 1 ? 12.5 : 11.5,
-                          fontWeight: i == segments.length - 1 ? FontWeight.w800 : FontWeight.w600,
-                          color: i == segments.length - 1 ? p.ink : p.ink4,
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 1), child: OlIcon('chev-r', size: 13, color: const Color(0xFFC2CFDB))),
+                    MouseRegion(
+                      cursor: i == segments.length - 1 ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: i == segments.length - 1
+                            ? null
+                            : () => ref.read(filesProvider.notifier).open('/${segments.take(i + 1).join('/')}'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 190),
+                            child: Text(
+                              segments[i],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: i == segments.length - 1 ? 14 : 13,
+                                fontWeight: i == segments.length - 1 ? FontWeight.w800 : FontWeight.w600,
+                                color: i == segments.length - 1 ? p.ink : p.ink3,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1597,6 +1686,53 @@ class _SkeletonRow extends StatelessWidget {
 
 // ---------------------------------------------------------------- mobile
 
+/// 右下角主按钮：58px，展开时旋转 45° 变成关闭。
+class _MobileFab extends StatefulWidget {
+  final Future<void> Function() onTap;
+  const _MobileFab({required this.onTap});
+
+  @override
+  State<_MobileFab> createState() => _MobileFabState();
+}
+
+class _MobileFabState extends State<_MobileFab> {
+  bool _open = false;
+
+  Future<void> _tap() async {
+    setState(() => _open = true);
+    try {
+      await widget.onTap();
+    } finally {
+      if (mounted) setState(() => _open = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedRotation(
+      turns: _open ? 0.125 : 0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _tap,
+          child: Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              gradient: OlTokens.gradientBrand,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Color(0xD914A5E9), blurRadius: 26, offset: Offset(0, 12), spreadRadius: -10)],
+            ),
+            child: const Center(child: OlIcon('plus', size: 24, color: Colors.white, strokeWidth: 2.3)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileHeader extends ConsumerWidget {
   final String path;
   const _MobileHeader({required this.path});
@@ -1642,7 +1778,7 @@ class _MobileHeader extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 3),
-                  OlIcon('chev-d', size: 11, color: p.ink4),
+                  OlIcon('chev-r', size: 11, color: p.ink4),
                 ],
               ),
             ),
@@ -1650,19 +1786,10 @@ class _MobileHeader extends ConsumerWidget {
           const Spacer(),
           _CircleButton(icon: 'search', onTap: () => context.push('/search')),
           const SizedBox(width: 8),
+          // 新建 / 上传 / 离线下载已收进右下角主按钮，右上角只留刷新。
           _CircleButton(
-            icon: 'more-v',
-            onTap: () async {
-              final size = MediaQuery.sizeOf(context);
-              final position = Offset(size.width / 2 - 40, 90);
-              await showOlMenu(context, position: position, items: [
-                OlMenuItem('新建文件夹', 'folder-plus', () => createFolder(context, ref)),
-                OlMenuItem('上传文件', 'upload', () => pickAndUpload(context, ref)),
-                OlMenuItem('离线下载', 'cloud-dl', () => offlineDownload(context, ref)),
-                OlMenuItem('刷新', 'refresh', () => ref.read(filesProvider.notifier).refresh()),
-                OlMenuItem('服务器管理', 'server', () => context.push('/servers')),
-              ]);
-            },
+            icon: 'refresh',
+            onTap: () => ref.read(filesProvider.notifier).refresh(),
           ),
         ],
       ),

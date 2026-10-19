@@ -84,7 +84,7 @@ fi
 echo "tag=$TAG release_id=$RID"
 
 FOUND=0
-for FILE in dist/*.apk; do
+for FILE in dist/*.apk dist/*.zip; do
   [ -f "$FILE" ] || continue
   FOUND=$((FOUND + 1))
   NAME=$(basename "$FILE")
@@ -118,7 +118,7 @@ for FILE in dist/*.apk; do
   echo "OK: $NAME"
 done
 if [ "$FOUND" -eq 0 ]; then
-  echo "FAIL: dist/ 下没有 apk，构建产物未传递到发布阶段"
+  echo "FAIL: dist/ 下没有 apk/zip，构建产物未传递到发布阶段"
   exit 1
 fi
 

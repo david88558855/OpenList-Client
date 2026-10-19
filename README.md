@@ -108,9 +108,8 @@ lib/
 android/          # 完整可构建的 Android 工程（minSdk 26 / compileSdk 35）
 assets/tray/      # 托盘四态图标（运行时资源白名单内）
 design/           # 设计稿原件（只作视觉依据，不参与构建，见下节）
-tool/             # Windows 平台引导与打包脚本
-installer/        # Inno Setup 安装版脚本
-.cnb.yml          # 云端构建流水线
+tool/             # Windows 平台引导与打包脚本（仅便携版）
+.cnb.yml          # 云端构建流水线（Android arm64 + Windows x64 便携包）
 ```
 
 ## 设计稿隔离（design/）
@@ -246,16 +245,23 @@ skipIfModify:
 
 产物：`build/app/outputs/flutter-apk/app-release.apk`（release 使用 debug 签名，便于安装验收；正式发布请替换 keystore）。
 
-### Windows（本机或 Windows runner）
+### Windows（仅便携版）
 
-Windows 的 C++ runner 由 Flutter 官方模板生成，避免手写 runner 与 Flutter 版本错配：
+Windows 的 C++ runner 由 Flutter 官方模板生成，避免手写 runner 与 Flutter 版本错配。
+**不再生成安装程序**（Inno Setup 脚本已永久移除），只产出解压即用的便携版 zip：
 
 ```powershell
 flutter pub get
-.\tool\bootstrap_windows.ps1          # 生成 windows/ 平台目录
-flutter run -d windows                # 开发
-.\tool\package_windows.ps1 -Version 1.0.0   # 便携版 zip + 安装版（需 Inno Setup 6）
+.\tool\bootstrap_windows.ps1            # 生成 windows/ 平台目录
+flutter run -d windows                  # 开发
+.\tool\package_windows.ps1               # 便携版 zip，产物在 dist/
 ```
+
+CI 侧对应 `tool/ci_build_windows.ps1`，产物为
+`OpenList-Client-<ver>-windows-x64-portable.zip`（含 `OpenList.exe` 与可写的 `userdata/`）。
+Windows 编译需要 Windows + Visual Studio（Desktop development with C++）；CNB 社区版只提供
+Linux runner，因此 `.cnb.yml` 的 windows 流水线走根组织自托管节点（`runner.namespace: group`，
+tag `windows`）。没有该节点时 windows 流水线失败，但 Android 出包与发布不受影响。
 
 单实例、托盘、关闭到托盘、窗口尺寸限制均在 Dart 层完成，无需改动生成的 runner。
 

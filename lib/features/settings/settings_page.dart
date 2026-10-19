@@ -12,6 +12,7 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import 'download_dir.dart';
 import 'settings_sidebar.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -409,14 +410,7 @@ class _TransferSection extends ConsumerWidget {
               label: '切换服务器时暂停旧任务',
               trailing: OlSwitch(value: settings.pauseOnSwitch, small: true, onChanged: (v) => ref.read(appSettingsProvider.notifier).setPauseOnSwitch(v)),
             ),
-            _Line(
-              label: '下载目录',
-              hint: '按实例隔离，可在服务器编辑里关闭',
-              trailing: Text(
-                ref.watch(sessionProvider).profile?.name ?? '—',
-                style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: context.ol.ink4),
-              ),
-            ),
+            const DownloadDirLine(),
           ],
         ),
         _Card(
@@ -586,7 +580,7 @@ class _ServersShortcut extends ConsumerWidget {
     final state = ref.watch(serverListProvider);
     final p = context.ol;
     return _Card(
-      title: '服务器与账户',
+      title: '服务器管理',
       subtitle: '${state.count} 个实例 · 数量不限 · 配置与缓存按实例隔离',
       icon: 'server',
       children: [
@@ -732,7 +726,8 @@ class _MobileProfile extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
           child: Column(
             children: [
-              _MobileTile(icon: 'server', label: '服务器与账户', value: '${serverState.count} 个', onTap: () => context.go('/settings?tab=servers')),
+              _MobileTile(icon: 'server', label: '服务器管理', value: '${serverState.count} 个 · 点击切换', onTap: () => context.push('/servers')),
+              const DownloadDirTile(),
               _MobileTile(icon: 'database', label: '存储挂载', value: '只读', onTap: () => context.go('/settings?tab=storage')),
               _MobileTile(icon: 'arrow-down', label: '传输', value: '并发 ${ref.watch(appSettingsProvider).concurrency}', onTap: () => context.go('/settings?tab=transfer')),
               _MobileTile(icon: 'play', label: '播放与预览', onTap: () => context.go('/settings?tab=playback')),
@@ -834,7 +829,7 @@ class _MobileSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final titles = {
-      'servers': '服务器与账户',
+      'servers': '服务器管理',
       'storage': '存储挂载',
       'transfer': '传输',
       'playback': '播放与预览',

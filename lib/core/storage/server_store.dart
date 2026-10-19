@@ -61,6 +61,8 @@ class ServerStore {
 
   String? readDownloadDir(String id) => prefs.getString('ol_srv_${id}_download');
 
+  Future<void> clearDownloadDir(String id) => prefs.remove('ol_srv_${id}_download');
+
   Future<void> saveFavorites(String id, List<Map<String, dynamic>> items) =>
       prefs.setJsonList('ol_srv_${id}_favorites', items);
 

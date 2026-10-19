@@ -14,7 +14,7 @@ class SettingsSidebar extends ConsumerWidget {
   const SettingsSidebar({super.key, required this.active});
 
   static const items = <List<String>>[
-    ['servers', '服务器与账户', 'server', '/servers'],
+    ['servers', '服务器管理', 'server', '/servers'],
     ['storage', '存储挂载', 'database', '/settings?tab=storage'],
     ['transfer', '传输', 'arrow-down', '/settings?tab=transfer'],
     ['playback', '播放与预览', 'play', '/settings?tab=playback'],
