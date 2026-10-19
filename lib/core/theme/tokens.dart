@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens — a direct Dart mapping of the CSS custom properties in
-/// OpenList-Client-Design.html v1.3 (:root block).
+/// OpenList-Client-Design.html v2.0 (:root block + 02 Design System + W7).
+///
+/// 读数规则：颜色、圆角、字号、间距全部来自设计稿，不要在这里发明新值。
 class OlTokens {
   const OlTokens._();
 
-  // Brand
+  // ---- Brand（02 · 品牌色取自 OpenList Logo）----
   static const sky = Color(0xFF38BDF8);
+  static const sky400 = Color(0xFF38BDF8);
   static const sky600 = Color(0xFF0EA5E9);
   static const sky700 = Color(0xFF0284C7);
   static const teal = Color(0xFF2DD4BF);
   static const teal600 = Color(0xFF14B8A6);
+  static const deep = Color(0xFF0E3A46);
   static const violet = Color(0xFF7C5CFC);
 
-  // Semantic
+  // ---- Semantic ----
   static const ok = Color(0xFF22C55E);
   static const okDeep = Color(0xFF0B7A63);
   static const warn = Color(0xFFF59E0B);
@@ -21,11 +25,23 @@ class OlTokens {
   static const danger = Color(0xFFF43F5E);
   static const dangerDeep = Color(0xFFD92D4B);
 
-  // Radii
-  static const r1 = 22.0;
-  static const r2 = 16.0;
+  // ---- 文件类型色（02 · Video / Image / Doc）----
+  static const typeVideo = Color(0xFF7C5CFC);
+  static const typeImage = Color(0xFFE8476F);
+  static const typeDoc = Color(0xFFD98A06);
+  static const typeAudio = Color(0xFF0DA98F);
+  static const typeFolder = Color(0xFF0A93C4);
+  static const typeOther = Color(0xFF63788E);
+
+  // ---- Radii（02 · 20 卡片 / 14 面板 / 9 按钮 / 99 胶囊）----
+  static const r1 = 22.0; // 旧：卡片 / 弹层
+  static const r2 = 16.0; // 旧：面板 / 缩略图
   static const r3 = 12.0;
-  static const r4 = 9.0;
+  static const r4 = 9.0; // 按钮 / 字段
+  static const rCard = 20.0;
+  static const rPanel = 14.0;
+  static const rField = 9.0;
+  static const rPill = 99.0;
 
   static const gradientPrimary = LinearGradient(
     begin: Alignment(-0.9, -1),
@@ -52,8 +68,32 @@ class OlTokens {
   );
 }
 
+/// 4pt 基准网格：4 / 8 / 12 / 16 / 24 / 32。
+class OlGap {
+  const OlGap._();
+  static const xxs = 4.0;
+  static const xs = 8.0;
+  static const sm = 12.0;
+  static const md = 16.0;
+  static const lg = 24.0;
+  static const xl = 32.0;
+
+  /// Windows 内边距 16–20px；Android 页面边距 18px。
+  static const pageDesktop = 16.0;
+  static const pageDesktopWide = 20.0;
+  static const pageMobile = 18.0;
+
+  /// Windows 列表行高 44px；Android 列表行高 58px；触控目标 ≥ 44。
+  static const rowDesktop = 44.0;
+  static const rowMobile = 58.0;
+  static const touchMin = 44.0;
+}
+
 /// Theme-aware palette. Every surface used by a screen comes from here so the
 /// W7 dark variant is a palette swap, not a second layout.
+///
+/// W7 深色规范：背景 #0B1622 / 卡片 #0F1D2C / 描边 #1A2A3C / 正文 #D7E4EF
+/// （对比度 13.2:1）/ 强调 Sky 400 #38BDF8。
 class OlPalette {
   final bool isDark;
   final Color bg;
@@ -140,10 +180,11 @@ class OlPalette {
     divider: Color(0xFFF4F7FA),
   );
 
+  // W7：背景 #0B1622 / 卡片 #0F1D2C / 描边 #1A2A3C / 正文 #D7E4EF。
   static const dark = OlPalette(
     isDark: true,
     bg: Color(0xFF0B1622),
-    card: Color(0xFF0D1A29),
+    card: Color(0xFF0F1D2C),
     surface: Color(0xFF091320),
     surfaceAlt: Color(0xFF0A1624),
     line: Color(0xFF182838),
@@ -177,11 +218,27 @@ extension OlThemeContext on BuildContext {
   bool get isNarrow => MediaQuery.sizeOf(this).width < 900;
 }
 
-/// Text styles. Sizes and weights are lifted from the design's CSS.
+/// Text styles — 02 · Type scale：DISPLAY 32 / TITLE 20 / BODY 13 / CAPTION 10 / MICRO 9。
 class OlText {
   const OlText._();
 
   static const base = TextStyle(fontSize: 13, height: 1.25);
+
+  /// DISPLAY / 32 —— 页面大标题（「所有文件」）。
+  static const display = TextStyle(fontSize: 32, height: 1.1, letterSpacing: -1.2, fontWeight: FontWeight.w800);
+
+  /// TITLE / 20 —— 卡片与详情标题。
+  static const title = TextStyle(fontSize: 20, height: 1.2, letterSpacing: -0.5, fontWeight: FontWeight.w800);
+
+  /// BODY / 13 —— 文件名等正文。
+  static const body13 = TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w500);
+
+  /// CAPTION / 10 —— 大小、时间等次级信息。
+  static const caption = TextStyle(fontSize: 10, height: 1.4, fontWeight: FontWeight.w600);
+
+  /// MICRO / 9 —— 分区标签、徽标。
+  static const micro = TextStyle(fontSize: 9, height: 1.4, fontWeight: FontWeight.w700);
+
   static const h1 = TextStyle(fontSize: 41, height: 1.06, letterSpacing: -1.8, fontWeight: FontWeight.w800);
   static const h2 = TextStyle(fontSize: 26, height: 1.15, letterSpacing: -0.8, fontWeight: FontWeight.w800);
   static const h3 = TextStyle(fontSize: 19, height: 1.2, letterSpacing: -0.5, fontWeight: FontWeight.w800);

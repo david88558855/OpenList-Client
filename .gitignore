@@ -8,7 +8,7 @@ build/
 .flutter-plugins-dependencies
 *.iml
 .idea/
-.vscode/
+.vscode/*
 !.vscode/settings.json
 pubspec.lock
 

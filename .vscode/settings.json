@@ -1,0 +1,10 @@
+{
+  // design/ 随仓库提交但不参与任何构建；这里只是避免编辑器 watcher 与全局搜索扫描它。
+  "files.watcherExclude": {
+    "**/design/**": true
+  },
+  "search.exclude": {
+    "**/design/**": true
+  },
+  "files.exclude": {}
+}

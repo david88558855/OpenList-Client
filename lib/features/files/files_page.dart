@@ -1,9 +1,7 @@
-import 'dart:io';
-
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
@@ -15,9 +13,13 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../transfers/transfers_controller.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
 
+/// W2（Windows 三栏文件管理）/ W7（深色变体）/ A2（Android 文件 Tab）。
+///
+/// 四态必须齐全：空目录 / 加载骨架 / 连接失败 / 离线（05 State design）。
 class FilesPage extends ConsumerStatefulWidget {
   final String? initialPath;
   const FilesPage({super.key, this.initialPath});
@@ -29,18 +31,25 @@ class FilesPage extends ConsumerStatefulWidget {
 class _FilesPageState extends ConsumerState<FilesPage> {
   final _scroll = ScrollController();
   bool _dragging = false;
-  FileKind? _filter;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final initial = widget.initialPath;
-      if (initial != null && initial.isNotEmpty && initial != ref.read(filesProvider).path) {
-        ref.read(filesProvider.notifier).open(initial);
-      }
-    });
+    final path = widget.initialPath;
+    if (path != null && path.isNotEmpty && path != '/') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(filesProvider.notifier).open(path);
+      });
+    }
+  }
+
+  void _onScroll() {
+    final state = ref.read(filesProvider);
+    if (!state.hasMore || state.loadingMore || state.loading) return;
+    if (_scroll.position.extentAfter < 600) {
+      ref.read(filesProvider.notifier).loadMore();
+    }
   }
 
   @override
@@ -50,496 +59,251 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final position = _scroll.position;
-    if (position.pixels >= position.maxScrollExtent - 320) {
-      ref.read(filesProvider.notifier).loadMore();
-    }
-  }
-
-  List<FileItem> _visible(List<FileItem> items) {
-    if (_filter == null) return items;
-    return items.where((e) => kindOf(e.name, e.isDir) == _filter).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 900;
-    final body = narrow ? _buildMobile(context) : _buildDesktop(context);
-    return AppFrame(navIndex: 0, child: body);
+    if (context.isNarrow) return _buildMobile(context);
+    return _buildDesktop(context);
   }
 
-  // ------------------------------------------------------------- desktop
-
+  // ------------------------------------------------------------------
+  // W2 / W7 · Windows 三栏
+  // ------------------------------------------------------------------
   Widget _buildDesktop(BuildContext context) {
-    final files = ref.watch(filesProvider);
-    final visible = _visible(files.items);
-    final selectedItems = files.selectedItems;
-
-    Widget content = Row(
+    final state = ref.watch(filesProvider);
+    final body = Row(
       children: [
         const _FilesSidebar(),
         Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: context.ol.card,
-              border: Border(left: BorderSide(color: context.ol.line2)),
-            ),
-            child: Column(
+          child: DropTarget(
+            onDragEntered: (_) => setState(() => _dragging = true),
+            onDragExited: (_) => setState(() => _dragging = false),
+            onDragDone: (detail) async {
+              setState(() => _dragging = false);
+              if (detail.files.isEmpty) return;
+              await uploadPaths(context, ref, detail.files.map((e) => e.path).toList());
+            },
+            child: Stack(
               children: [
-                _DesktopTopBar(onUpload: () => pickAndUpload(context, ref)),
-                _Toolbar(
-                  visible: visible,
-                  filter: _filter,
-                  onFilter: (value) => setState(() => _filter = value),
+                Column(
+                  children: [
+                    _BreadcrumbBar(onSearch: () => context.go('/search')),
+                    _ListToolbar(onUpload: () => pickAndUpload(context, ref)),
+                    Expanded(child: _buildBody(state)),
+                    _DropHint(active: _dragging),
+                    const _StatusBar(),
+                  ],
                 ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildListArea(context, files, visible)),
-                      if (selectedItems.length == 1)
-                        _DetailPanel(
-                          item: selectedItems.first,
-                          onClose: () => ref.read(filesProvider.notifier).clearSelection(),
-                        ),
-                    ],
-                  ),
-                ),
-                const _StatusBar(),
+                if (_dragging) const _DropOverlay(),
               ],
             ),
           ),
         ),
+        SizedBox(width: 250, child: _DetailPanel()),
       ],
     );
 
-    if (_dragging) {
-      content = Stack(
-        children: [
-          content,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: const Color(0x33277DDE),
-                alignment: Alignment.center,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(color: context.ol.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: OlTokens.sky)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const OlIcon('upload', size: 18, color: OlTokens.sky600),
-                      const SizedBox(width: 8),
-                      Text('松开即可上传到「${files.path == '/' ? '根目录' : baseName(files.path)}」', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.ol.ink)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    final keyboardScoped = CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyA, control: true): () => ref.read(filesProvider.notifier).selectAll(),
-        const SingleActivator(LogicalKeyboardKey.f5): () => ref.read(filesProvider.notifier).refresh(),
-        const SingleActivator(LogicalKeyboardKey.keyU, control: true): () => pickAndUpload(context, ref),
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () => context.push('/search'),
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true, shift: true): () => createFolder(context, ref),
-        const SingleActivator(LogicalKeyboardKey.f2): () {
-          final selection = ref.read(filesProvider).selectedItems;
-          if (selection.length == 1) renameItem(context, ref, selection.first);
+    return AppFrame(
+      navIndex: 0,
+      child: _FilesShortcuts(
+        onUpload: () => pickAndUpload(context, ref),
+        onNewFolder: () => createFolder(context, ref),
+        onRefresh: () => ref.read(filesProvider.notifier).refresh(),
+        onSelectAll: () => ref.read(filesProvider.notifier).selectAll(),
+        onClearSelection: () => ref.read(filesProvider.notifier).clearSelection(),
+        onPreview: () {
+          final items = ref.read(filesProvider).selectedItems;
+          if (items.length == 1) previewItem(context, ref, items.first);
         },
-        const SingleActivator(LogicalKeyboardKey.delete): () {
-          final selection = ref.read(filesProvider).selectedItems;
-          if (selection.isNotEmpty) deleteItems(context, ref, selection);
+        onRename: () {
+          final items = ref.read(filesProvider).selectedItems;
+          if (items.length == 1) renameItem(context, ref, items.first);
         },
-        const SingleActivator(LogicalKeyboardKey.space): () {
-          final selection = ref.read(filesProvider).selectedItems;
-          if (selection.length == 1) previewItem(context, ref, selection.first);
+        onDelete: () {
+          final items = ref.read(filesProvider).selectedItems;
+          if (items.isNotEmpty) deleteItems(context, ref, items);
         },
-        const SingleActivator(LogicalKeyboardKey.escape): () => ref.read(filesProvider.notifier).clearSelection(),
-      },
-      child: Focus(autofocus: true, child: content),
-    );
-
-    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return keyboardScoped;
-    return DropTarget(
-      onDragEntered: (_) => setState(() => _dragging = true),
-      onDragExited: (_) => setState(() => _dragging = false),
-      onDragDone: (detail) async {
-        setState(() => _dragging = false);
-        final paths = detail.files.map((e) => e.path).where((e) => e.isNotEmpty).toList();
-        if (paths.isNotEmpty) await uploadPaths(context, ref, paths);
-      },
-      child: keyboardScoped,
+        onSearch: () => context.go('/search'),
+        child: body,
+      ),
     );
   }
 
-  Widget _buildListArea(BuildContext context, FilesState files, List<FileItem> visible) {
-    if (files.showSkeleton) return _SkeletonTable(grid: files.grid);
-    if (files.loading && files.items.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        if (files.error != null) _ErrorBanner(message: files.error!, offline: files.offline),
-        if (files.offline) const _OfflineBanner(),
-        Expanded(
-          child: files.items.isEmpty
-              ? OlEmptyState(
-                  icon: 'folder',
-                  title: '这个目录还是空的',
-                  subtitle: '把文件拖进来，或点击右上角「上传」把本地文件放到这里。',
-                  action: OlPrimaryButton(label: '上传文件', icon: 'upload', onTap: () => pickAndUpload(context, ref)),
-                )
-              : visible.isEmpty
-                  ? OlEmptyState(
-                      icon: 'filter',
-                      title: '没有符合筛选的文件',
-                      subtitle: '当前筛选为「${_filterLabel(_filter)}」，切换筛选或清除条件查看全部内容。',
-                      action: OlGhostButton(label: '清除筛选', onTap: () => setState(() => _filter = null)),
-                    )
-                  : files.grid
-                      ? _GridBody(items: visible, files: files)
-                      : _TableBody(items: visible, files: files, controller: _scroll),
-        ),
-        if (!files.grid && files.items.isNotEmpty)
-          Container(
-            height: 26,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.centerLeft,
-            child: Text(
-              files.hasMore ? '已加载 ${files.items.length} / ${files.total} 项 · 继续滚动加载' : '已全部加载 · ${files.total} 项',
-              style: TextStyle(fontSize: 9.5, color: context.ol.ink4),
-            ),
-          ),
-      ],
-    );
+  Widget _buildBody(FilesState state) {
+    if (state.items.isEmpty && state.loading) return const _LoadingBody();
+    if (state.items.isEmpty && state.error != null && !state.offline) return _ErrorBody(message: state.error!);
+    if (state.items.isEmpty && !state.loading) return const _EmptyBody();
+    return state.grid ? _GridView(state: state, scroll: _scroll) : _ListView(state: state, scroll: _scroll);
   }
 
+  // ------------------------------------------------------------------
+  // A2 · Android
+  // ------------------------------------------------------------------
   Widget _buildMobile(BuildContext context) {
-    final files = ref.watch(filesProvider);
-    final visible = _visible(files.items);
+    final state = ref.watch(filesProvider);
     final p = context.ol;
-
-    return Stack(
-      children: [
-        Column(
-          children: [
-        _MobileHeader(path: files.path),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: Text(
-                  files.path == '/' ? '所有文件' : baseName(files.path),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: p.ink),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('${files.total} 项', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4)),
-              ),
-              const Spacer(),
-              _SortChip(),
-            ],
-          ),
-        ),
-        const _MobileStorageRow(),
-        SizedBox(
-          height: 42,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 6),
-            children: [
-              OlChip(label: '全部', selected: _filter == null, onTap: () => setState(() => _filter = null)),
-              const SizedBox(width: 6),
-              OlChip(label: '视频', icon: 'film', selected: _filter == FileKind.video, onTap: () => setState(() => _filter = FileKind.video)),
-              const SizedBox(width: 6),
-              OlChip(label: '图片', icon: 'image', selected: _filter == FileKind.image, onTap: () => setState(() => _filter = FileKind.image)),
-              const SizedBox(width: 6),
-              OlChip(label: '文档', icon: 'file-text', selected: _filter == FileKind.text, onTap: () => setState(() => _filter = FileKind.text)),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  reverse: true,
-                  child: Row(children: _breadcrumb(context, files.path)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${files.folderCount} 个文件夹 · ${files.fileCount} 个文件',
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink3),
-              ),
-            ],
-          ),
-        ),
-        if (files.error != null && files.items.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            child: _MobileError(message: files.error!),
-          ),
-        Expanded(
-          child: RefreshIndicator(
+    return AppFrame(
+      navIndex: 0,
+      child: Stack(
+        children: [
+          RefreshIndicator(
             color: OlTokens.sky600,
             onRefresh: () => ref.read(filesProvider.notifier).refresh(),
-            child: files.showSkeleton
-                ? ListView(children: [for (var i = 0; i < 7; i++) const _SkeletonRow()])
-                : files.items.isEmpty
-                    ? ListView(
-                        children: [
-                          const SizedBox(height: 60),
-                          OlEmptyState(
-                            icon: 'folder',
-                            title: '这个目录还是空的',
-                            subtitle: '点击右下角 + 上传文件或新建文件夹。',
-                            action: OlPrimaryButton(label: '上传文件', icon: 'upload', onTap: () => pickAndUpload(context, ref)),
-                          ),
-                        ],
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
-                        itemCount: visible.length,
-                        itemBuilder: (context, index) {
-                          final item = visible[index];
-                          return _MobileRow(
-                            item: item,
-                            onTap: () => openItem(context, ref, item),
-                            onLongPress: () => _showMobileSheet(context, item),
-                          );
-                        },
-                      ),
-          ),
-        ),
-      ],
-        ),
-        Positioned(right: 18, bottom: 16, child: _MobileFab(onTap: () => _showCreateMenu(context))),
-      ],
-    );
-  }
-
-  /// 面包屑：逐级可点，点任意上级直接跳转。
-  List<Widget> _breadcrumb(BuildContext context, String path) {
-    final p = context.ol;
-    final segments = segmentsOf(path);
-    final widgets = <Widget>[
-      GestureDetector(
-        onTap: segments.isEmpty ? null : () => ref.read(filesProvider.notifier).open('/'),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Text(
-            '全部文件',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: segments.isEmpty ? FontWeight.w800 : FontWeight.w700,
-              color: segments.isEmpty ? p.ink : p.ink3,
-            ),
-          ),
-        ),
-      ),
-    ];
-    for (var i = 0; i < segments.length; i++) {
-      final isLast = i == segments.length - 1;
-      final target = '/${segments.take(i + 1).join('/')}';
-      widgets.add(Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 1),
-        child: Text('/', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink4)),
-      ));
-      widgets.add(GestureDetector(
-        onTap: isLast ? null : () => ref.read(filesProvider.notifier).open(target),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 108),
-            child: Text(
-              segments[i],
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isLast ? FontWeight.w800 : FontWeight.w700,
-                color: isLast ? p.ink : p.ink3,
-              ),
-            ),
-          ),
-        ),
-      ));
-    }
-    return widgets;
-  }
-
-  /// 右下角主按钮：新建文件夹 / 上传文件 / 离线下载。
-  Future<void> _showCreateMenu(BuildContext context) async {
-    final size = MediaQuery.sizeOf(context);
-    await showOlMenu(
-      context,
-      position: Offset(size.width - 204, size.height - 16 - 58 - 136),
-      items: [
-        OlMenuItem('新建文件夹', 'folder-plus', () => createFolder(context, ref)),
-        OlMenuItem('上传文件', 'upload', () => pickAndUpload(context, ref)),
-        OlMenuItem('离线下载', 'cloud-dl', () => offlineDownload(context, ref)),
-      ],
-    );
-  }
-
-  Future<void> _showMobileSheet(BuildContext context, FileItem item) async {
-    final profile = ref.read(sessionProvider).profile;
-    final files = ref.read(filesProvider);
-    final path = item.parent ?? joinPath(files.path, item.name);
-    final favored = profile != null && ref.read(favoritesProvider).any((e) => e.serverId == profile.id && e.path == path);
-    final kind = kindOf(item.name, item.isDir);
-
-    await olSheet<void>(
-      context,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('已选择 1 个项目', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: context.ol.ink2)),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: const Text('取消', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF0A93C4))),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                FileGlyph(item: item, size: 36, radius: 10, iconSize: 17),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.ol.ink)),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${item.isDir ? '文件夹' : formatBytes(item.size)} · ${profile?.name ?? ''}',
-                        style: TextStyle(fontSize: 9.5, color: context.ol.ink4),
-                      ),
-                    ],
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _MobileHeader(state: state)),
+                const SliverToBoxAdapter(child: _MobileMounts()),
+                const SliverToBoxAdapter(child: _MobileKindFilter()),
+                SliverToBoxAdapter(child: _MobileBreadcrumb(state: state)),
+                if (state.items.isEmpty && state.loading)
+                  const SliverToBoxAdapter(child: _LoadingBody())
+                else if (state.items.isEmpty && state.error != null && !state.offline)
+                  SliverToBoxAdapter(child: _ErrorBody(message: state.error!))
+                else if (state.items.isEmpty && !state.loading)
+                  const SliverToBoxAdapter(child: _EmptyBody())
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index >= state.items.length) return null;
+                        return _MobileRow(
+                          item: state.items[index],
+                          selected: state.selected.contains(state.items[index].name),
+                          onTap: () => _openMobile(state.items[index]),
+                          onLongPress: () async {
+                            final box = context.findRenderObject() as RenderBox?;
+                            final pos = box == null ? Offset.zero : box.localToGlobal(Offset.zero);
+                            await showItemMenu(context, ref, state.items[index], pos);
+                          },
+                        );
+                      },
+                      childCount: state.items.length,
+                    ),
                   ),
-                ),
-                OlIcon('info', size: 15, color: context.ol.ink4),
+                const SliverToBoxAdapter(child: SizedBox(height: 96)),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                if (!item.isDir && (kind == FileKind.video || kind == FileKind.audio))
-                  _SheetAction(icon: 'play', label: '播放', onTap: () {
-                    Navigator.of(context).pop();
-                    openItem(context, ref, item);
-                  }),
-                if (!item.isDir) _SheetAction(icon: 'download', label: '下载', onTap: () {
-                  Navigator.of(context).pop();
-                  downloadItem(context, ref, item);
-                }),
-                _SheetAction(icon: 'share', label: '分享', onTap: () {
-                  Navigator.of(context).pop();
-                  shareItem(context, ref, item);
-                }),
-                _SheetAction(icon: 'star', label: favored ? '已收藏' : '收藏', onTap: () async {
-                  Navigator.of(context).pop();
-                  if (profile == null) return;
-                  await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
-                  if (context.mounted) olToast(context, favored ? '已取消收藏' : '已加入收藏');
-                }),
-              ],
+          ),
+          Positioned(
+            right: OlGap.pageMobile,
+            bottom: 78,
+            child: _MobileFab(
+              onNewFolder: () => createFolder(context, ref),
+              onUpload: () => pickAndUpload(context, ref),
+              onOffline: () => offlineDownload(context, ref),
             ),
-            const SizedBox(height: 8),
-            for (final row in <List<String>>[
-              ['重命名', 'edit'],
-              ['移动到…', 'move'],
-              ['复制到…', 'copy'],
-              ['压缩下载（ZIP）', 'archive'],
-              ['删除', 'trash'],
-            ])
-              InkWell(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  switch (row[0]) {
-                    case '重命名':
-                      renameItem(context, ref, item);
-                      break;
-                    case '移动到…':
-                      moveOrCopyItems(context, ref, [item], move: true);
-                      break;
-                    case '复制到…':
-                      moveOrCopyItems(context, ref, [item], move: false);
-                      break;
-                    case '压缩下载（ZIP）':
-                      downloadItem(context, ref, item);
-                      break;
-                    case '删除':
-                      deleteItems(context, ref, [item]);
-                      break;
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
-                  child: Row(
-                    children: [
-                      OlIcon(row[1], size: 15, color: row[0] == '删除' ? const Color(0xFFE06B82) : context.ol.ink3),
-                      const SizedBox(width: 10),
-                      Text(
-                        row[0],
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: row[0] == '删除' ? const Color(0xFFD92D4B) : context.ol.ink2),
-                      ),
-                      const Spacer(),
-                      OlIcon('chev-r', size: 13, color: context.ol.ink4),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+          ),
+          if (state.error != null && state.offline)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _OfflineBanner(message: state.error!, color: p.card),
+            ),
+        ],
       ),
     );
   }
 
-  String _filterLabel(FileKind? kind) {
-    switch (kind) {
-      case FileKind.video:
-        return '视频';
-      case FileKind.image:
-        return '图片';
-      case FileKind.text:
-        return '文档';
-      case FileKind.audio:
-        return '音频';
-      case FileKind.folder:
-        return '文件夹';
-      case FileKind.archive:
-        return '压缩包';
-      default:
-        return '全部';
+  Future<void> _openMobile(FileItem item) async {
+    if (item.isDir) {
+      ref.read(filesProvider.notifier).open(joinPath(ref.read(filesProvider).path, item.name));
+    } else {
+      await openItem(context, ref, item);
     }
   }
 }
 
-// --------------------------------------------------------------- widgets
+// ---------------------------------------------------------------------------
+// 快捷键（05 · Windows 快捷键）
+// ---------------------------------------------------------------------------
+class _UploadIntent extends Intent {
+  const _UploadIntent();
+}
+class _NewFolderIntent extends Intent {
+  const _NewFolderIntent();
+}
+class _RefreshIntent extends Intent {
+  const _RefreshIntent();
+}
+class _SelectAllIntent extends Intent {
+  const _SelectAllIntent();
+}
+class _PreviewIntent extends Intent {
+  const _PreviewIntent();
+}
+class _RenameIntent extends Intent {
+  const _RenameIntent();
+}
+class _DeleteIntent extends Intent {
+  const _DeleteIntent();
+}
+class _SearchIntent extends Intent {
+  const _SearchIntent();
+}
+class _EscapeIntent extends Intent {
+  const _EscapeIntent();
+}
 
+class _FilesShortcuts extends StatelessWidget {
+  final VoidCallback onUpload;
+  final VoidCallback onNewFolder;
+  final VoidCallback onRefresh;
+  final VoidCallback onSelectAll;
+  final VoidCallback onClearSelection;
+  final VoidCallback onPreview;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+  final VoidCallback onSearch;
+  final Widget child;
+
+  const _FilesShortcuts({
+    required this.onUpload,
+    required this.onNewFolder,
+    required this.onRefresh,
+    required this.onSelectAll,
+    required this.onClearSelection,
+    required this.onPreview,
+    required this.onRename,
+    required this.onDelete,
+    required this.onSearch,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.keyU, control: true): const _UploadIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true, shift: true): const _NewFolderIntent(),
+        const SingleActivator(LogicalKeyboardKey.f5): const _RefreshIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true): const _SelectAllIntent(),
+        const SingleActivator(LogicalKeyboardKey.space): const _PreviewIntent(),
+        const SingleActivator(LogicalKeyboardKey.f2): const _RenameIntent(),
+        const SingleActivator(LogicalKeyboardKey.delete): const _DeleteIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): const _SearchIntent(),
+        const SingleActivator(LogicalKeyboardKey.escape): const _EscapeIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _UploadIntent: CallbackAction<_UploadIntent>(onInvoke: (_) => onUpload()),
+          _NewFolderIntent: CallbackAction<_NewFolderIntent>(onInvoke: (_) => onNewFolder()),
+          _RefreshIntent: CallbackAction<_RefreshIntent>(onInvoke: (_) => onRefresh()),
+          _SelectAllIntent: CallbackAction<_SelectAllIntent>(onInvoke: (_) => onSelectAll()),
+          _PreviewIntent: CallbackAction<_PreviewIntent>(onInvoke: (_) => onPreview()),
+          _RenameIntent: CallbackAction<_RenameIntent>(onInvoke: (_) => onRename()),
+          _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (_) => onDelete()),
+          _SearchIntent: CallbackAction<_SearchIntent>(onInvoke: (_) => onSearch()),
+          _EscapeIntent: CallbackAction<_EscapeIntent>(onInvoke: (_) => onClearSelection()),
+        },
+        child: Focus(autofocus: true, child: child),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 左侧栏（W2）
+// ---------------------------------------------------------------------------
 class _FilesSidebar extends ConsumerWidget {
   const _FilesSidebar();
 
@@ -548,171 +312,39 @@ class _FilesSidebar extends ConsumerWidget {
     final p = context.ol;
     final files = ref.watch(filesProvider);
     final transfers = ref.watch(transfersProvider);
-    final storages = ref.watch(storagesProvider);
+    final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
+    final favorites = ref.watch(favoritesProvider);
+    final session = ref.watch(sessionProvider);
+    final serverId = session.profile?.id;
 
     return Container(
       width: 204,
       color: p.surface,
-      padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
+      decoration: BoxDecoration(border: Border(right: BorderSide(color: p.line2))),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const OlSectionLabel('工作区'),
-          _NavRow(
-            icon: 'folder',
-            label: '所有文件',
-            badge: files.total > 0 ? '${files.total}' : null,
-            active: true,
-            onTap: () => ref.read(filesProvider.notifier).open('/'),
-          ),
-          _NavRow(icon: 'clock', label: '最近使用', onTap: () => context.push('/favorites?tab=recent')),
-          _NavRow(icon: 'star', label: '收藏', onTap: () => context.push('/favorites')),
-          _NavRow(icon: 'share', label: '我的分享', onTap: () => _showShares(context, ref)),
-          _NavRow(
-            icon: 'arrow-down',
-            label: '传输任务',
-            badge: transfers.pendingCount > 0 ? '${transfers.pendingCount}' : null,
-            onTap: () => context.go('/transfers'),
-          ),
-          const OlSectionLabel('挂载点'),
           Expanded(
-            child: storages.when(
-              loading: () => Column(
-                children: [for (var i = 0; i < 4; i++) const Padding(padding: EdgeInsets.symmetric(vertical: 7, horizontal: 9), child: OlSkeleton(height: 9))],
-              ),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (mounts) => ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (var i = 0; i < mounts.length; i++)
-                    InkWell(
-                      onTap: () => ref.read(filesProvider.notifier).open(mounts[i].mountPath),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(color: _mountColor(i, mounts[i].isUp), borderRadius: BorderRadius.circular(2.5)),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                baseName(mounts[i].mountPath),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.isDark ? const Color(0xFFA9BDCE) : const Color(0xFF4A5E74)),
-                              ),
-                            ),
-                            if (mounts[i].totalSpace != null)
-                              Text(formatBytes(mounts[i].totalSpace), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4)),
-                            if (!mounts[i].isUp)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 4),
-                                child: Text('异常', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: OlTokens.warn)),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (mounts.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                      child: Text('服务端未返回挂载点（仅管理员可见）', style: TextStyle(fontSize: 9.5, height: 1.6, color: p.ink4)),
-                    ),
-                ],
-              ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(9, 10, 9, 0),
+              children: [
+                const OlSectionLabel('工作区'),
+                _NavRow(icon: 'folder', label: '所有文件', badge: files.total, active: true, route: '/files'),
+                _NavRow(icon: 'clock', label: '最近使用', route: '/favorites?tab=recent'),
+                _NavRow(icon: 'star', label: '收藏', badge: favorites.forServer(serverId).length, route: '/favorites'),
+                _NavRow(icon: 'share', label: '我的分享', badge: 0, route: '/favorites?tab=star'),
+                _NavRow(icon: 'arrow-down', label: '传输任务', badge: transfers.pendingCount, route: '/transfers'),
+                const OlSectionLabel('挂载点'),
+                if (storages.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    child: Text('暂无挂载点', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                  ),
+                for (final m in storages) _MountTile(mount: m),
+              ],
             ),
           ),
-          _StorageCard(files: files, storages: storages.valueOrNull ?? const []),
+          _UsageCard(storages: storages),
         ],
-      ),
-    );
-  }
-
-  Color _mountColor(int index, bool up) {
-    if (!up) return const Color(0xFF94A3B8);
-    const palette = [Color(0xFF38BDF8), Color(0xFF7C5CFC), Color(0xFF22C55E), Color(0xFFF59E0B), Color(0xFF2DD4BF)];
-    return palette[index % palette.length];
-  }
-
-  Future<void> _showShares(BuildContext context, WidgetRef ref) async {
-    final shares = ref.refresh(sharesProvider.future);
-    await showDialog<void>(
-      context: context,
-      barrierColor: const Color(0x59091424),
-      builder: (dialogContext) => FutureBuilder<List<ShareInfo>>(
-        future: shares,
-        builder: (context, snapshot) {
-          final p = context.ol;
-          final items = snapshot.data ?? const [];
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            child: Container(
-              width: 460,
-              height: 420,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(18), border: Border.all(color: p.line)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const OlIcon('share', size: 15, color: OlTokens.sky700),
-                      const SizedBox(width: 8),
-                      Text('我的分享', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
-                      const Spacer(),
-                      OlIconButton(icon: 'x', onTap: () => Navigator.of(dialogContext).pop()),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: snapshot.connectionState == ConnectionState.waiting
-                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                        : items.isEmpty
-                            ? Center(child: Text('暂无分享记录', style: TextStyle(fontSize: 11.5, color: p.ink4)))
-                            : ListView.builder(
-                                itemCount: items.length,
-                                itemBuilder: (context, index) {
-                                  final share = items[index];
-                                  final base = ref.read(sessionProvider).profile?.baseUrl ?? '';
-                                  final link = (share.link?.startsWith('http') ?? false) ? share.link! : '$base/s/${share.id}';
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 7),
-                                    child: Row(
-                                      children: [
-                                        const OlIcon('link', size: 14, color: OlTokens.sky600),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(share.name ?? share.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink)),
-                                              Text(link, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: p.ink4)),
-                                            ],
-                                          ),
-                                        ),
-                                        OlIconButton(
-                                          icon: 'copy',
-                                          squared: true,
-                                          tooltip: '复制链接',
-                                          onTap: () async {
-                                            await copyToClipboard(link);
-                                            if (context.mounted) olToast(context, '链接已复制');
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -721,118 +353,159 @@ class _FilesSidebar extends ConsumerWidget {
 class _NavRow extends StatelessWidget {
   final String icon;
   final String label;
-  final String? badge;
+  final int badge;
   final bool active;
-  final VoidCallback onTap;
+  final String route;
 
-  const _NavRow({required this.icon, required this.label, required this.onTap, this.badge, this.active = false});
+  const _NavRow({required this.icon, required this.label, required this.route, this.badge = 0, this.active = false});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 31,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        decoration: BoxDecoration(
-          color: active ? p.navOnBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            OlIcon(icon, size: 15, color: active ? const Color(0xFF0EA5E9) : p.navIcon),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
-              ),
+    final showBadge = badge > 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 1),
+      child: GestureDetector(
+        onTap: () => context.go(route),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            height: 31,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            decoration: BoxDecoration(
+              color: active ? p.navOnBg : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
             ),
-            if (badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(color: active ? p.card : p.navBadgeBg, borderRadius: BorderRadius.circular(5)),
-                child: Text(
-                  badge!,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: active ? const Color(0xFF0B7A9E) : p.ink3),
+            child: Row(
+              children: [
+                OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w650, color: active ? p.navOn : p.nav),
+                  ),
                 ),
-              ),
-          ],
+                if (showBadge)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: active ? p.card : p.navBadgeBg,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      badge > 999 ? '999+' : '$badge',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink3),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _StorageCard extends StatelessWidget {
-  final FilesState files;
-  final List<StorageMount> storages;
-
-  const _StorageCard({required this.files, required this.storages});
+class _MountTile extends StatelessWidget {
+  final StorageMount mount;
+  const _MountTile({required this.mount});
 
   @override
   Widget build(BuildContext context) {
-    int? total;
-    int? used;
-    for (final mount in storages) {
-      if (mount.totalSpace != null) total = (total ?? 0) + mount.totalSpace!;
-      if (mount.usedSpace != null) used = (used ?? 0) + mount.usedSpace!;
-    }
-    final hasUsage = total != null && used != null && total > 0;
-    final ratio = hasUsage ? (used / total).clamp(0.0, 1.0).toDouble() : (files.items.isEmpty ? 0.0 : (files.items.length / (files.total == 0 ? 1 : files.total)));
+    final p = context.ol;
+    final up = mount.isUp;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: GestureDetector(
+        onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+            child: Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: up ? OlTokens.sky600 : const Color(0xFF9AABBC),
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    mount.driver.isEmpty ? mount.mountPath : mount.driver,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w650, color: p.ink2),
+                  ),
+                ),
+                Text(
+                  mount.totalSpace == null ? (up ? '正常' : '离线') : formatBytes(mount.totalSpace),
+                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
+class _UsageCard extends StatelessWidget {
+  final List<StorageMount> storages;
+  const _UsageCard({required this.storages});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    var total = 0;
+    var used = 0;
+    for (final m in storages) {
+      total += m.totalSpace ?? 0;
+      used += m.usedSpace ?? 0;
+    }
+    final ratio = total <= 0 ? 0.0 : (used / total).clamp(0.0, 1.0).toDouble();
+    final bad = storages.where((e) => !e.isUp).length;
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      margin: const EdgeInsets.fromLTRB(9, 8, 9, 12),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         gradient: OlTokens.deepPanel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(OlTokens.r3),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text('存储用量', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF9DB4C8))),
-              const Spacer(),
-              Text(
-                hasUsage ? '${formatBytes(used)} / ${formatBytes(total)}' : '${storages.length} 个挂载点',
-                style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD)),
+              const Expanded(
+                child: Text('存储用量', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9DB4C8))),
               ),
+              Text('${(ratio * 100).round()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
-            hasUsage ? '${(ratio * 100).round()}' : '—',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
+            '${formatBytes(used)} / ${formatBytes(total)}',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: Colors.white),
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: Container(
-              height: 4,
-              color: const Color(0x22FFFFFF),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: ratio <= 0 ? 0.02 : ratio,
-                child: Container(
-                  decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)])),
-                ),
-              ),
-            ),
-          ),
+          const SizedBox(height: 8),
+          OlUsageBar(value: ratio, dark: true),
           const SizedBox(height: 6),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${storages.where((e) => e.isUp).length} 个正常', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
-              const Spacer(),
+              Text('${storages.length} 个挂载点', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
               Text(
-                '${storages.where((e) => !e.isUp).length} 个异常',
-                style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD)),
+                bad == 0 ? '全部正常' : '$bad 个异常',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: bad == 0 ? const Color(0xFF5EEAD4) : const Color(0xFFFB923C)),
               ),
             ],
           ),
@@ -842,283 +515,192 @@ class _StorageCard extends StatelessWidget {
   }
 }
 
-class _DesktopTopBar extends ConsumerWidget {
-  final VoidCallback onUpload;
-  const _DesktopTopBar({required this.onUpload});
+// ---------------------------------------------------------------------------
+// 面包屑 + 搜索 + 上传（W2 顶栏）
+// ---------------------------------------------------------------------------
+class _BreadcrumbBar extends ConsumerWidget {
+  final VoidCallback onSearch;
+  const _BreadcrumbBar({required this.onSearch});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final files = ref.watch(filesProvider);
-    final segments = segmentsOf(files.path);
-
+    final state = ref.watch(filesProvider);
+    final segs = segmentsOf(state.path);
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: context.ol.hairline))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => ref.read(filesProvider.notifier).goUp(),
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(color: p.isDark ? const Color(0xFF14243A) : const Color(0xFFF4F8FC), borderRadius: BorderRadius.circular(6)),
-              child: Center(child: OlIcon('chev-l', size: 12, color: p.ink3)),
-            ),
+          OlIconButton(
+            icon: 'chev-l',
+            tooltip: '返回上级',
+            squared: true,
+            onTap: state.path == '/' ? null : () => ref.read(filesProvider.notifier).goUp(),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () => ref.read(filesProvider.notifier).open('/'),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                        child: Text('全部文件', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: segments.isEmpty ? p.ink : p.ink3)),
+            child: Row(
+              children: [
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => ref.read(filesProvider.notifier).open('/'),
+                    child: Text(
+                      '全部文件',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: segs.isEmpty ? p.ink : p.ink3,
                       ),
                     ),
                   ),
-                  for (var i = 0; i < segments.length; i++) ...[
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 1), child: OlIcon('chev-r', size: 13, color: const Color(0xFFC2CFDB))),
-                    MouseRegion(
-                      cursor: i == segments.length - 1 ? SystemMouseCursors.basic : SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: i == segments.length - 1
-                            ? null
-                            : () => ref.read(filesProvider.notifier).open('/${segments.take(i + 1).join('/')}'),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 190),
-                            child: Text(
-                              segments[i],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: i == segments.length - 1 ? 14 : 13,
-                                fontWeight: i == segments.length - 1 ? FontWeight.w800 : FontWeight.w600,
-                                color: i == segments.length - 1 ? p.ink : p.ink3,
-                              ),
-                            ),
-                          ),
+                ),
+                for (var i = 0; i < segs.length; i++) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: OlIcon('chev-r', size: 12, color: const Color(0xFFC2CFDB)),
+                  ),
+                  Flexible(
+                    child: GestureDetector(
+                      onTap: () => ref.read(filesProvider.notifier).open('/${segs.take(i + 1).join('/')}'),
+                      child: Text(
+                        segs[i],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: i == segs.length - 1 ? 14 : 13,
+                          fontWeight: i == segs.length - 1 ? FontWeight.w800 : FontWeight.w650,
+                          color: i == segs.length - 1 ? p.ink : p.ink3,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
-          GestureDetector(
-            onTap: () => context.push('/search'),
-            child: Container(
-              width: 186,
-              height: 30,
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              decoration: BoxDecoration(
-                color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF4F8FC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFE9F0F7)),
-              ),
-              child: Row(
-                children: [
-                  OlIcon('search', size: 13, color: p.ink4),
-                  const SizedBox(width: 6),
-                  Text('搜索当前目录', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: p.ink4)),
-                  const Spacer(),
-                  const OlKbd('Ctrl K'),
-                ],
-              ),
-            ),
-          ),
+          const SizedBox(width: 8),
+          _SearchMini(onTap: onSearch),
           const SizedBox(width: 6),
-          OlIconButton(
-            icon: 'refresh',
-            squared: true,
-            tooltip: '刷新 (F5)',
-            onTap: () => ref.read(filesProvider.notifier).refresh(),
-          ),
-          const SizedBox(width: 6),
-          OlPrimaryButton(label: '上传', icon: 'upload', onTap: onUpload),
+          OlIconButton(icon: 'refresh', tooltip: '刷新 F5', squared: true, onTap: () => ref.read(filesProvider.notifier).refresh()),
         ],
       ),
     );
   }
 }
 
-class _Toolbar extends ConsumerWidget {
-  final List<FileItem> visible;
-  final FileKind? filter;
-  final ValueChanged<FileKind?> onFilter;
-
-  const _Toolbar({required this.visible, required this.filter, required this.onFilter});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final files = ref.watch(filesProvider);
-    final selectedCount = files.selected.length;
-    final allSelected = files.items.isNotEmpty && files.selected.length == files.items.length;
-
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: context.ol.divider))),
-      child: Row(
-        children: [
-          OlCheckbox(
-            value: allSelected,
-            onChanged: (_) {
-              if (allSelected) {
-                ref.read(filesProvider.notifier).clearSelection();
-              } else {
-                ref.read(filesProvider.notifier).selectAll();
-              }
-            },
-          ),
-          const SizedBox(width: 9),
-          Text(
-            selectedCount > 0 ? '${visible.length} 个项目 · 已选 $selectedCount 项' : '${visible.length} 个项目',
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
-          ),
-          if (selectedCount > 0) ...[
-            const SizedBox(width: 10),
-            _MiniAction(icon: 'download', label: '下载', onTap: () async {
-              for (final item in files.selectedItems.where((e) => !e.isDir)) {
-                await downloadItem(context, ref, item);
-              }
-            }),
-            _MiniAction(icon: 'trash', label: '删除', danger: true, onTap: () => deleteItems(context, ref, files.selectedItems)),
-            _MiniAction(icon: 'x', label: '取消', onTap: () => ref.read(filesProvider.notifier).clearSelection()),
-          ],
-          const Spacer(),
-          OlSeg<bool>(
-            items: const [
-              OlSegItem(true, '列表', icon: 'list'),
-              OlSegItem(false, '网格', icon: 'grid'),
-            ],
-            value: !files.grid,
-            onChanged: (v) {
-              if (v == files.grid) ref.read(filesProvider.notifier).toggleGrid();
-            },
-          ),
-          const SizedBox(width: 6),
-          PopupMenuButton<String>(
-            tooltip: '排序',
-            color: p.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: p.line)),
-            onSelected: (value) async {
-              final desc = value.endsWith('_desc');
-              final key = value.replaceAll('_desc', '').replaceAll('_asc', '');
-              await ref.read(filesProvider.notifier).setSort(key, desc: desc);
-            },
-            itemBuilder: (context) => [
-              _menuItem(context, 'name_asc', '名称 A → Z', files.orderBy == 'name' && !files.desc),
-              _menuItem(context, 'name_desc', '名称 Z → A', files.orderBy == 'name' && files.desc),
-              _menuItem(context, 'size_desc', '大小 从大到小', files.orderBy == 'size' && files.desc),
-              _menuItem(context, 'size_asc', '大小 从小到大', files.orderBy == 'size' && !files.desc),
-              _menuItem(context, 'modified_desc', '修改时间 最新', files.orderBy == 'modified' && files.desc),
-              _menuItem(context, 'modified_asc', '修改时间 最早', files.orderBy == 'modified' && !files.desc),
-            ],
-            child: Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              child: OlIcon('sort', size: 15, color: p.ink3),
-            ),
-          ),
-          PopupMenuButton<FileKind?>(
-            tooltip: '筛选',
-            color: p.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: p.line)),
-            onSelected: onFilter,
-            itemBuilder: (context) => [
-              _menuItem(context, null, '全部类型', filter == null),
-              _menuItem(context, FileKind.folder, '文件夹', filter == FileKind.folder),
-              _menuItem(context, FileKind.video, '视频', filter == FileKind.video),
-              _menuItem(context, FileKind.image, '图片', filter == FileKind.image),
-              _menuItem(context, FileKind.text, '文档', filter == FileKind.text),
-              _menuItem(context, FileKind.audio, '音频', filter == FileKind.audio),
-              _menuItem(context, FileKind.archive, '压缩包', filter == FileKind.archive),
-            ],
-            child: Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              child: OlIcon('filter', size: 15, color: filter == null ? p.ink3 : OlTokens.sky600),
-            ),
-          ),
-          OlIconButton(
-            icon: 'folder-plus',
-            tooltip: '新建文件夹 (Ctrl+Shift+N)',
-            onTap: () => createFolder(context, ref),
-          ),
-          OlIconButton(
-            icon: 'cloud-dl',
-            tooltip: '离线下载',
-            onTap: () => offlineDownload(context, ref),
-          ),
-        ],
-      ),
-    );
-  }
-
-  PopupMenuItem<T> _menuItem<T>(BuildContext context, T value, String label, bool active) {
-    final p = context.ol;
-    return PopupMenuItem<T>(
-      value: value,
-      height: 34,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: active ? OlTokens.sky600 : p.ink2)),
-          ),
-          if (active) const OlIcon('check', size: 12, color: OlTokens.sky600),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniAction extends StatelessWidget {
-  final String icon;
-  final String label;
+class _SearchMini extends StatelessWidget {
   final VoidCallback onTap;
-  final bool danger;
-
-  const _MiniAction({required this.icon, required this.label, required this.onTap, this.danger = false});
+  const _SearchMini({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final color = danger ? const Color(0xFFD92D4B) : context.ol.ink2;
-    return InkWell(
+    final p = context.ol;
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Row(
-          children: [
-            OlIcon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-          ],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 186,
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          decoration: BoxDecoration(
+            color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF4F8FC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFE9F0F7)),
+          ),
+          child: Row(
+            children: [
+              OlIcon('search', size: 14, color: p.ink4),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '搜索当前目录',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w550, color: p.ink4),
+                ),
+              ),
+              const OlKbd('Ctrl K'),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TableBody extends ConsumerWidget {
-  final List<FileItem> items;
-  final FilesState files;
-  final ScrollController controller;
+// ---------------------------------------------------------------------------
+// 工具条：数量 / 视图切换 / 上传
+// ---------------------------------------------------------------------------
+class _ListToolbar extends ConsumerWidget {
+  final VoidCallback onUpload;
+  const _ListToolbar({required this.onUpload});
 
-  const _TableBody({required this.items, required this.files, required this.controller});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final state = ref.watch(filesProvider);
+    final selected = state.selected.length;
+    final text = selected == 0
+        ? '${state.items.length} 个项目'
+        : '${state.items.length} 个项目 · 已选 $selected 项';
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
+      child: Row(
+        children: [
+          if (selected > 0) ...[
+            OlIconButton(icon: 'x', tooltip: '取消选择 Esc', onTap: () => ref.read(filesProvider.notifier).clearSelection()),
+            const SizedBox(width: 4),
+            OlGhostButton(label: '下载', icon: 'download', height: 28, onTap: () async {
+              for (final item in state.selectedItems) {
+                await downloadItem(context, ref, item);
+              }
+            }),
+            const SizedBox(width: 6),
+            OlGhostButton(label: '删除', icon: 'trash', height: 28, onTap: () => deleteItems(context, ref, state.selectedItems)),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
+            ),
+          ),
+          OlSeg<bool>(
+            items: const [
+              OlSegItem(false, '列表', icon: 'list'),
+              OlSegItem(true, '网格', icon: 'grid'),
+            ],
+            value: state.grid,
+            onChanged: (v) {
+              if (v != state.grid) ref.read(filesProvider.notifier).toggleGrid();
+            },
+          ),
+          const SizedBox(width: 8),
+          OlPrimaryButton(label: '上传', icon: 'upload', height: 30, onTap: onUpload),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 列表视图（行高 44）
+// ---------------------------------------------------------------------------
+class _ListView extends ConsumerWidget {
+  final FilesState state;
+  final ScrollController scroll;
+
+  const _ListView({required this.state, required this.scroll});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1128,22 +710,57 @@ class _TableBody extends ConsumerWidget {
         Container(
           height: 28,
           color: p.tableHeadBg,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: [
-              const SizedBox(width: 30),
-              Expanded(child: Text('名称', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.7, color: p.th))),
-              SizedBox(width: 74, child: Text('大小', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.7, color: p.th))),
-              SizedBox(width: 108, child: Text('修改时间', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.7, color: p.th))),
+              const SizedBox(width: 22),
+              Expanded(
+                flex: 5,
+                child: _SortHeader(label: '名称', field: 'name', state: state),
+              ),
+              Expanded(
+                flex: 2,
+                child: _SortHeader(label: '大小', field: 'size', state: state),
+              ),
+              Expanded(
+                flex: 3,
+                child: _SortHeader(label: '修改时间', field: 'modified', state: state),
+              ),
               const SizedBox(width: 34),
             ],
           ),
         ),
+        if (state.error != null && state.offline) _OfflineBanner(message: state.error!, color: p.card),
         Expanded(
-          child: ListView.builder(
-            controller: controller,
-            itemCount: items.length,
-            itemBuilder: (context, index) => _TableRow(item: items[index], files: files),
+          child: Scrollbar(
+            controller: scroll,
+            thumbVisibility: true,
+            child: ListView.builder(
+              controller: scroll,
+              itemCount: state.items.length + (state.hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index >= state.items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+                  );
+                }
+                final item = state.items[index];
+                return _FileRow(
+                  item: item,
+                  selected: state.selected.contains(item.name),
+                  onTap: () => ref.read(filesProvider.notifier).toggleSelect(item.name),
+                  onDoubleTap: () async {
+                    if (item.isDir) {
+                      ref.read(filesProvider.notifier).open(joinPath(state.path, item.name));
+                    } else {
+                      await openItem(context, ref, item);
+                    }
+                  },
+                  onSecondaryTap: (pos) => showItemMenu(context, ref, item, pos),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -1151,308 +768,39 @@ class _TableBody extends ConsumerWidget {
   }
 }
 
-class _TableRow extends ConsumerStatefulWidget {
-  final FileItem item;
-  final FilesState files;
+class _SortHeader extends ConsumerWidget {
+  final String label;
+  final String field;
+  final FilesState state;
 
-  const _TableRow({required this.item, required this.files});
-
-  @override
-  ConsumerState<_TableRow> createState() => _TableRowState();
-}
-
-class _TableRowState extends ConsumerState<_TableRow> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final item = widget.item;
-    final selected = widget.files.selected.contains(item.name);
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          final ctrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
-          final notifier = ref.read(filesProvider.notifier);
-          if (ctrl) {
-            notifier.toggleSelect(item.name);
-          } else {
-            notifier.clearSelection();
-            notifier.toggleSelect(item.name);
-          }
-        },
-        onDoubleTap: () => openItem(context, ref, item),
-        onSecondaryTapDown: (details) => showItemMenu(context, ref, item, details.globalPosition),
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: selected ? p.rowSel : (_hover ? p.rowHover : Colors.transparent),
-            border: Border(bottom: BorderSide(color: p.hairline)),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 30,
-                child: OlCheckbox(
-                  value: selected,
-                  onChanged: (_) => ref.read(filesProvider.notifier).toggleSelect(item.name),
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    FileGlyph(item: item),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.isDark ? const Color(0xFFDCE9F4) : const Color(0xFF17293D)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: 74,
-                child: Text(item.isDir ? '—' : formatBytes(item.size), style: TextStyle(fontSize: 11, color: p.ink3)),
-              ),
-              SizedBox(
-                width: 108,
-                child: Text(formatDate(item.modified), style: TextStyle(fontSize: 11, color: p.ink3)),
-              ),
-              SizedBox(
-                width: 34,
-                child: GestureDetector(
-                  onTapDown: (details) => showItemMenu(context, ref, item, details.globalPosition),
-                  child: Center(
-                    child: OlIcon('more', size: 13, color: selected ? OlTokens.sky600 : const Color(0xFFC2CFDB)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GridBody extends ConsumerWidget {
-  final List<FileItem> items;
-  final FilesState files;
-
-  const _GridBody({required this.items, required this.files});
+  const _SortHeader({required this.label, required this.field, required this.state});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    return GridView.builder(
-      padding: const EdgeInsets.all(14),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 168, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.22),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final selected = files.selected.contains(item.name);
-        return InkWell(
-          onTap: () {
-            ref.read(filesProvider.notifier).clearSelection();
-            ref.read(filesProvider.notifier).toggleSelect(item.name);
-          },
-          onDoubleTap: () => openItem(context, ref, item),
-          onSecondaryTapDown: (details) => showItemMenu(context, ref, item, details.globalPosition),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: selected ? p.rowSel : (p.isDark ? const Color(0xFF0F1D2C) : Colors.white),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: selected ? OlTokens.sky : p.line2),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FileGlyph(item: item, size: 36, radius: 10, iconSize: 18),
-                const Spacer(),
-                Text(
-                  item.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: p.ink),
-                ),
-                const SizedBox(height: 3),
-                Text(item.isDir ? '文件夹' : formatBytes(item.size), style: TextStyle(fontSize: 9, color: p.ink4)),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _DetailPanel extends ConsumerWidget {
-  final FileItem item;
-  final VoidCallback onClose;
-
-  const _DetailPanel({required this.item, required this.onClose});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final files = ref.watch(filesProvider);
-    final kind = kindOf(item.name, item.isDir);
-    final siblings = files.items.where((e) => e.name != item.name).take(4).toList();
-    final isMedia = kind == FileKind.video || kind == FileKind.image;
-
-    return Container(
-      width: 250,
-      decoration: BoxDecoration(
-        color: p.surfaceAlt,
-        border: Border(left: BorderSide(color: p.line2)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final active = state.orderBy == field;
+    return GestureDetector(
+      onTap: () => ref.read(filesProvider.notifier).setSort(field),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Text('详情', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.th)),
-                const Spacer(),
-                OlIconButton(icon: 'x', size: 20, iconSize: 13, onTap: onClose),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (isMedia)
-              OlMediaThumb(
-                height: 112,
-                title: baseName(item.name).toUpperCase(),
-                subtitle: kind == FileKind.video ? 'MEDIA · RANGE STREAM' : 'IMAGE PREVIEW',
-                tag: extensionOf(item.name).toUpperCase(),
-              )
-            else
-              Container(
-                height: 112,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF5F9FC), Color(0xFFEAF2F9)]),
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: p.line2),
-                ),
-                child: Center(
-                  child: FileGlyph(item: item, size: 56, radius: 16, iconSize: 26),
+            Flexible(
+              child: Text(
+                label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: active ? OlTokens.sky600 : p.th,
                 ),
               ),
-            const SizedBox(height: 10),
-            Text(
-              item.name,
-              style: TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w800, color: p.isDark ? const Color(0xFFDCE9F4) : const Color(0xFF17293D)),
             ),
-            const SizedBox(height: 3),
-            Text(
-              item.isDir ? '文件夹' : '${formatBytes(item.size)} · ${extensionOf(item.name).toUpperCase()}',
-              style: TextStyle(fontSize: 10, color: p.ink4),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                if (isMedia)
-                  Expanded(
-                    child: _DetailButton(
-                      icon: 'play',
-                      label: '播放',
-                      primary: true,
-                      onTap: () => openItem(context, ref, item),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: _DetailButton(
-                      icon: 'external',
-                      label: '打开',
-                      primary: true,
-                      onTap: () => openItem(context, ref, item),
-                    ),
-                  ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _DetailButton(
-                    icon: 'download',
-                    label: '下载',
-                    onTap: () => downloadItem(context, ref, item),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: _DetailButton(
-                    icon: 'share',
-                    label: '分享',
-                    onTap: () => shareItem(context, ref, item),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _DetailButton(icon: 'more', label: '更多', onTap: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final position = box == null ? Offset.zero : box.localToGlobal(const Offset(10, 10));
-                    showItemMenu(context, ref, item, position);
-                  }),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: p.isDark ? const Color(0xFF0F1D2C) : const Color(0xFFF7FAFD),
-                border: Border.all(color: p.line2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  _MetaRow(label: '位置', value: files.path),
-                  _MetaRow(label: '存储', value: files.provider ?? '—'),
-                  _MetaRow(label: '修改时间', value: formatDateTime(item.modified)),
-                  if (item.hashInfo != null) _MetaRow(label: '哈希', value: item.hashInfo!, mono: true),
-                ],
-              ),
-            ),
-            if (siblings.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text('同目录', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.th)),
-              const SizedBox(height: 4),
-              for (final sibling in siblings)
-                InkWell(
-                  onTap: () {
-                    ref.read(filesProvider.notifier).clearSelection();
-                    ref.read(filesProvider.notifier).toggleSelect(sibling.name);
-                  },
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
-                    child: Row(
-                      children: [
-                        FileGlyph(item: sibling, size: 22, radius: 6, iconSize: 11),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(sibling.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: p.ink2)),
-                        ),
-                        Text(sibling.isDir ? '—' : formatBytes(sibling.size, digits: 0), style: TextStyle(fontSize: 9, color: p.ink4)),
-                      ],
-                    ),
-                  ),
-                ),
+            if (active) ...[
+              const SizedBox(width: 3),
+              OlIcon(state.desc ? 'chev-d' : 'chev-u', size: 11, color: OlTokens.sky600),
             ],
           ],
         ),
@@ -1461,35 +809,92 @@ class _DetailPanel extends ConsumerWidget {
   }
 }
 
-class _DetailButton extends StatelessWidget {
-  final String icon;
-  final String label;
+class _FileRow extends StatefulWidget {
+  final FileItem item;
+  final bool selected;
   final VoidCallback onTap;
-  final bool primary;
+  final VoidCallback onDoubleTap;
+  final ValueChanged<Offset> onSecondaryTap;
 
-  const _DetailButton({required this.icon, required this.label, required this.onTap, this.primary = false});
+  const _FileRow({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.onSecondaryTap,
+  });
+
+  @override
+  State<_FileRow> createState() => _FileRowState();
+}
+
+class _FileRowState extends State<_FileRow> {
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    final item = widget.item;
     return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        onDoubleTap: widget.onDoubleTap,
+        onSecondaryTapDown: (d) => widget.onSecondaryTap(d.globalPosition),
         child: Container(
-          height: 28,
+          height: OlGap.rowDesktop,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            gradient: primary ? OlTokens.gradientPrimary : null,
-            color: primary ? null : p.card,
-            border: Border.all(color: primary ? Colors.transparent : (p.isDark ? const Color(0xFF1E3044) : const Color(0xFFE6EDF5))),
-            borderRadius: BorderRadius.circular(7),
+            color: widget.selected ? p.rowSel : (_hover ? p.rowHover : null),
+            border: Border(bottom: BorderSide(color: p.divider)),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              OlIcon(icon, size: 12, color: primary ? Colors.white : p.ink3),
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: primary ? Colors.white : p.ink2)),
+              OlCheckbox(value: widget.selected, onChanged: (_) => widget.onTap()),
+              const SizedBox(width: 9),
+              FileGlyph(item: item, size: 29, radius: 8, iconSize: 15),
+              const SizedBox(width: 9),
+              Expanded(
+                flex: 5,
+                child: Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  item.isDir ? '—' : formatBytes(item.size),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w550, color: p.ink3),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  formatDate(item.modified),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w550, color: p.ink3),
+                ),
+              ),
+              SizedBox(
+                width: 34,
+                child: _hover || widget.selected
+                    ? OlIconButton(
+                        icon: 'more',
+                        size: 24,
+                        iconSize: 14,
+                        onTap: () async {
+                          final box = context.findRenderObject() as RenderBox?;
+                          final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(20, 40));
+                          await widget.onSecondaryTap(pos);
+                        },
+                      )
+                    : null,
+              ),
             ],
           ),
         ),
@@ -1498,38 +903,295 @@ class _DetailButton extends StatelessWidget {
   }
 }
 
-class _MetaRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool mono;
+// ---------------------------------------------------------------------------
+// 网格视图
+// ---------------------------------------------------------------------------
+class _GridView extends ConsumerWidget {
+  final FilesState state;
+  final ScrollController scroll;
 
-  const _MetaRow({required this.label, required this.value, this.mono = false});
+  const _GridView({required this.state, required this.scroll});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    return Scrollbar(
+      controller: scroll,
+      thumbVisibility: true,
+      child: GridView.builder(
+        controller: scroll,
+        padding: const EdgeInsets.all(14),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 150,
+          mainAxisExtent: 132,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
+        itemCount: state.items.length,
+        itemBuilder: (context, index) {
+          final item = state.items[index];
+          return _GridTile(
+            item: item,
+            selected: state.selected.contains(item.name),
+            onTap: () => ref.read(filesProvider.notifier).toggleSelect(item.name),
+            onDoubleTap: () async {
+              if (item.isDir) {
+                ref.read(filesProvider.notifier).open(joinPath(state.path, item.name));
+              } else {
+                await openItem(context, ref, item);
+              }
+            },
+            onSecondaryTap: (pos) => showItemMenu(context, ref, item, pos),
+            borderColor: p.line,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GridTile extends StatelessWidget {
+  final FileItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+  final ValueChanged<Offset> onSecondaryTap;
+  final Color borderColor;
+
+  const _GridTile({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.onSecondaryTap,
+    required this.borderColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: p.ink3)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
+    return GestureDetector(
+      onTap: onTap,
+      onDoubleTap: onDoubleTap,
+      onSecondaryTapDown: (d) => onSecondaryTap(d.globalPosition),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected ? p.rowSel : p.card,
+          borderRadius: BorderRadius.circular(OlTokens.r3),
+          border: Border.all(color: selected ? OlTokens.sky600 : borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: FileGlyph(item: item, size: 52, radius: 12, iconSize: 24)),
+            const SizedBox(height: 9),
+            Text(
+              item.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: mono ? 9 : 10,
-                fontWeight: FontWeight.w700,
-                fontFamily: mono ? 'monospace' : null,
-                color: p.isDark ? const Color(0xFFC7D8E6) : const Color(0xFF22364B),
-              ),
+              style: TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w700, color: p.ink),
+            ),
+            const Spacer(),
+            Text(
+              item.isDir ? '文件夹' : formatBytes(item.size),
+              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 四态：空 / 骨架 / 错误 / 离线
+// ---------------------------------------------------------------------------
+class _EmptyBody extends ConsumerWidget {
+  const _EmptyBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(filesProvider);
+    return OlEmptyState(
+      icon: 'folder',
+      title: '这个目录是空的',
+      subtitle: state.canWrite ? '把文件拖进来，或者上传第一批文件。' : '当前目录没有可显示的内容。',
+      action: state.canWrite
+          ? OlPrimaryButton(label: '上传文件', icon: 'upload', height: 32, onTap: () => pickAndUpload(context, ref))
+          : null,
+    );
+  }
+}
+
+class _LoadingBody extends StatelessWidget {
+  const _LoadingBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return ListView.builder(
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return Container(
+          height: OlGap.rowDesktop,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
+          child: Row(
+            children: [
+              const OlSkeleton(height: 29, width: 29, radius: 8),
+              const SizedBox(width: 9),
+              Expanded(flex: 5, child: OlSkeleton(height: 10, width: 140 + (index % 3) * 40.0)),
+              Expanded(flex: 2, child: OlSkeleton(height: 9, width: 48)),
+              Expanded(flex: 3, child: OlSkeleton(height: 9, width: 72)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ErrorBody extends ConsumerWidget {
+  final String message;
+  const _ErrorBody({required this.message});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF1F3),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Center(child: OlIcon('alert', size: 22, color: Color(0xFFD92D4B))),
+          ),
+          const SizedBox(height: 14),
+          Text('无法加载该目录', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 320,
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, height: 1.6, color: p.ink3),
+            ),
+          ),
+          const SizedBox(height: 14),
+          OlPrimaryButton(
+            label: '重试',
+            icon: 'refresh',
+            height: 32,
+            onTap: () => ref.read(filesProvider.notifier).refresh(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  final String message;
+  final Color color;
+  const _OfflineBanner({required this.message, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6E5),
+        border: Border(bottom: BorderSide(color: const Color(0xFFF59E0B).withAlpha(60))),
+      ),
+      child: Row(
+        children: [
+          const OlIcon('wifi', size: 14, color: Color(0xFFB47405)),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '离线：正在显示已缓存内容 · $message',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFFB47405)),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 拖拽提示 + 状态栏
+// ---------------------------------------------------------------------------
+class _DropHint extends ConsumerWidget {
+  final bool active;
+  const _DropHint({required this.active});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final state = ref.watch(filesProvider);
+    final folder = baseName(state.path);
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFEAF8FE) : p.surfaceAlt,
+        border: Border(top: BorderSide(color: p.line2)),
+      ),
+      child: Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OlIcon('upload', size: 13, color: active ? OlTokens.sky600 : const Color(0xFFB4C3D1)),
+            const SizedBox(width: 7),
+            Text(
+              '将文件拖到这里，上传到「$folder」',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: active ? const Color(0xFF0A93C4) : const Color(0xFFB4C3D1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DropOverlay extends StatelessWidget {
+  const _DropOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          margin: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0x0F38BDF8),
+            borderRadius: BorderRadius.circular(OlTokens.r3),
+            border: Border.all(color: OlTokens.sky600, width: 1.5),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OlIcon('upload', size: 30, color: Color(0xFF0EA5E9)),
+                SizedBox(height: 10),
+                Text('松开即可上传', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0A93C4))),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1542,124 +1204,198 @@ class _StatusBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
-    final files = ref.watch(filesProvider);
+    final transfers = ref.watch(transfersProvider);
+    final speed = transfers.downSpeed;
     return Container(
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(color: p.surfaceAlt, border: Border(top: BorderSide(color: p.line2))),
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        border: Border(top: BorderSide(color: p.line2)),
+      ),
       child: Row(
         children: [
-          OlDot(color: session.signedIn ? OlTokens.ok : OlTokens.warn, size: 5),
+          const OlDot(color: OlTokens.ok, size: 5),
           const SizedBox(width: 5),
           Text(
-            session.signedIn ? '已连接 · 延迟 ${session.latencyMs ?? '—'} ms' : '未连接',
-            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink4),
+            session.signedIn
+                ? '已连接${session.latencyMs == null ? '' : ' · 延迟 ${session.latencyMs} ms'}'
+                : '未连接',
+            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
           ),
-          const SizedBox(width: 12),
-          Text(
-            files.provider == null ? '—' : '${files.provider} · ${files.items.length} 项已加载',
-            style: TextStyle(fontSize: 9.5, color: p.ink4),
-          ),
-          const Spacer(),
-          if (!files.canWrite)
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Text('只读目录', style: TextStyle(fontSize: 9.5, color: OlTokens.warn)),
+          const SizedBox(width: 14),
+          if (speed > 0) ...[
+            Text(
+              '${session.profile?.name ?? '服务器'} · 读取 ${formatSpeed(speed)}',
+              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
             ),
-          Text(session.profile?.version ?? session.site?.version ?? 'API v4', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+            const SizedBox(width: 14),
+          ],
+          const Spacer(),
+          Text(
+            session.site?.version == null ? 'API v4' : 'v${session.site!.version}',
+            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ErrorBanner extends ConsumerWidget {
-  final String message;
-  final bool offline;
-
-  const _ErrorBanner({required this.message, this.offline = false});
+// ---------------------------------------------------------------------------
+// 详情面板（W2 右侧 250px）
+// ---------------------------------------------------------------------------
+class _DetailPanel extends ConsumerWidget {
+  const _DetailPanel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF6F7),
-        border: Border.all(color: const Color(0xFFFFDCE2)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const OlIcon('alert', size: 14, color: Color(0xFFD92D4B)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              offline ? '$message · 正在显示本地缓存' : message,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFB42A45)),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => ref.read(filesProvider.notifier).refresh(),
-            child: const Text('重试', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF0A93C4))),
-          ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () => context.push('/settings?tab=diagnostics'),
-            child: const Text('诊断', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF7C8FA3))),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFFE9FBF5), borderRadius: BorderRadius.circular(99), border: Border.all(color: const Color(0xFFCFF1E8))),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          OlDot(size: 5, color: OlTokens.teal600),
-          SizedBox(width: 6),
-          Text('离线可用 · 写操作已禁用', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF0B7A63))),
-        ],
-      ),
-    );
-  }
-}
-
-class _SkeletonTable extends StatelessWidget {
-  final bool grid;
-  const _SkeletonTable({this.grid = false});
-
-  @override
-  Widget build(BuildContext context) {
     final p = context.ol;
-    return Column(
-      children: [
-        Container(height: 28, color: p.tableHeadBg),
-        for (var i = 0; i < 7; i++)
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
+    final state = ref.watch(filesProvider);
+    final items = state.selectedItems;
+    final item = items.length == 1 ? items.first : null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        border: Border(left: BorderSide(color: p.line2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
             child: Row(
               children: [
-                const OlSkeleton(width: 13, height: 13, radius: 4),
-                const SizedBox(width: 12),
-                const OlSkeleton(width: 24, height: 24, radius: 7),
-                const SizedBox(width: 9),
-                Expanded(child: OlSkeleton(width: 120 + (i % 4) * 42, height: 9)),
-                OlSkeleton(width: 46, height: 9),
-                const SizedBox(width: 24),
-                OlSkeleton(width: 68, height: 9),
+                Expanded(
+                  child: Text(
+                    '详情',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: p.th),
+                  ),
+                ),
+                if (item != null)
+                  OlIconButton(icon: 'x', size: 22, iconSize: 12, onTap: () => ref.read(filesProvider.notifier).clearSelection()),
+              ],
+            ),
+          ),
+          if (item == null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    items.isEmpty ? '选中一个项目查看详情' : '已选中 ${items.length} 个项目',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, height: 1.6, color: p.ink4),
+                  ),
+                ),
+              ),
+            )
+          else
+            Expanded(child: _DetailBody(item: item, dir: state.path)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailBody extends ConsumerWidget {
+  final FileItem item;
+  final String dir;
+  const _DetailBody({required this.item, required this.dir});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final kind = kindOf(item.name, item.isDir);
+    final fullPath = joinPath(dir, item.name);
+    final favorites = ref.watch(favoritesProvider);
+    final serverId = ref.read(sessionProvider).profile?.id;
+    final isFav = favorites.isFavorite(serverId, fullPath);
+    final siblings = ref.read(filesProvider.notifier).siblingsOf(item.name);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      children: [
+        OlMediaThumb(
+          height: 112,
+          title: item.name,
+          subtitle: item.isDir ? '文件夹' : (extensionOf(item.name).toUpperCase().isEmpty ? '文件' : extensionOf(item.name).toUpperCase()),
+          tag: kind == FileKind.video ? '4K HDR' : null,
+          imageUrl: item.thumb,
+        ),
+        const SizedBox(height: 10),
+        Text(item.name, style: TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w800, color: p.ink)),
+        const SizedBox(height: 3),
+        Text(
+          item.isDir ? '文件夹' : '${formatBytes(item.size)} · ${extensionOf(item.name).toUpperCase()}',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink4),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _DetailAction(icon: 'play', label: '播放', onTap: () => openItem(context, ref, item))),
+            const SizedBox(width: 6),
+            Expanded(child: _DetailAction(icon: 'download', label: '下载', onTap: () => downloadItem(context, ref, item))),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(child: _DetailAction(icon: 'share', label: '分享', onTap: () => shareItem(context, ref, item))),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _DetailAction(
+                icon: isFav ? 'star' : 'star',
+                label: '收藏',
+                active: isFav,
+                onTap: () => ref.read(favoritesProvider.notifier).toggle(serverId ?? '', item, dir),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+            color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF7FAFD),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: p.line2),
+          ),
+          child: Column(
+            children: [
+              _MetaRow('位置', dir),
+              _MetaRow('存储', item.provider ?? '—'),
+              _MetaRow('修改时间', formatDateTime(item.modified)),
+              _MetaRow('哈希', item.hashInfo ?? '—'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '同目录',
+          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: p.th),
+        ),
+        const SizedBox(height: 5),
+        for (final s in siblings)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                FileGlyph(item: s, size: 22, radius: 6, iconSize: 11),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    s.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2),
+                  ),
+                ),
+                Text(
+                  s.isDir ? '—' : formatBytes(s.size),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink4),
+                ),
               ],
             ),
           ),
@@ -1668,30 +1404,400 @@ class _SkeletonTable extends StatelessWidget {
   }
 }
 
-class _SkeletonRow extends StatelessWidget {
-  const _SkeletonRow();
+class _DetailAction extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _DetailAction({required this.icon, required this.label, required this.onTap, this.active = false});
 
   @override
   Widget build(BuildContext context) {
+    final p = context.ol;
+    final fg = active ? OlTokens.sky600 : const Color(0xFF3E5268);
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: 28,
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: p.line),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OlIcon(icon, size: 12, color: fg),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _MetaRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        children: const [
-          OlSkeleton(width: 36, height: 36, radius: 10),
-          SizedBox(width: 10),
-          Expanded(child: OlSkeleton(height: 10)),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 62,
+            child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink4)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(value, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: p.ink2)),
+          ),
         ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------- mobile
+// ---------------------------------------------------------------------------
+// A2 · Android 头部 / 挂载卡片 / 筛选 / 面包屑 / 行 / FAB
+// ---------------------------------------------------------------------------
+class _MobileHeader extends ConsumerWidget {
+  final FilesState state;
+  const _MobileHeader({required this.state});
 
-/// 右下角主按钮：58px，展开时旋转 45° 变成关闭。
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final session = ref.watch(sessionProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 12, OlGap.pageMobile, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  session.profile?.displayHost ?? '未连接',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
+                ),
+              ),
+              OlIconButton(icon: 'refresh', size: 30, onTap: () => ref.read(filesProvider.notifier).refresh()),
+              const SizedBox(width: 4),
+              OlIconButton(icon: 'search', size: 30, onTap: () => context.go('/search')),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text('所有文件', style: OlText.title.copyWith(color: p.ink)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(color: p.chipBg, borderRadius: BorderRadius.circular(OlTokens.rPill)),
+                child: Text(
+                  '${state.total} 项',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: p.ink3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('最近修改', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink4)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileMounts extends ConsumerWidget {
+  const _MobileMounts();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
+    if (storages.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 74,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile, vertical: 6),
+        scrollDirection: Axis.horizontal,
+        itemCount: storages.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) => _MountCard(mount: storages[index]),
+      ),
+    );
+  }
+}
+
+class _MountCard extends ConsumerWidget {
+  final StorageMount mount;
+  const _MountCard({required this.mount});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final ratio = mount.usageRatio ?? 0;
+    return GestureDetector(
+      onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(OlTokens.r3),
+          border: Border.all(color: p.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: mount.isUp ? OlTokens.sky600 : const Color(0xFF9AABBC),
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    mount.driver.isEmpty ? mount.mountPath : mount.driver,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              formatBytes(mount.totalSpace),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: p.ink),
+            ),
+            const SizedBox(height: 5),
+            OlUsageBar(value: ratio),
+            const SizedBox(height: 4),
+            Text(
+              mount.usageRatio == null ? (mount.isUp ? '正常' : '离线') : '已用 ${formatBytes(mount.usedSpace)} · ${(ratio * 100).round()}%',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileKindFilter extends ConsumerStatefulWidget {
+  const _MobileKindFilter();
+
+  @override
+  ConsumerState<_MobileKindFilter> createState() => _MobileKindFilterState();
+}
+
+class _MobileKindFilterState extends ConsumerState<_MobileKindFilter> {
+  String _kind = 'all';
+
+  static const kinds = <String, String>{
+    'all': '全部',
+    'video': '视频',
+    'image': '图片',
+    'text': '文档',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final items = ref.watch(filesProvider).items.where((e) {
+      if (_kind == 'all') return true;
+      return kindOf(e.name, e.isDir) == _kindOf(_kind);
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 4, OlGap.pageMobile, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final entry in kinds.entries)
+                OlChip(
+                  label: entry.value,
+                  selected: _kind == entry.key,
+                  onTap: () => setState(() => _kind = entry.key),
+                ),
+            ],
+          ),
+          if (_kind != 'all')
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '筛选出 ${items.length} 项 · 点击可打开',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: context.ol.ink4),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  FileKind _kindOf(String key) {
+    switch (key) {
+      case 'video':
+        return FileKind.video;
+      case 'image':
+        return FileKind.image;
+      case 'text':
+        return FileKind.text;
+      default:
+        return FileKind.other;
+    }
+  }
+}
+
+class _MobileBreadcrumb extends ConsumerWidget {
+  final FilesState state;
+  const _MobileBreadcrumb({required this.state});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final segs = segmentsOf(state.path);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 6, OlGap.pageMobile, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => ref.read(filesProvider.notifier).open('/'),
+                child: Text('全部文件', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0A93C4))),
+              ),
+              for (var i = 0; i < segs.length; i++) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: OlIcon('chev-r', size: 11, color: p.ink4),
+                ),
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => ref.read(filesProvider.notifier).open('/${segs.take(i + 1).join('/')}'),
+                    child: Text(
+                      segs[i],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink2),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 6),
+              Text('/', style: TextStyle(fontSize: 12, color: p.ink4)),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${state.folderCount} 个文件夹 · ${state.fileCount} 个文件',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileRow extends StatelessWidget {
+  final FileItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _MobileRow({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Material(
+      color: selected ? p.rowSel : p.card,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          height: OlGap.rowMobile,
+          padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
+          child: Row(
+            children: [
+              FileGlyph(item: item, size: 36, radius: 10, iconSize: 17),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.isDir
+                          ? '文件夹'
+                          : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w550, color: p.ink4),
+                    ),
+                  ],
+                ),
+              ),
+              OlIcon('more-v', size: 16, color: p.ink4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileFab extends StatefulWidget {
-  final Future<void> Function() onTap;
-  const _MobileFab({required this.onTap});
+  final VoidCallback onNewFolder;
+  final VoidCallback onUpload;
+  final VoidCallback onOffline;
+
+  const _MobileFab({required this.onNewFolder, required this.onUpload, required this.onOffline});
 
   @override
   State<_MobileFab> createState() => _MobileFabState();
@@ -1700,344 +1806,78 @@ class _MobileFab extends StatefulWidget {
 class _MobileFabState extends State<_MobileFab> {
   bool _open = false;
 
-  Future<void> _tap() async {
-    setState(() => _open = true);
-    try {
-      await widget.onTap();
-    } finally {
-      if (mounted) setState(() => _open = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedRotation(
-      turns: _open ? 0.125 : 0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: _tap,
+    final p = context.ol;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_open) ...[
+          _FabItem(label: '新建文件夹', icon: 'folder-plus', onTap: widget.onNewFolder, card: p.card, line: p.line, ink: p.ink2),
+          const SizedBox(height: 8),
+          _FabItem(label: '上传文件', icon: 'upload', onTap: widget.onUpload, card: p.card, line: p.line, ink: p.ink2),
+          const SizedBox(height: 8),
+          _FabItem(label: '离线下载', icon: 'cloud-dl', onTap: widget.onOffline, card: p.card, line: p.line, ink: p.ink2),
+          const SizedBox(height: 10),
+        ],
+        GestureDetector(
+          onTap: () => setState(() => _open = !_open),
           child: Container(
-            width: 58,
-            height: 58,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
-              gradient: OlTokens.gradientBrand,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [BoxShadow(color: Color(0xD914A5E9), blurRadius: 26, offset: Offset(0, 12), spreadRadius: -10)],
+              gradient: OlTokens.gradientPrimary,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: const [BoxShadow(color: Color(0x6638BDF8), blurRadius: 18, offset: Offset(0, 8))],
             ),
-            child: const Center(child: OlIcon('plus', size: 24, color: Colors.white, strokeWidth: 2.3)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileHeader extends ConsumerWidget {
-  final String path;
-  const _MobileHeader({required this.path});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final profile = ref.watch(sessionProvider).profile;
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Row(
-        children: [
-          if (path != '/')
-            GestureDetector(
-              onTap: () => ref.read(filesProvider.notifier).goUp(),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: OlIcon('chev-l', size: 18, color: p.ink3),
-              ),
-            ),
-          GestureDetector(
-            onTap: () => context.push('/servers'),
-            child: Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              decoration: BoxDecoration(
-                color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFF1F8FC),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFE3EFF7)),
-              ),
-              child: Row(
-                children: [
-                  const OlDot(size: 6),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 130),
-                    child: Text(
-                      profile?.displayHost ?? '未连接',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.isDark ? const Color(0xFFC7D8E6) : const Color(0xFF3E5268)),
-                    ),
-                  ),
-                  const SizedBox(width: 3),
-                  OlIcon('chev-r', size: 11, color: p.ink4),
-                ],
-              ),
+            child: Center(
+              child: OlIcon(_open ? 'x' : 'plus', size: 24, color: Colors.white, strokeWidth: 2.2),
             ),
           ),
-          const Spacer(),
-          _CircleButton(icon: 'search', onTap: () => context.push('/search')),
-          const SizedBox(width: 8),
-          // 新建 / 上传 / 离线下载已收进右下角主按钮，右上角只留刷新。
-          _CircleButton(
-            icon: 'refresh',
-            onTap: () => ref.read(filesProvider.notifier).refresh(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CircleButton extends StatelessWidget {
-  final String icon;
-  final VoidCallback onTap;
-  const _CircleButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFF4F8FC),
-          shape: BoxShape.circle,
-          border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFE9F0F7)),
         ),
-        child: Center(child: OlIcon(icon, size: 16, color: p.isDark ? const Color(0xFF93A9BD) : const Color(0xFF5E7288))),
-      ),
+      ],
     );
   }
 }
 
-class _SortChip extends ConsumerWidget {
-  const _SortChip();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final files = ref.watch(filesProvider);
-    final label = switch (files.orderBy) {
-      'size' => '按大小',
-      'modified' => '修改时间',
-      _ => '名称',
-    };
-    return GestureDetector(
-      onTapDown: (details) async {
-        await showOlMenu(context, position: details.globalPosition, items: [
-          OlMenuItem('名称 A → Z', 'sort', () => ref.read(filesProvider.notifier).setSort('name', desc: false)),
-          OlMenuItem('名称 Z → A', 'sort', () => ref.read(filesProvider.notifier).setSort('name', desc: true)),
-          OlMenuItem('大小 从大到小', 'sort', () => ref.read(filesProvider.notifier).setSort('size', desc: true)),
-          OlMenuItem('修改时间 最新', 'sort', () => ref.read(filesProvider.notifier).setSort('modified', desc: true)),
-        ]);
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 3),
-        child: Row(
-          children: [
-            Text('$label${files.desc ? ' ↓' : ' ↑'}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF0A93C4))),
-            const OlIcon('chev-d', size: 10, color: Color(0xFF0A93C4)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileStorageRow extends ConsumerWidget {
-  const _MobileStorageRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final storages = ref.watch(storagesProvider);
-    final mounts = storages.valueOrNull ?? const <StorageMount>[];
-    if (mounts.isEmpty) return const SizedBox.shrink();
-    final gradients = const [
-      [Color(0xFF0E3A52), Color(0xFF0C6470)],
-      [Color(0xFF3B2C6E), Color(0xFF5B4BB7)],
-      [Color(0xFF6A3E12), Color(0xFFA8641B)],
-    ];
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        itemCount: mounts.length,
-        itemBuilder: (context, index) {
-          final mount = mounts[index];
-          final ratio = mount.usageRatio;
-          final gradient = gradients[index % gradients.length];
-          return GestureDetector(
-            onTap: () => ref.read(filesProvider.notifier).open(mount.mountPath),
-            child: Container(
-            width: 152,
-            height: 96,
-            margin: const EdgeInsets.only(right: 10, top: 2),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: gradient),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const OlIcon('cloud', size: 12, color: Color(0xB8FFFFFF)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        baseName(mount.mountPath),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xB8FFFFFF)),
-                      ),
-                    ),
-                    const OlIcon('chev-r', size: 11, color: Color(0x8CFFFFFF)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  mount.totalSpace == null ? '—' : formatBytes(mount.totalSpace, digits: 1),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: Colors.white),
-                ),
-                const Spacer(),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: Container(
-                    height: 3,
-                    color: const Color(0x38FFFFFF),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: (ratio ?? (mount.isUp ? 0.05 : 0.02)).clamp(0.02, 1.0).toDouble(),
-                      child: Container(color: Colors.white),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  ratio == null
-                      ? (mount.isUp ? '正常 · ${mount.driver}' : '异常 · ${mount.driver}')
-                      : '已用 ${formatBytes(mount.usedSpace ?? 0)} · ${(ratio * 100).round()}%',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 8, color: Color(0x9EFFFFFF)),
-                ),
-              ],
-            ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MobileRow extends StatelessWidget {
-  final FileItem item;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _MobileRow({required this.item, required this.onTap, required this.onLongPress});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        height: 58,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.isDark ? const Color(0xFF142435) : const Color(0xFFF4F8FB)))),
-        child: Row(
-          children: [
-            FileGlyph(item: item, size: 36, radius: 10, iconSize: 17),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: -0.1, color: p.isDark ? const Color(0xFFDCE9F4) : const Color(0xFF1B2F43)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.isDir ? '文件夹 · ${formatDate(item.modified)}' : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
-                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink4),
-                  ),
-                ],
-              ),
-            ),
-            OlIcon(item.isDir ? 'chev-r' : 'more-v', size: 14, color: const Color(0xFFC2CFDB)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetAction extends StatelessWidget {
-  final String icon;
+class _FabItem extends StatelessWidget {
   final String label;
+  final String icon;
   final VoidCallback onTap;
+  final Color card;
+  final Color line;
+  final Color ink;
 
-  const _SheetAction({required this.icon, required this.label, required this.onTap});
+  const _FabItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.card,
+    required this.line,
+    required this.ink,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: BorderRadius.circular(OlTokens.rPill),
+          border: Border.all(color: line),
+          boxShadow: const [BoxShadow(color: Color(0x1A0D1B2A), blurRadius: 12, offset: Offset(0, 4))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFF2F8FC), borderRadius: BorderRadius.circular(14)),
-              child: Center(child: OlIcon(icon, size: 19, color: p.isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0A93C4))),
-            ),
-            const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: p.ink2)),
+            OlIcon(icon, size: 15, color: const Color(0xFF0EA5E9)),
+            const SizedBox(width: 7),
+            Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: ink)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MobileError extends StatelessWidget {
-  final String message;
-  const _MobileError({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: const Color(0xFFFFF6F7), border: Border.all(color: const Color(0xFFFFDCE2)), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          const OlIcon('alert', size: 14, color: Color(0xFFD92D4B)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message, style: const TextStyle(fontSize: 11, color: Color(0xFFB42A45), fontWeight: FontWeight.w600))),
-        ],
       ),
     );
   }

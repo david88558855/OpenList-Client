@@ -1,18 +1,23 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/models/server_profile.dart';
-import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
+import 'session.dart';
 
+/// W1（Windows 连接页）/ A1（Android 沉浸式登录）。
+///
+/// 验收要点：
+///   - 地址可达 / TLS / 版本探测，失败一律内联提示，不弹窗；
+///   - 支持密码与 API Token 两种登录；
+///   - HTTP 仅内网放行（校验在 validateBaseUrl 内）；
+///   - 首次运行（0 个已保存）也必须显示「服务器管理」入口。
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -22,469 +27,343 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _url = TextEditingController();
-  final _user = TextEditingController();
+  final _user = TextEditingController(text: 'admin');
   final _secret = TextEditingController();
-  final _otp = TextEditingController();
-  final _urlFocus = FocusNode();
+  final _name = TextEditingController();
 
   AuthMode _mode = AuthMode.password;
+  bool _keepSignedIn = true;
   bool _obscure = true;
-  bool _keepLogin = true;
-  bool _showOtp = false;
   bool _busy = false;
-  String? _error;
-  String? _urlError;
-  String? _probeLabel;
-  int? _probeLatency;
-  Timer? _debounce;
+
+  String? _inlineError;
+  String? _probeOk;
+  int? _probeMs;
 
   @override
   void initState() {
     super.initState();
-    _url.addListener(_onUrlChanged);
+    final active = ref.read(serverListProvider).active;
+    if (active != null) {
+      _url.text = active.baseUrl;
+      _user.text = active.username;
+      _name.text = active.name;
+      _mode = active.mode;
+    }
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    _url.removeListener(_onUrlChanged);
     _url.dispose();
     _user.dispose();
     _secret.dispose();
-    _otp.dispose();
-    _urlFocus.dispose();
+    _name.dispose();
     super.dispose();
-  }
-
-  void _onUrlChanged() {
-    _debounce?.cancel();
-    if (_probeLabel != null || _urlError != null) {
-      setState(() {
-        _probeLabel = null;
-        _urlError = null;
-      });
-    }
-    if (_url.text.trim().length < 6) return;
-    _debounce = Timer(const Duration(milliseconds: 700), _probe);
-  }
-
-  Future<void> _probe() async {
-    final result = await ref.read(sessionProvider.notifier).probe(_url.text);
-    if (!mounted) return;
-    setState(() {
-      if (result.ok) {
-        _probeLabel = result.site?.title ?? '已连接';
-        _probeLatency = result.latencyMs;
-        _urlError = null;
-      } else {
-        _probeLabel = null;
-        _urlError = result.error;
-      }
-    });
   }
 
   Future<void> _submit() async {
     if (_busy) return;
+    final urlError = validateBaseUrl(_url.text);
+    if (urlError != null) {
+      setState(() => _inlineError = urlError);
+      return;
+    }
     setState(() {
       _busy = true;
-      _error = null;
+      _inlineError = null;
     });
     final error = await ref.read(sessionProvider.notifier).connect(
           mode: _mode,
           baseUrl: _url.text,
           username: _user.text,
-          secret: _secret.text,
-          otp: _otp.text,
-          persistToken: _keepLogin,
+          secret: _secret.text.trim(),
+          displayName: _name.text.trim(),
+          persistToken: _keepSignedIn,
         );
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _error = error;
-      _urlError = error == null ? null : (error.contains('地址') ? error : _urlError);
+      _inlineError = error;
     });
-    if (error == null) {
-      await ref.read(filesProvider.notifier).attach();
-      if (mounted) context.go('/files');
-    }
+    if (error == null) context.go('/files');
+  }
+
+  Future<void> _probe() async {
+    final raw = _url.text.trim();
+    if (raw.isEmpty) return;
+    final result = await ref.read(sessionProvider.notifier).probe(raw);
+    if (!mounted) return;
+    setState(() {
+      _inlineError = result.ok ? null : result.error;
+      _probeOk = result.ok ? (result.site?.title ?? 'OpenList') : null;
+      _probeMs = result.ok ? result.latencyMs : null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 900;
-    final body = narrow ? _buildMobile(context) : _buildDesktop(context);
-    // 移动端登录页整块是深色渐变，由页面自己避让系统栏（见 _buildMobile 的 SafeArea），
-    // 这样渐变能一直铺到屏幕上下边缘，不会在状态栏/导航栏位置露出浅色底。
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: olDarkSystemBars,
-      child: AppFrame(showNav: false, edgeToEdge: narrow, child: body),
-    );
+    if (context.isNarrow) return _buildMobile(context);
+    return _buildDesktop(context);
   }
 
+  // ---------- W1 · Windows ----------
   Widget _buildDesktop(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 56,
-          child: _LoginArt(
-            servers: ref.watch(serverListProvider).servers,
+    final p = context.ol;
+    return Scaffold(
+      backgroundColor: p.bg,
+      body: Column(
+        children: [
+          const OlTitleBar(),
+          Expanded(
+            child: Row(
+              children: [
+                const Expanded(flex: 5, child: _BrandHero()),
+                Expanded(
+                  flex: 4,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(OlGap.lg),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 372),
+                        child: _FormCard(
+                          mode: _mode,
+                          url: _url,
+                          user: _user,
+                          secret: _secret,
+                          name: _name,
+                          obscure: _obscure,
+                          busy: _busy,
+                          keepSignedIn: _keepSignedIn,
+                          inlineError: _inlineError,
+                          probeOk: _probeOk,
+                          probeMs: _probeMs,
+                          onMode: (m) => setState(() => _mode = m),
+                          onObscure: () => setState(() => _obscure = !_obscure),
+                          onKeep: (v) => setState(() => _keepSignedIn = v),
+                          onProbe: _probe,
+                          onSubmit: _submit,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        Expanded(flex: 44, child: _buildForm(context, compact: false)),
-      ],
+        ],
+      ),
     );
   }
 
+  // ---------- A1 · Android ----------
   Widget _buildMobile(BuildContext context) {
+    return OlDarkScaffold(
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 0, OlGap.pageMobile, OlGap.lg),
+          children: [
+            SizedBox(height: MediaQuery.paddingOf(context).top + 40),
+            const OlMark(size: 52, radius: 15, iconSize: 26),
+            const SizedBox(height: OlGap.md),
+            const Text(
+              'OpenList',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.6, color: Color(0xFFE8F2FA)),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'SELF-HOSTED CLOUD',
+              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 2.4, color: Color(0xFF7DD3FC)),
+            ),
+            const SizedBox(height: OlGap.md),
+            const _ImmersiveHeadline(),
+            const SizedBox(height: OlGap.xs),
+            const Text(
+              '连接自建 OpenList，聚合阿里云盘、夸克、OneDrive 与 NAS。文件直连，不经过第三方。',
+              style: TextStyle(fontSize: 11.5, height: 1.7, color: Color(0xFF8FA8BD)),
+            ),
+            const SizedBox(height: OlGap.lg),
+            OlDarkField(
+              controller: _url,
+              icon: 'globe',
+              hint: 'https://pan.mydomain.com',
+              keyboardType: TextInputType.url,
+              onSubmitted: (_) => _probe(),
+            ),
+            const SizedBox(height: OlGap.sm),
+            OlDarkField(
+              controller: _user,
+              icon: 'user',
+              hint: _mode == AuthMode.token ? '账号（可选）' : 'admin',
+            ),
+            const SizedBox(height: OlGap.sm),
+            OlDarkField(
+              controller: _secret,
+              icon: _mode == AuthMode.token ? 'key' : 'lock',
+              hint: _mode == AuthMode.token ? 'API Token' : '••••••••',
+              obscure: _obscure,
+              onSubmitted: (_) => _submit(),
+              trailing: GestureDetector(
+                onTap: () => setState(() => _obscure = !_obscure),
+                child: OlIcon(_obscure ? 'eye-off' : 'eye', size: 16, color: const Color(0xFF6E879C)),
+              ),
+            ),
+            if (_inlineError != null) ...[const SizedBox(height: OlGap.xs), _InlineError(_inlineError!)],
+            if (_probeOk != null) ...[const SizedBox(height: OlGap.xs), _ProbeOk(_probeOk!, _probeMs)],
+            const SizedBox(height: OlGap.lg),
+            OlPrimaryButton(
+              label: '连接并登录',
+              icon: 'zap',
+              height: 46,
+              fontSize: 13,
+              expand: true,
+              busy: _busy,
+              onTap: _busy ? null : _submit,
+            ),
+            const SizedBox(height: OlGap.sm),
+            Center(
+              child: GestureDetector(
+                onTap: () => setState(() => _mode = _mode == AuthMode.password ? AuthMode.token : AuthMode.password),
+                child: Text(
+                  '使用 API Token 登录',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: _mode == AuthMode.token ? const Color(0xFF7DD3FC) : const Color(0xFF8FA8BD),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: OlGap.lg),
+            const _ServerEntry(dark: true),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// W1 左侧品牌区
+// ---------------------------------------------------------------------------
+class _BrandHero extends StatelessWidget {
+  const _BrandHero();
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF07131F), Color(0xFF07131F)],
+          begin: Alignment(-0.8, -1),
+          end: Alignment(0.9, 1),
+          colors: [Color(0xFF0A1A2B), Color(0xFF0E2C40), Color(0xFF0F3A46)],
         ),
       ),
       child: Stack(
         children: [
-          const Positioned.fill(child: _LoginGlow()),
-          const Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _GridPainter(spacing: 44)))),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const OlMark(size: 30, radius: 9, iconSize: 14),
-                      const SizedBox(width: 9),
-                      const Text('OpenList', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFEAF5FC))),
-                    ],
-                  ),
-                  const SizedBox(height: 44),
-                  const Text('SELF-HOSTED CLOUD', style: TextStyle(fontSize: 8.5, letterSpacing: 2.4, fontWeight: FontWeight.w800, color: Color(0xFF7DD3FC))),
-                  const SizedBox(height: 11),
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontSize: 39, height: 1.03, letterSpacing: -1.7, fontWeight: FontWeight.w800, color: Colors.white),
+          Positioned(left: -80, top: -120, child: _glow(420, const Color(0x2638BDF8))),
+          Positioned(right: -120, bottom: -140, child: _glow(420, const Color(0x1F2DD4BF))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(44, 40, 36, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const OlMark(size: 34, radius: 10, iconSize: 17),
+                    const SizedBox(width: OlGap.sm),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextSpan(text: '你的云盘，\n'),
-                        TextSpan(text: '随身携带', style: TextStyle(color: Color(0xFF5EEAD4))),
-                        TextSpan(text: '。'),
+                        const Text(
+                          'OpenList Client',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: Color(0xFFE8F2FA)),
+                        ),
+                        Text(
+                          'WINDOWS EDITION',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                            color: const Color(0xFF7DD3FC).withAlpha(200),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '连接自建 OpenList，聚合阿里云盘、夸克、OneDrive 与 NAS。文件直连，不经过第三方。',
-                    style: TextStyle(fontSize: 11.5, height: 1.65, color: Color(0xFF8FA8BD)),
-                  ),
-                  const SizedBox(height: 26),
-                  _buildForm(context, compact: true),
-                  const SizedBox(height: 18),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForm(BuildContext context, {required bool compact}) {
-    final p = context.ol;
-    final servers = ref.watch(serverListProvider).servers;
-
-    final form = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!compact) ...[
-          const Text('WELCOME BACK', style: TextStyle(fontSize: 8.5, letterSpacing: 2.2, fontWeight: FontWeight.w800, color: Color(0xFF0EA5E9))),
-          const SizedBox(height: 10),
-          Text('连接到你的服务器', style: TextStyle(fontSize: 23, height: 1.2, letterSpacing: -0.7, fontWeight: FontWeight.w800, color: p.ink)),
-          const SizedBox(height: 8),
-          Text('输入 OpenList 地址，客户端会自动探测版本与站点名称。', style: TextStyle(fontSize: 11.5, height: 1.7, color: p.ink3)),
-          const SizedBox(height: 20),
-        ],
-        _label('服务器地址', compact: compact, trailing: _probeLabel == null ? '含协议与端口' : null),
-        _input(
-          dark: compact,
-          controller: _url,
-          icon: 'globe',
-          hint: 'https://pan.mydomain.com',
-          keyboardType: TextInputType.url,
-          onSubmitted: (_) => _probe(),
-          trailing: _probeLabel == null
-              ? null
-              : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFE7FBF5), borderRadius: BorderRadius.circular(5)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const OlDot(size: 4, color: OlTokens.teal600),
-                      const SizedBox(width: 4),
-                      Text(
-                        _probeLatency == null ? _probeLabel! : '$_probeLabel · ${_probeLatency}ms',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF0B7A63)),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-        if (_urlError != null) _inlineError(_urlError!),
-        const SizedBox(height: 12),
-        if (_mode == AuthMode.password) ...[
-          _label('用户名', compact: compact),
-          _input(dark: compact, controller: _user, icon: 'user', hint: 'admin', onSubmitted: (_) => _submit()),
-          const SizedBox(height: 12),
-          _label('密码', compact: compact, trailing: _showOtp ? null : '支持两步验证'),
-          _input(
-            dark: compact,
-            controller: _secret,
-            icon: 'lock',
-            hint: '••••••••',
-            obscure: _obscure,
-            onSubmitted: (_) => _submit(),
-            trailing: _eye(),
-          ),
-          if (_showOtp) ...[
-            const SizedBox(height: 12),
-            _label('两步验证码', compact: compact, trailing: '可留空'),
-            _input(
-              dark: compact,
-              controller: _otp,
-              icon: 'shield',
-              hint: '6 位动态码',
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ] else ...[
-          _label('API Token', compact: compact, trailing: '凭据仅存本机'),
-          _input(
-            dark: compact,
-            controller: _secret,
-            icon: 'key',
-            hint: '粘贴 OpenList API Token',
-            obscure: _obscure,
-            onSubmitted: (_) => _submit(),
-            trailing: _eye(),
-          ),
-        ],
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            OlSwitch(value: _keepLogin, onChanged: (v) => setState(() => _keepLogin = v), small: true),
-            const SizedBox(width: 7),
-            Text('保持登录', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => setState(() => _showOtp = !_showOtp),
-              child: Text(
-                _showOtp ? '隐藏两步验证' : '两步验证',
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF0A93C4)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _SubmitButton(busy: _busy, onTap: _submit),
-        if (_error != null) ...[
-          const SizedBox(height: 10),
-          _inlineError(_error!),
-        ],
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: Divider(color: p.line)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text('OR', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 1, color: p.ink4)),
-            ),
-            Expanded(child: Divider(color: p.line)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _AltButton(
-          icon: 'key',
-          dark: compact,
-          label: _mode == AuthMode.token ? '使用密码登录' : '使用 API Token 登录',
-          onTap: () => setState(() {
-            _mode = _mode == AuthMode.token ? AuthMode.password : AuthMode.token;
-            _error = null;
-          }),
-        ),
-        if (servers.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Container(
-            padding: EdgeInsets.only(top: 12, left: 2, right: 2),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: compact ? const Color(0x1AFFFFFF) : p.line2))),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '服务器',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                        color: compact ? const Color(0xFF5E7488) : p.ink4,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${servers.length} 个已保存',
-                      style: TextStyle(fontSize: 8.5, color: compact ? const Color(0xFF5E7488) : p.ink4),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 7),
-                _ServerEntryRow(dark: compact, onTap: () => context.go('/servers')),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    OlIcon('info', size: 9, color: compact ? const Color(0xFF5E7488) : p.ink4),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '登录页只保留管理入口；进入后点服务器即切换并打开其文件夹',
-                        style: TextStyle(fontSize: 8, color: compact ? const Color(0xFF5E7488) : p.ink4),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 44),
+                const Text(
+                  'YOUR CLOUDS, ONE WINDOW',
+                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 2.4, color: Color(0xFF7DD3FC)),
                 ),
+                const SizedBox(height: 14),
+                const Text(
+                  '所有云盘，收进一个窗口。',
+                  style: TextStyle(fontSize: 34, height: 1.12, letterSpacing: -1.4, fontWeight: FontWeight.w800, color: Color(0xFFF2F8FD)),
+                ),
+                const SizedBox(height: 16),
+                const SizedBox(
+                  width: 420,
+                  child: Text(
+                    '直连你自建的 OpenList 服务。文件不中转、不落第三方，速度只取决于你的带宽。',
+                    style: TextStyle(fontSize: 12.5, height: 1.75, color: Color(0xFF9EBBCE)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const _HeroFeature(icon: 'zap', title: '原生多线程传输', desc: '断点续传、并发可调、托盘后台不中断'),
+                const _HeroFeature(icon: 'play', title: '边下边播', desc: '支持 4K HDR 与字幕轨道，Range 直读不落地'),
+                const _HeroFeature(icon: 'shield', title: '凭据本地保存', desc: 'Token 写入 Windows 凭据管理器，可随时吊销'),
+                const Spacer(),
+                const _MountedCard(),
               ],
             ),
           ),
         ],
-        if (!compact)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                OlIcon('info', size: 9, color: p.ink4),
-                const SizedBox(width: 4),
-                Text(
-                  '服务器数量不限，配置与缓存按实例隔离',
-                  style: TextStyle(fontSize: 8, color: p.ink4),
-                ),
-              ],
-            ),
-          ),
-      ],
+      ),
     );
+  }
 
-    if (compact) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0x0FFFFFFF),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0x1AFFFFFF)),
-        ),
-        child: form,
+  Widget _glow(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, color.withAlpha(0)])),
       );
-    }
+}
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 348),
-          child: form,
-        ),
-      ),
-    );
-  }
+class _HeroFeature extends StatelessWidget {
+  final String icon;
+  final String title;
+  final String desc;
 
-  Widget _eye() {
-    final p = context.ol;
-    return GestureDetector(
-      onTap: () => setState(() => _obscure = !_obscure),
-      child: Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: OlIcon(_obscure ? 'eye' : 'eye-off', size: 15, color: p.ink3),
-      ),
-    );
-  }
+  const _HeroFeature({required this.icon, required this.title, required this.desc});
 
-  Widget _input({
-    required bool dark,
-    required TextEditingController controller,
-    required String icon,
-    String? hint,
-    bool obscure = false,
-    Widget? trailing,
-    TextInputType? keyboardType,
-    ValueChanged<String>? onSubmitted,
-  }) {
-    if (dark) {
-      return OlDarkField(
-        controller: controller,
-        icon: icon,
-        hint: hint ?? '',
-        obscure: obscure,
-        trailing: trailing,
-        keyboardType: keyboardType,
-        onSubmitted: onSubmitted,
-      );
-    }
-    return OlField(
-      controller: controller,
-      icon: icon,
-      hint: hint,
-      obscure: obscure,
-      trailing: trailing,
-      keyboardType: keyboardType,
-      onSubmitted: onSubmitted,
-    );
-  }
-
-  Widget _label(String text, {required bool compact, String? trailing}) {
-    final p = context.ol;
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 5),
-      child: Row(
-        children: [
-          Text(
-            text.toUpperCase(),
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.7,
-              color: compact ? const Color(0xFF7E97AC) : p.ink3,
-            ),
-          ),
-          const Spacer(),
-          if (trailing != null)
-            Text(
-              trailing,
-              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: compact ? const Color(0xFF5E7488) : p.ink4),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _inlineError(String message) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, left: 2),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: OlIcon('alert', size: 11, color: Color(0xFFE8476F)),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: const Color(0x14FFFFFF),
+              borderRadius: BorderRadius.circular(OlTokens.r4),
+              border: Border.all(color: const Color(0x1AFFFFFF)),
+            ),
+            child: Center(child: OlIcon(icon, size: 15, color: const Color(0xFF7DD3FC))),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: OlGap.sm),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(fontSize: 10, height: 1.5, fontWeight: FontWeight.w600, color: Color(0xFFE8476F)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFE8F2FA))),
+                const SizedBox(height: 3),
+                Text(desc, style: const TextStyle(fontSize: 10.5, height: 1.55, color: Color(0xFF8FA8BD))),
+              ],
             ),
           ),
         ],
@@ -493,350 +372,395 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 }
 
-class _SubmitButton extends StatelessWidget {
-  final bool busy;
-  final VoidCallback onTap;
-  const _SubmitButton({required this.busy, required this.onTap});
+class _MountedCard extends StatelessWidget {
+  const _MountedCard();
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: busy ? null : onTap,
-        child: Container(
-          height: 42,
-          decoration: BoxDecoration(
-            gradient: OlTokens.gradientPrimary,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: const [BoxShadow(color: Color(0x5538BDF8), blurRadius: 24, offset: Offset(0, 12))],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return Container(
+      width: 420,
+      padding: const EdgeInsets.all(OlGap.sm),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(OlTokens.rPanel),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              if (busy)
-                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white))
-              else
-                const OlIcon('arrow-up', size: 14, color: Colors.white, strokeWidth: 2),
-              const SizedBox(width: 7),
-              Text(
-                busy ? '正在连接…' : '连接并登录',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.1),
+              const Text(
+                'MOUNTED',
+                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1.6, color: Color(0xFF7DD3FC)),
+              ),
+              const SizedBox(width: 6),
+              Container(width: 1, height: 9, color: const Color(0x24FFFFFF)),
+              const SizedBox(width: 6),
+              const Text(
+                '5 SOURCES',
+                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Color(0xFF8FA8BD)),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          const _MountRow('阿里云盘', '2.4 TB', Color(0xFF38BDF8)),
+          const _MountRow('OneDrive', '1.0 TB', Color(0xFF2DD4BF)),
+          const _MountRow('本地 NAS', '8.0 TB', Color(0xFF7C5CFC)),
+          const SizedBox(height: 8),
+          const Text(
+            '统一命名空间 · 一棵目录树',
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF6E879C)),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _AltButton extends StatelessWidget {
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool dark;
-  const _AltButton({required this.icon, required this.label, required this.onTap, this.dark = false});
+class _MountRow extends StatelessWidget {
+  final String name;
+  final String size;
+  final Color color;
+
+  const _MountRow(this.name, this.size, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2.5))),
+          const SizedBox(width: 8),
+          Expanded(child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w650, color: Color(0xFFCFE6F3)))),
+          Text(size, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF8FA8BD))),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// W1 右侧表单卡
+// ---------------------------------------------------------------------------
+class _FormCard extends StatelessWidget {
+  final AuthMode mode;
+  final TextEditingController url;
+  final TextEditingController user;
+  final TextEditingController secret;
+  final TextEditingController name;
+  final bool obscure;
+  final bool busy;
+  final bool keepSignedIn;
+  final String? inlineError;
+  final String? probeOk;
+  final int? probeMs;
+  final ValueChanged<AuthMode> onMode;
+  final VoidCallback onObscure;
+  final ValueChanged<bool> onKeep;
+  final VoidCallback onProbe;
+  final VoidCallback onSubmit;
+
+  const _FormCard({
+    required this.mode,
+    required this.url,
+    required this.user,
+    required this.secret,
+    required this.name,
+    required this.obscure,
+    required this.busy,
+    required this.keepSignedIn,
+    required this.inlineError,
+    required this.probeOk,
+    required this.probeMs,
+    required this.onMode,
+    required this.onObscure,
+    required this.onKeep,
+    required this.onProbe,
+    required this.onSubmit,
+  });
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 34,
-          decoration: BoxDecoration(
-            color: dark ? const Color(0x0DFFFFFF) : Colors.white,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: dark ? const Color(0x1AFFFFFF) : p.line),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OlIcon(icon, size: 13, color: dark ? const Color(0xFF8FA8BD) : p.ink2),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: dark ? const Color(0xFFB9CAD8) : p.ink2),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginArt extends StatelessWidget {
-  final List<ServerProfile> servers;
-  const _LoginArt({required this.servers});
-
-  @override
-  Widget build(BuildContext context) {
-    final mounts = servers.take(3).toList();
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment(-0.6, -1),
-          end: Alignment(0.9, 1),
-          colors: [Color(0xFF08141F), Color(0xFF0B2433), Color(0xFF0A2C33)],
-        ),
+      padding: const EdgeInsets.all(OlGap.lg),
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(OlTokens.rCard),
+        border: Border.all(color: p.line),
+        boxShadow: const [BoxShadow(color: Color(0x1A0D1B2A), blurRadius: 34, offset: Offset(0, 14))],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Positioned.fill(child: _LoginGlow()),
-          const Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _GridPainter(spacing: 46)))),
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(40, 30, 40, 26),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const OlMark(size: 30, radius: 9, iconSize: 14),
-                      const SizedBox(width: 9),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('OpenList Client', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.1)),
-                          SizedBox(height: 1),
-                          Text('WINDOWS EDITION', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: Color(0xFF7E97AC))),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 52),
-                  const Text('YOUR CLOUDS, ONE WINDOW', style: TextStyle(fontSize: 8.5, letterSpacing: 2.6, fontWeight: FontWeight.w800, color: Color(0xFF7DD3FC))),
-                  const SizedBox(height: 14),
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontSize: 41, height: 1.06, letterSpacing: -1.9, fontWeight: FontWeight.w800, color: Colors.white),
-                      children: [
-                        TextSpan(text: '所有云盘，\n收进'),
-                        TextSpan(text: '一个窗口', style: TextStyle(color: Color(0xFF5EEAD4))),
-                        TextSpan(text: '。'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const SizedBox(
-                    width: 330,
-                    child: Text(
-                      '直连你自建的 OpenList 服务。文件不中转、不落第三方，速度只取决于你的带宽。',
-                      style: TextStyle(fontSize: 11.5, height: 1.8, color: Color(0xFF8FA8BD)),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _MountedCard(servers: mounts),
-                  const SizedBox(height: 30),
-                  const _FeatureRow(icon: 'zap', title: '原生多线程传输', subtitle: '断点续传、并发可调、托盘后台不中断'),
-                  const SizedBox(height: 11),
-                  const _FeatureRow(icon: 'play', title: '边下边播', subtitle: '支持 4K HDR 与字幕轨道，Range 直读不落地'),
-                  const SizedBox(height: 11),
-                  const _FeatureRow(icon: 'shield', title: '凭据本地保存', subtitle: 'Token 写入 Windows 凭据管理器，可随时吊销'),
-                ],
-              ),
+          const Text(
+            'WELCOME BACK',
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 2.2, color: Color(0xFF0EA5E9)),
+          ),
+          const SizedBox(height: 8),
+          Text('连接到你的服务器', style: OlText.h3.copyWith(color: p.ink)),
+          const SizedBox(height: 6),
+          Text('输入 OpenList 地址，客户端会自动探测版本与站点名称。', style: TextStyle(fontSize: 11, height: 1.6, color: p.ink3)),
+          const SizedBox(height: OlGap.lg),
+          const _Label('服务器地址', hint: '含协议与端口'),
+          const SizedBox(height: 6),
+          OlField(
+            controller: url,
+            icon: 'globe',
+            hint: 'https://pan.mydomain.com',
+            keyboardType: TextInputType.url,
+            onSubmitted: (_) => onProbe(),
+            trailing: _ProbePill(ok: probeOk, ms: probeMs, onTap: onProbe),
+          ),
+          if (inlineError != null) ...[const SizedBox(height: 7), _InlineError(inlineError!)],
+          if (probeOk != null) ...[const SizedBox(height: 7), _ProbeOk(probeOk!, probeMs)],
+          const SizedBox(height: OlGap.sm),
+          const _Label('显示名称', hint: '留空则用站点名'),
+          const SizedBox(height: 6),
+          OlField(controller: name, icon: 'server', hint: '家庭主服务器'),
+          const SizedBox(height: OlGap.sm),
+          const _Label('认证方式'),
+          const SizedBox(height: 6),
+          OlSeg<AuthMode>(
+            items: const [
+              OlSegItem(AuthMode.password, '密码', icon: 'lock'),
+              OlSegItem(AuthMode.token, 'API Token', icon: 'key'),
+            ],
+            value: mode,
+            onChanged: onMode,
+          ),
+          const SizedBox(height: OlGap.sm),
+          _Label(mode == AuthMode.token ? '用户名（可选）' : '用户名'),
+          const SizedBox(height: 6),
+          OlField(controller: user, icon: 'user', hint: 'admin'),
+          const SizedBox(height: OlGap.sm),
+          _Label(mode == AuthMode.token ? 'API Token' : '密码'),
+          const SizedBox(height: 6),
+          OlField(
+            controller: secret,
+            icon: mode == AuthMode.token ? 'key' : 'lock',
+            hint: mode == AuthMode.token ? '粘贴服务端生成的 Token' : '••••••••',
+            obscure: obscure,
+            onSubmitted: (_) => onSubmit(),
+            trailing: GestureDetector(
+              onTap: onObscure,
+              child: OlIcon(obscure ? 'eye-off' : 'eye', size: 15, color: const Color(0xFF8FA1B3)),
             ),
           ),
+          const SizedBox(height: OlGap.md),
+          Row(
+            children: [
+              OlSwitch(value: keepSignedIn, onChanged: onKeep, small: true),
+              const SizedBox(width: 8),
+              Text('保持登录', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w650, color: p.ink2)),
+            ],
+          ),
+          const SizedBox(height: OlGap.lg),
+          OlPrimaryButton(
+            label: '连接并登录',
+            icon: 'zap',
+            height: 36,
+            fontSize: 12.5,
+            expand: true,
+            busy: busy,
+            onTap: busy ? null : onSubmit,
+          ),
+          const SizedBox(height: OlGap.sm),
+          Row(
+            children: [
+              Expanded(child: Container(height: 1, color: p.line2)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('OR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: p.ink4)),
+              ),
+              Expanded(child: Container(height: 1, color: p.line2)),
+            ],
+          ),
+          const SizedBox(height: OlGap.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OlGhostButton(
+              label: '使用 API Token 登录',
+              icon: 'key',
+              height: 34,
+              onTap: () => onMode(AuthMode.token),
+            ),
+          ),
+          const SizedBox(height: OlGap.md),
+          const _ServerEntry(dark: false),
         ],
       ),
     );
   }
 }
 
-class _FeatureRow extends StatelessWidget {
-  final String icon;
-  final String title;
-  final String subtitle;
-  const _FeatureRow({required this.icon, required this.title, required this.subtitle});
+class _Label extends StatelessWidget {
+  final String text;
+  final String? hint;
+
+  const _Label(this.text, {this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Row(
+      children: [
+        Text(text.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: p.ink3)),
+        if (hint != null) ...[
+          const SizedBox(width: 7),
+          Text(hint!, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4)),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProbePill extends StatelessWidget {
+  final String? ok;
+  final int? ms;
+  final VoidCallback onTap;
+
+  const _ProbePill({required this.ok, required this.ms, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final done = ok != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: done ? const Color(0xFFE7FBF5) : const Color(0xFFF3F8FC),
+          borderRadius: BorderRadius.circular(OlTokens.r4),
+          border: Border.all(color: done ? const Color(0xFFCDEFE7) : const Color(0xFFE7EEF6)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OlIcon(done ? 'check' : 'refresh', size: 12, color: done ? const Color(0xFF0B7A63) : const Color(0xFF8FA1B3)),
+            const SizedBox(width: 5),
+            Text(
+              done ? '已连接' : '探测',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: done ? const Color(0xFF0B7A63) : const Color(0xFF8FA1B3)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineError extends StatelessWidget {
+  final String message;
+  const _InlineError(this.message);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: const Color(0x1A7DD3FC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x297DD3FC)),
+        const OlIcon('alert', size: 13, color: Color(0xFFD92D4B)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(fontSize: 10.5, height: 1.5, fontWeight: FontWeight.w600, color: Color(0xFFD92D4B)),
           ),
-          child: Center(child: OlIcon(icon, size: 13, color: const Color(0xFF7DD3FC))),
-        ),
-        const SizedBox(width: 9),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFFD6E4EF))),
-            const SizedBox(height: 2),
-            Text(subtitle, style: const TextStyle(fontSize: 9, height: 1.5, color: Color(0xFF7E97AC))),
-          ],
         ),
       ],
     );
   }
 }
 
-/// The glass “mounted sources” card from the art panel.
-class _MountedCard extends StatelessWidget {
-  final List<ServerProfile> servers;
-  const _MountedCard({required this.servers});
+class _ProbeOk extends StatelessWidget {
+  final String title;
+  final int? ms;
+  const _ProbeOk(this.title, this.ms);
 
   @override
   Widget build(BuildContext context) {
-    final labels = servers.isEmpty
-        ? const ['阿里云盘', 'OneDrive', '本地 NAS']
-        : servers.map((e) => e.siteTitle ?? e.name).take(3).toList();
-    final dots = const [Color(0xFF38BDF8), Color(0xFF7DD3FC), Color(0xFFC4B5FD)];
-    final caps = const ['2.4 TB', '1.0 TB', '8.0 TB'];
-    return Container(
-      width: 268,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: const Color(0x0FFFFFFF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1AFFFFFF)),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 30, offset: Offset(0, 16))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Text('MOUNTED', style: TextStyle(fontSize: 8, letterSpacing: 1.6, fontWeight: FontWeight.w800, color: Color(0xFF6E879C))),
-              Spacer(),
-              Text('5 SOURCES', style: TextStyle(fontSize: 8, letterSpacing: 1.6, fontWeight: FontWeight.w800, color: Color(0xFF6E879C))),
-            ],
+    return Row(
+      children: [
+        const OlIcon('check', size: 13, color: Color(0xFF0B7A63)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            ms == null ? '$title · 已连接' : '$title · 已连接 ${ms}ms',
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF0B7A63)),
           ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < labels.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Row(
-                children: [
-                  Container(width: 7, height: 7, decoration: BoxDecoration(color: dots[i], borderRadius: BorderRadius.circular(2.5))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      labels[i],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFFD6E4EF)),
-                    ),
-                  ),
-                  Text(caps[i], style: const TextStyle(fontSize: 9, fontFamily: 'monospace', color: Color(0xFF8FA8BD))),
-                  const SizedBox(width: 6),
-                  const OlDot(size: 4, color: Color(0xFF22C55E)),
-                ],
-              ),
-            ),
-          const SizedBox(height: 6),
-          const Text('统一命名空间 · 一棵目录树', style: TextStyle(fontSize: 8.5, color: Color(0xFF7E97AC))),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginGlow extends StatelessWidget {
-  const _LoginGlow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(-0.7, -0.85),
-          radius: 1.1,
-          colors: [Color(0x4D38BDF8), Color(0x0007131F)],
-          stops: [0, 0.62],
         ),
-      ),
-      child: SizedBox.expand(),
+      ],
     );
   }
 }
 
-class _GridPainter extends CustomPainter {
-  final double spacing;
-  const _GridPainter({this.spacing = 46});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final paint = Paint()
-      ..strokeWidth = 1
-      ..shader = const RadialGradient(
-        center: Alignment(0.4, -0.35),
-        radius: 0.9,
-        colors: [Color(0x22FFFFFF), Color(0x00FFFFFF)],
-        stops: [0, 0.72],
-      ).createShader(rect);
-    for (var x = 0.0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (var y = 0.0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GridPainter oldDelegate) => oldDelegate.spacing != spacing;
-}
-
-/// 登录页唯一的服务器入口：不展开列表，点进入服务器管理。
-class _ServerEntryRow extends StatelessWidget {
+/// 「服务器管理」入口 —— 0 个已保存时也必须可见（08 验收标准）。
+class _ServerEntry extends StatelessWidget {
   final bool dark;
-  final VoidCallback onTap;
-
-  const _ServerEntryRow({required this.dark, required this.onTap});
+  const _ServerEntry({required this.dark});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
+    final fg = dark ? const Color(0xFFCFE6F3) : p.ink2;
+    final border = dark ? const Color(0x1AFFFFFF) : p.line;
+    final bg = dark ? const Color(0x0FFFFFFF) : p.surface;
+    return GestureDetector(
+      onTap: () => context.go('/servers'),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: dark ? const Color(0x0DFFFFFF) : Colors.white,
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: dark ? const Color(0x1FFFFFFF) : p.line),
+            color: bg,
+            borderRadius: BorderRadius.circular(OlTokens.rField),
+            border: Border.all(color: border),
           ),
           child: Row(
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(color: dark ? const Color(0x1F7DD3FC) : const Color(0xFFE9F8FF), borderRadius: BorderRadius.circular(9)),
-                child: Center(child: OlIcon('server', size: 15, color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0A93C4))),
-              ),
-              const SizedBox(width: 10),
+              OlIcon('server', size: 15, color: dark ? const Color(0xFF7DD3FC) : const Color(0xFF0EA5E9)),
+              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('服务器管理', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: dark ? const Color(0xFFE6F1FA) : p.ink)),
+                    Text('服务器管理', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: fg)),
                     const SizedBox(height: 2),
-                    Text('切换 / 添加 / 编辑，数量不限', style: TextStyle(fontSize: 9.5, color: dark ? const Color(0xFF8FA8BD) : p.ink3)),
+                    Text(
+                      '切换 / 添加 / 编辑，数量不限',
+                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: dark ? const Color(0xFF6E879C) : p.ink4),
+                    ),
                   ],
                 ),
               ),
-              OlIcon('chev-r', size: 14, color: dark ? const Color(0xFF5E7488) : p.ink4),
+              OlIcon('chev-r', size: 13, color: dark ? const Color(0xFF6E879C) : p.ink4),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ImmersiveHeadline extends StatelessWidget {
+  const _ImmersiveHeadline();
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: const TextSpan(
+        style: TextStyle(fontSize: 26, height: 1.2, letterSpacing: -0.8, fontWeight: FontWeight.w800, color: Color(0xFFF2F8FD)),
+        children: [
+          TextSpan(text: '你的云盘，'),
+          TextSpan(
+            text: '随身携带',
+            style: TextStyle(color: Color(0xFF7DD3FC), shadows: [Shadow(color: Color(0x4D38BDF8), blurRadius: 18)]),
+          ),
+          TextSpan(text: '。'),
+        ],
       ),
     );
   }
