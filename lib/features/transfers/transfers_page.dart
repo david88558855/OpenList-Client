@@ -219,7 +219,28 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
   Widget _buildMobile(BuildContext context) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
-    final tasks = _filtered(state);
+    final settings = ref.watch(appSettingsProvider);
+    final ongoing = state.tasks
+        .where((e) =>
+            e.status == TransferStatus.running ||
+            e.status == TransferStatus.queued ||
+            e.status == TransferStatus.paused ||
+            e.status == TransferStatus.failed)
+        .toList();
+    final doneList = state.done;
+
+    List<TransferTask> tasks;
+    switch (_tab) {
+      case 'done':
+        tasks = doneList;
+        break;
+      case 'failed':
+        tasks = state.failed;
+        break;
+      default:
+        tasks = ongoing;
+        break;
+    }
 
     return Column(
       children: [
@@ -262,21 +283,51 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
           padding: const EdgeInsets.symmetric(horizontal: 18),
           child: _MobileSpeedCard(state: state),
         ),
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+          child: Row(
             children: [
-              OlChip(label: '全部 ${state.tasks.where((e) => e.status != TransferStatus.done).length}', selected: _tab == 'all', onTap: () => setState(() => _tab = 'all')),
+              OlChip(
+                label: '进行中 ${ongoing.length}',
+                selected: _tab == 'all',
+                height: 26,
+                onTap: () => setState(() => _tab = 'all'),
+              ),
               const SizedBox(width: 6),
-              OlChip(label: '下载 ${state.tasks.where((e) => e.kind == TransferKind.download).length}', selected: _tab == 'download', onTap: () => setState(() => _tab = 'download')),
+              OlChip(
+                label: '已完成 ${doneList.length}',
+                selected: _tab == 'done',
+                height: 26,
+                onTap: () => setState(() => _tab = 'done'),
+              ),
               const SizedBox(width: 6),
-              OlChip(label: '上传 ${state.tasks.where((e) => e.kind == TransferKind.upload).length}', selected: _tab == 'upload', onTap: () => setState(() => _tab = 'upload')),
-              const SizedBox(width: 6),
-              OlChip(label: '失败 ${state.failed.length}', selected: _tab == 'failed', onTap: () => setState(() => _tab = 'failed')),
-              const SizedBox(width: 6),
-              OlChip(label: '已完成', selected: _tab == 'done', onTap: () => setState(() { _tab = 'done'; })),
+              OlChip(
+                label: '失败 ${state.failed.length}',
+                selected: _tab == 'failed',
+                height: 26,
+                onTap: () => setState(() => _tab = 'failed'),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () async {
+                  if (state.pausedGlobally) {
+                    await ref.read(transfersProvider.notifier).resumeAll();
+                  } else {
+                    await ref.read(transfersProvider.notifier).pauseAll();
+                  }
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      state.pausedGlobally ? '全部继续' : '全部暂停',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink4),
+                    ),
+                    const SizedBox(width: 3),
+                    OlIcon('chev-r', size: 10, color: p.ink4),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -284,18 +335,133 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
           child: tasks.isEmpty
               ? OlEmptyState(
                   icon: 'arrow-down',
-                  title: _tab == 'failed' ? '没有失败的任务' : '队列是空的',
+                  title: _tab == 'failed'
+                      ? '没有失败的任务'
+                      : (_tab == 'done' ? '还没有完成的任务' : '队列是空的'),
                   subtitle: '从文件页下载或在「新建任务」里上传，进度会实时显示在这里。',
                   action: OlPrimaryButton(label: '去文件页', icon: 'folder', onTap: () => context.go('/files')),
                 )
-              : ListView.builder(
+              : ListView(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-                  itemCount: tasks.length,
-                  itemBuilder: (context, index) => _MobileTaskCard(task: tasks[index]),
+                  children: [
+                    for (final t in tasks) _MobileTaskCard(task: t),
+                    if (_tab == 'all' && doneList.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+                        child: Row(
+                          children: [
+                            Text('刚刚完成', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: p.ink4)),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () => setState(() => _tab = 'done'),
+                              child: Text('全部', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF0A93C4))),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: p.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: p.line2),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 11),
+                        child: Column(
+                          children: [
+                            for (int i = 0; i < doneList.length && i < 4; i++) ...[
+                              if (i > 0)
+                                Container(height: 1, color: p.line2),
+                              SizedBox(
+                                height: 38,
+                                child: Row(
+                                  children: [
+                                    OlIcon('check', size: 14, color: const Color(0xFF0B7A63)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        doneList[i].name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink2),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${formatBytes(doneList[i].total)} · ${_agoLabel(doneList[i].createdAt)}',
+                                      style: TextStyle(fontSize: 8.5, color: p.ink4),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_tab == 'all') ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: p.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: p.line2),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: 42,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text('仅在 Wi-Fi 下传输', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+                                  ),
+                                  OlSwitch(
+                                    value: settings.wifiOnly,
+                                    small: true,
+                                    onChanged: (v) => ref.read(appSettingsProvider.notifier).setWifiOnly(v),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(height: 1, color: p.line2),
+                            SizedBox(
+                              height: 42,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Text('后台保持传输', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+                                        const SizedBox(width: 6),
+                                        Text('前台服务', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+                                      ],
+                                    ),
+                                  ),
+                                  OlSwitch(
+                                    value: settings.backgroundTransfer,
+                                    small: true,
+                                    onChanged: (v) => ref.read(appSettingsProvider.notifier).setBackgroundTransfer(v),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
         ),
       ],
     );
+  }
+
+  static String _agoLabel(DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.inMinutes < 1) return '刚刚';
+    if (d.inMinutes < 60) return '${d.inMinutes} 分钟前';
+    if (d.inHours < 24) return '${d.inHours} 小时前';
+    return '${d.inDays} 天前';
   }
 }
 
@@ -923,6 +1089,23 @@ class _MobileTaskCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final notifier = ref.read(transfersProvider.notifier);
+    final eta = task.speed > 0 ? ((task.total - task.done) / task.speed).round() : 0;
+    final route = task.kind == TransferKind.download
+        ? '${task.serverLabel} → 本地'
+        : '本地 → ${task.serverLabel}';
+    final statusLine = task.status == TransferStatus.failed
+        ? (task.error ?? '传输失败')
+        : '$route · ${formatSpeed(task.speed)}';
+    final bottomLeft = '${formatBytes(task.done)} / ${formatBytes(task.total)}';
+    final bottomRight = task.status == TransferStatus.failed
+        ? '可重试'
+        : (task.status == TransferStatus.done
+            ? '已完成'
+            : (task.status == TransferStatus.paused
+                ? '已暂停'
+                : (task.status == TransferStatus.queued ? '排队中' : '剩余 ${formatCountdown(eta)}')));
+    final pct = (task.progress * 100).round();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
@@ -934,6 +1117,7 @@ class _MobileTaskCard extends ConsumerWidget {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               FileGlyph(name: task.name, size: 32, radius: 9, iconSize: 16),
               const SizedBox(width: 9),
@@ -944,9 +1128,7 @@ class _MobileTaskCard extends ConsumerWidget {
                     Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink)),
                     const SizedBox(height: 2),
                     Text(
-                      task.status == TransferStatus.failed
-                          ? (task.error ?? '传输失败')
-                          : '${formatSpeed(task.speed)} · ${formatBytes(task.done)} / ${formatBytes(task.total)}',
+                      statusLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 8.5, color: task.status == TransferStatus.failed ? const Color(0xFFD92D4B) : p.ink4),
@@ -954,14 +1136,15 @@ class _MobileTaskCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              Text('${(task.progress * 100).round()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF0B85AE))),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
+              Text('$pct%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0B85AE))),
+              const SizedBox(width: 2),
               OlIconButton(
                 icon: task.status == TransferStatus.running
                     ? 'pause'
                     : (task.status == TransferStatus.failed ? 'rotate' : 'play'),
-                size: 26,
-                iconSize: 13,
+                size: 24,
+                iconSize: 12,
                 onTap: () {
                   if (task.status == TransferStatus.running) {
                     notifier.pause(task.id);
@@ -976,11 +1159,21 @@ class _MobileTaskCard extends ConsumerWidget {
           ),
           const SizedBox(height: 9),
           OlProgress(value: task.progress, height: 4),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           Row(
             children: [
-              Text(task.kind == TransferKind.download ? '下载 · ${task.serverLabel}' : '上传 · ${task.serverLabel}', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+              Text(bottomLeft, style: TextStyle(fontSize: 8.5, color: p.ink4)),
               const Spacer(),
+              if (bottomRight.isNotEmpty)
+                Text(
+                  bottomRight,
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w600,
+                    color: task.status == TransferStatus.failed ? const Color(0xFFD92D4B) : p.ink3,
+                  ),
+                ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => notifier.remove(task.id),
                 child: Text('移除', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: p.ink4)),

@@ -267,8 +267,6 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               OlChip(label: '图片', icon: 'image', selected: _filter == FileKind.image, onTap: () => setState(() => _filter = FileKind.image)),
               const SizedBox(width: 6),
               OlChip(label: '文档', icon: 'file-text', selected: _filter == FileKind.text, onTap: () => setState(() => _filter = FileKind.text)),
-              const SizedBox(width: 6),
-              OlChip(label: '音频', icon: 'music', selected: _filter == FileKind.audio, onTap: () => setState(() => _filter = FileKind.audio)),
             ],
           ),
         ),
@@ -474,6 +472,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               ['重命名', 'edit'],
               ['移动到…', 'move'],
               ['复制到…', 'copy'],
+              ['压缩下载（ZIP）', 'archive'],
               ['删除', 'trash'],
             ])
               InkWell(
@@ -488,6 +487,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                       break;
                     case '复制到…':
                       moveOrCopyItems(context, ref, [item], move: false);
+                      break;
+                    case '压缩下载（ZIP）':
+                      downloadItem(context, ref, item);
                       break;
                     case '删除':
                       deleteItems(context, ref, [item]);
@@ -1926,7 +1928,9 @@ class _MobileStorageRow extends ConsumerWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  ratio == null ? (mount.isUp ? '正常 · ${mount.driver}' : '异常 · ${mount.driver}') : '已用 ${(ratio * 100).round()}% · ${mount.driver}',
+                  ratio == null
+                      ? (mount.isUp ? '正常 · ${mount.driver}' : '异常 · ${mount.driver}')
+                      : '已用 ${formatBytes(mount.usedSpace ?? 0)} · ${(ratio * 100).round()}%',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 8, color: Color(0x9EFFFFFF)),

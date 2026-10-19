@@ -72,6 +72,8 @@ class AppSettings {
   final bool resumePlayback;
   final bool autoPlayNext;
   final bool pauseOnSwitch;
+  final bool wifiOnly;
+  final bool backgroundTransfer;
   final double playbackSpeed;
   final int? lastLatency;
 
@@ -85,6 +87,8 @@ class AppSettings {
     this.resumePlayback = true,
     this.autoPlayNext = true,
     this.pauseOnSwitch = true,
+    this.wifiOnly = false,
+    this.backgroundTransfer = true,
     this.playbackSpeed = 1,
     this.lastLatency,
   });
@@ -99,6 +103,8 @@ class AppSettings {
     bool? resumePlayback,
     bool? autoPlayNext,
     bool? pauseOnSwitch,
+    bool? wifiOnly,
+    bool? backgroundTransfer,
     double? playbackSpeed,
     int? lastLatency,
   }) =>
@@ -112,6 +118,8 @@ class AppSettings {
         resumePlayback: resumePlayback ?? this.resumePlayback,
         autoPlayNext: autoPlayNext ?? this.autoPlayNext,
         pauseOnSwitch: pauseOnSwitch ?? this.pauseOnSwitch,
+        wifiOnly: wifiOnly ?? this.wifiOnly,
+        backgroundTransfer: backgroundTransfer ?? this.backgroundTransfer,
         playbackSpeed: playbackSpeed ?? this.playbackSpeed,
         lastLatency: lastLatency ?? this.lastLatency,
       );
@@ -126,6 +134,8 @@ class AppSettings {
         'resume_playback': resumePlayback,
         'autoplay_next': autoPlayNext,
         'pause_on_switch': pauseOnSwitch,
+        'wifi_only': wifiOnly,
+        'background_transfer': backgroundTransfer,
         'playback_speed': playbackSpeed,
       };
 }
@@ -150,6 +160,8 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
         resumePlayback: raw['resume_playback'] as bool? ?? true,
         autoPlayNext: raw['autoplay_next'] as bool? ?? true,
         pauseOnSwitch: raw['pause_on_switch'] as bool? ?? true,
+        wifiOnly: raw['wifi_only'] as bool? ?? false,
+        backgroundTransfer: raw['background_transfer'] as bool? ?? true,
         playbackSpeed: (raw['playback_speed'] as num?)?.toDouble() ?? 1,
         lastLatency: (raw['last_latency'] as num?)?.toInt(),
       );
@@ -200,6 +212,16 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   void setPauseOnSwitch(bool value) {
     state = state.copyWith(pauseOnSwitch: value);
+    _persist();
+  }
+
+  void setWifiOnly(bool value) {
+    state = state.copyWith(wifiOnly: value);
+    _persist();
+  }
+
+  void setBackgroundTransfer(bool value) {
+    state = state.copyWith(backgroundTransfer: value);
     _persist();
   }
 

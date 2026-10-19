@@ -654,9 +654,10 @@ class _MobileProfile extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final profile = session.profile;
     final serverState = ref.watch(serverListProvider);
-    final transfers = ref.watch(transfersProvider);
-    final favorites = ref.watch(favoritesProvider).where((e) => e.serverId == profile?.id).length;
     final mounts = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
+    final shareCount = ref.watch(sharesProvider).valueOrNull?.length ?? 0;
+    final settings = ref.watch(appSettingsProvider);
+    final transferLimitLabel = settings.downLimitKbps == 0 ? '不限速' : '限速 ${settings.downLimitKbps ~/ 1024} MB/s';
     final p = context.ol;
 
     final topInset = MediaQuery.paddingOf(context).top + 6;
@@ -738,22 +739,27 @@ class _MobileProfile extends ConsumerWidget {
                 _MobileTile(icon: 'server', label: '服务器管理', value: '${serverState.count} 个 · 点击切换', onTap: () => context.push('/servers')),
                 const DownloadDirTile(),
                 _MobileTile(icon: 'database', label: '存储挂载', value: '${mounts.length} 个 · 只读', onTap: () => context.go('/settings?tab=storage')),
+                _MobileTile(icon: 'share', label: '我的分享', value: '$shareCount 个有效', onTap: () => context.push('/favorites?tab=share')),
               ]),
               _SettingsGroup(rows: [
                 _MobileTile(
                   icon: 'arrow-down',
-                  label: '传输',
-                  value: '并发 ${ref.watch(appSettingsProvider).concurrency} · ${transfers.pendingCount} 待传',
+                  label: '传输设置',
+                  value: transferLimitLabel,
                   onTap: () => context.go('/settings?tab=transfer'),
                 ),
-                _MobileTile(icon: 'play', label: '播放与预览', value: '断点续播', onTap: () => context.go('/settings?tab=playback')),
+                _MobileTile(
+                  icon: 'play',
+                  label: '播放与缓存',
+                  value: ref.watch(appSettingsProvider).resumePlayback ? '断点续播' : '不记忆',
+                  onTap: () => context.go('/settings?tab=playback'),
+                ),
                 _MobileTile(icon: 'sun', label: '外观', value: _themeLabel(ref.watch(appSettingsProvider).themeMode), onTap: () => context.go('/settings?tab=appearance')),
               ]),
               _SettingsGroup(rows: [
-                _MobileTile(icon: 'star', label: '我的收藏', value: '$favorites 个', onTap: () => context.push('/favorites')),
+                _MobileTile(icon: 'key', label: '隐私与安全', value: '凭据已加密', onTap: () => context.go('/settings?tab=security')),
                 _MobileTile(icon: 'bell', label: '通知', value: ref.watch(appSettingsProvider).trayNotify ? '已开启' : '已关闭', onTap: () => context.go('/settings?tab=notify')),
-                _MobileTile(icon: 'key', label: '隐私与安全', onTap: () => context.go('/settings?tab=security')),
-                _MobileTile(icon: 'info', label: '关于与更新', value: '1.0.3', onTap: () => context.go('/settings?tab=about')),
+                _MobileTile(icon: 'info', label: '关于 OpenList', value: '1.0.3 · 最新', onTap: () => context.go('/settings?tab=about')),
               ]),
               const SizedBox(height: 2),
               GestureDetector(
