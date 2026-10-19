@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/server_profile.dart';
 import 'prefs.dart';
 
@@ -7,6 +9,12 @@ class ServerStore {
   static const keyIndex = 'ol_servers_index';
   static const keyActive = 'ol_active_server_id';
   static const keyPrefs = 'ol_prefs';
+
+  /// 目录缓存的 LRU 索引（v2.3）。之前每个目录一份 JSON 无限堆积，
+  /// 浏览几千个目录后 prefs 会膨胀到几十 MB，冷启动解析明显变慢。
+  static const keyCacheIndex = 'ol_cache_index';
+  static const cacheMaxEntries = 24;
+  static const cacheMaxBytes = 2 * 1024 * 1024;
 
   final Prefs prefs;
 
@@ -99,11 +107,46 @@ class ServerStore {
 
   /// Offline list cache: survives a dropped connection so the last directory
   /// stays readable (W2 四态 / 离线).
+  ///
+  /// v2.3：写入时维护 LRU 索引，最多保留 [cacheMaxEntries] 个目录且总量不超过
+  /// [cacheMaxBytes]；超出时按最后访问时间淘汰最旧的条目。
   Future<void> cacheListing(String id, String path, List<Map<String, dynamic>> items) async {
+    final key = 'ol_srv_${id}_cache|$path';
     final map = <String, dynamic>{'items': items, 'at': DateTime.now().toIso8601String()};
-    await prefs.setJsonMap('ol_srv_${id}_cache|$path', map);
+    await prefs.setJsonMap(key, map);
+    await _touchCacheIndex(key, jsonEncode(map).length);
   }
 
   Map<String, dynamic> readCachedListing(String id, String path) =>
       prefs.getJsonMap('ol_srv_${id}_cache|$path');
+
+  /// 维护 LRU 索引：把 [key] 提到队尾，再从队首淘汰超额条目。
+  Future<void> _touchCacheIndex(String key, int bytes) async {
+    final entries = <Map<String, dynamic>>[];
+    for (final raw in prefs.getJsonList(keyCacheIndex)) {
+      if (raw is! Map) continue;
+      final k = raw['k'];
+      if (k is! String || k.isEmpty || k == key) continue;
+      final n = raw['n'];
+      entries.add({'k': k, 'n': n is num ? n.toInt() : 0});
+    }
+    entries.add({'k': key, 'n': bytes});
+
+    var total = entries.fold<int>(0, (sum, e) => sum + ((e['n'] as int?) ?? 0));
+    while (entries.length > cacheMaxEntries || (total > cacheMaxBytes && entries.length > 1)) {
+      final evicted = entries.removeAt(0);
+      total -= (evicted['n'] as int?) ?? 0;
+      final victim = evicted['k'];
+      if (victim is String) await prefs.remove(victim);
+    }
+    await prefs.setJsonList(keyCacheIndex, entries);
+  }
+
+  /// 清空全部离线目录缓存（设置里的「清除缓存」/ 退出登录时调用）。
+  Future<void> clearListingCache() async {
+    for (final raw in prefs.getJsonList(keyCacheIndex)) {
+      if (raw is Map && raw['k'] is String) await prefs.remove(raw['k'] as String);
+    }
+    await prefs.remove(keyCacheIndex);
+  }
 }

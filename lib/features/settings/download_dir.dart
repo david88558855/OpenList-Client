@@ -69,8 +69,12 @@ Future<String> resolveDownloadDir(WidgetRef ref, ServerProfile profile) async {
   return profile.isolatedDownload ? '$base${sep}OpenList$sep${_safeName(profile.name)}' : '$base${sep}OpenList';
 }
 
-/// 弹出下载目录面板：选择目录 / 恢复默认 / 安卓去授权。
-Future<void> showDownloadDirSheet(BuildContext context, WidgetRef ref) async {
+/// 下载目录弹窗：显示当前目录 / 恢复默认 / 选择目录。
+///
+/// v2.3：改为**居中对话框**。之前用底部面板（olSheet），在 Android 上会贴在
+/// 屏幕最下方、被手势条压住，且与「设置里点一行」的语义不匹配——设置项一律
+/// 用居中弹窗，只有文件长按才用底部面板（A7）。
+Future<void> showDownloadDirDialog(BuildContext context, WidgetRef ref) async {
   final profile = ref.read(sessionProvider).profile;
   if (profile == null) {
     olToast(context, '请先登录服务器');
@@ -80,109 +84,134 @@ Future<void> showDownloadDirSheet(BuildContext context, WidgetRef ref) async {
   final authorized = await StorageAccess.hasAllFiles();
   if (!context.mounted) return;
 
-  final action = await olSheet<String>(
-    context,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFDEE7F0), borderRadius: BorderRadius.circular(2))),
-        Row(
-          children: [
-            const OlIcon('download', size: 16, color: OlTokens.sky600),
-            const SizedBox(width: 8),
-            const Text('下载目录', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            const Spacer(),
-            Text('${profile.name} · 独立子目录', style: TextStyle(fontSize: 10, color: context.ol.ink4)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(color: context.ol.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: context.ol.line2)),
-          child: Row(
+  final action = await showDialog<String>(
+    context: context,
+    barrierColor: const Color(0x59091424),
+    builder: (dialogContext) {
+      final p = dialogContext.ol;
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+        child: Container(
+          width: 360,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: p.line),
+            boxShadow: const [BoxShadow(color: Color(0x330B1622), blurRadius: 40, offset: Offset(0, 18))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OlIcon('folder', size: 13, color: context.ol.ink3),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  path,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: context.ol.ink2),
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEAF8FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(child: OlIcon('download', size: 16, color: OlTokens.sky700)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '下载目录',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: p.ink),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${profile.name} · 独立子目录',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: p.ink4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OlIconButton(
+                    icon: 'x',
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+                decoration: BoxDecoration(
+                  color: p.surfaceAlt,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: p.line2),
                 ),
+                child: Row(
+                  children: [
+                    OlIcon('folder', size: 15, color: p.ink3),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        path,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, height: 1.5, fontFamily: 'monospace', color: p.ink2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 未授权时只给一行提示，不再放「授权说明」按钮（v2.3）。
+              if (Platform.isAndroid && !authorized) ...[
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const OlIcon('shield', size: 13, color: Color(0xFFC98106)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '选择公共目录需要「所有文件访问权限」，点「选择目录」时按提示授权即可。',
+                        style: TextStyle(fontSize: 10.5, height: 1.6, color: const Color(0xFF8A5B05)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OlGhostButton(
+                      label: '恢复默认',
+                      height: 40,
+                      onTap: () => Navigator.of(dialogContext).pop('reset'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OlPrimaryButton(
+                      label: '选择目录',
+                      icon: 'folder',
+                      height: 40,
+                      onTap: () => Navigator.of(dialogContext).pop('pick'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        if (Platform.isAndroid)
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: authorized ? const Color(0xFFE9FBF5) : const Color(0xFFFFF8EC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: authorized ? const Color(0xFFCFF1E8) : const Color(0xFFFBE7C2)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OlIcon('shield', size: 13, color: authorized ? OlTokens.teal600 : const Color(0xFFC98106)),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    authorized
-                        ? '已获得文件访问权限，可直接写入公共目录。'
-                        : 'Android 11 起写入公共「下载」目录需要「所有文件访问权限」；也可选择一个文件夹（SAF），授权一次长期有效。',
-                    style: TextStyle(fontSize: 10, height: 1.6, color: authorized ? const Color(0xFF0B7A63) : const Color(0xFF8A5B05)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            if (Platform.isAndroid && !authorized)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: OlGhostButton(
-                    label: '去授权',
-                    icon: 'shield',
-                    onTap: () => Navigator.of(context).pop('auth'),
-                  ),
-                ),
-              ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OlGhostButton(
-                  label: '恢复默认',
-                  onTap: () => Navigator.of(context).pop('reset'),
-                ),
-              ),
-            ),
-            Expanded(
-              child: OlPrimaryButton(
-                label: '选择目录',
-                icon: 'folder',
-                onTap: () => Navigator.of(context).pop('pick'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-      ],
-    ),
+      );
+    },
   );
 
   if (!context.mounted) return;
   switch (action) {
-    case 'auth':
-      await StorageAccess.requestAllFiles();
-      if (context.mounted) olToast(context, '授权完成后重新打开本面板即可选择目录');
-      break;
     case 'reset':
       await ref.read(serverStoreProvider).clearDownloadDir(profile.id);
       if (context.mounted) olToast(context, '已恢复默认下载目录');
@@ -248,7 +277,7 @@ class _DownloadDirTileState extends ConsumerState<DownloadDirTile> {
     final needsAuth = Platform.isAndroid && !_authorized;
     return InkWell(
       onTap: () async {
-        await showDownloadDirSheet(context, ref);
+        await showDownloadDirDialog(context, ref);
         await _load();
       },
       child: Padding(
@@ -360,7 +389,7 @@ class _DownloadDirLineState extends ConsumerState<DownloadDirLine> {
             label: '更改',
             icon: 'folder',
             onTap: () async {
-              await showDownloadDirSheet(context, ref);
+              await showDownloadDirDialog(context, ref);
               await _load();
             },
           ),

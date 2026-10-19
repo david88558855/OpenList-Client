@@ -89,19 +89,34 @@ class OlGap {
   static const touchMin = 44.0;
 }
 
-/// 移动端专用的尺寸修正（v2.2）。
+/// 移动端专用的尺寸修正（v2.2 起步，v2.3 按真机反馈整体上调）。
 class OlMobile {
   const OlMobile._();
 
-  /// Android 字号下限放大比例：设计稿的 9–11px 在真机上偏小，
-  /// 统一放大到 1.12 倍（且不覆盖系统更大的无障碍字号）。
-  static const textScale = 1.12;
+  /// Android 字号放大比例。
+  ///
+  /// v2.2 的 1.12 在 360dp 真机上仍然偏小（11.5px → 12.9px），v2.3 提到 1.30：
+  /// 设计稿的 9.5 / 10.5 / 11.5 实际渲染约 12.4 / 13.7 / 15，正文达到移动端
+  /// 可读下限。仍然用 clamp 实现，不覆盖系统更大的无障碍字号。
+  static const textScale = 1.30;
 
-  /// 移动端列表行高（设计稿 A2）。
-  static const rowHeight = 58.0;
+  /// 移动端列表行高（设计稿 A2，v2.3 由 58 提到 66 以容纳放大后的两行文字）。
+  static const rowHeight = 66.0;
 
   /// 移动端触控最小尺寸。
   static const touch = 44.0;
+
+  /// 移动端按钮最小高度（v2.3：30px 的桌面按钮在手机上点不中）。
+  static const buttonHeight = 42.0;
+
+  /// 行内紧凑按钮（原本 22–26px）在移动端的高度下限。
+  static const buttonCompact = 34.0;
+
+  /// 移动端 chip（类型筛选等）高度。
+  static const chipHeight = 34.0;
+
+  /// 移动端图标按钮尺寸。
+  static const iconButton = 40.0;
 }
 
 /// Theme-aware palette. Every surface used by a screen comes from here so the

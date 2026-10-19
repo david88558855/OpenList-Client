@@ -14,6 +14,9 @@ class SessionState {
   final OpenListApi? api;
   final bool connecting;
   final bool signedIn;
+
+  /// 冷启动时网络不可达：凭据仍在，允许进入只读离线态（v2.3）。
+  final bool offline;
   final String? error;
   final int? latencyMs;
 
@@ -24,6 +27,7 @@ class SessionState {
     this.api,
     this.connecting = false,
     this.signedIn = false,
+    this.offline = false,
     this.error,
     this.latencyMs,
   });
@@ -35,6 +39,7 @@ class SessionState {
     OpenListApi? api,
     bool? connecting,
     bool? signedIn,
+    bool? offline,
     String? error,
     int? latencyMs,
   }) =>
@@ -45,6 +50,7 @@ class SessionState {
         api: api ?? this.api,
         connecting: connecting ?? this.connecting,
         signedIn: signedIn ?? this.signedIn,
+        offline: offline ?? this.offline,
         error: error,
         latencyMs: latencyMs ?? this.latencyMs,
       );
@@ -121,11 +127,33 @@ class SessionNotifier extends StateNotifier<SessionState> {
     } on ApiException catch (e) {
       watch.stop();
       if (e.needsReauth) {
+        // 只有明确的 401/403 才算登出；其余一律保留凭据。
         await _secure.delete(profile.tokenKey);
         state = SessionState(profile: profile, error: '登录已失效，请重新连接');
       } else {
-        state = SessionState(profile: profile, api: api, error: e.friendly, connecting: false);
+        // v2.3：网络 / 超时 / DNS / 5xx 不再把用户踢回登录页。
+        // 凭据还在，进入只读离线态：目录列表走本地缓存，写操作由各自的
+        // 错误提示兜底，顶部黄色条提示「离线模式」。
+        state = SessionState(
+          profile: profile,
+          api: api,
+          signedIn: true,
+          offline: true,
+          error: e.friendly,
+          connecting: false,
+        );
       }
+    } catch (_) {
+      // 非 ApiException（例如 TLS 握手失败、SocketException 包装异常）
+      watch.stop();
+      state = SessionState(
+        profile: profile,
+        api: api,
+        signedIn: true,
+        offline: true,
+        error: '网络不可用，已进入离线模式',
+        connecting: false,
+      );
     }
   }
 
@@ -216,6 +244,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
         site: state.site,
         api: api,
         signedIn: true,
+        offline: false,
         latencyMs: state.latencyMs,
       );
     } on ApiException catch (_) {

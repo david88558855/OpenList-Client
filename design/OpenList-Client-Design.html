@@ -1,10 +1,12 @@
 <!--
-  OpenList Client · Design + Handoff · v2.2（交付版）
+  OpenList Client · Design + Handoff · v2.3（交付版）
   唯一权威依据：本文件。所有界面、间距、字号、颜色均可在此直接读取。
   实现方请先读 08 — 开工交接：工程结构、design/ 目录约定、路由、API、验收标准。
   已知问题见 09 — Known Issues（K-01 / K-02 已修复，保留追溯）。
-  交互修订见 10 — Revisions v2.1（R-01~R-12）与 11 — Revisions v2.2（R-13~R-18）：
-  设置信息架构调整、下载目录独立分区、Android 字号与圆角、系统返回键、点击无反应修复。
+  交互修订见 10 — Revisions v2.1（R-01~R-12）、11 — Revisions v2.2（R-13~R-18）
+  与 12 — Revisions v2.3（R-19~R-30）：Android 字号/按钮可读性、关于页与设置卡片的
+  文本截断、下载目录入口顺序与弹窗形态，以及 4 项遗留审查项（离线启动、缓存上限、
+  上传限速、Explorer 重启后的托盘图标）。
   本文件自包含，无外部图片/字体/JS 依赖。画板：W1–W9（Windows）、A1–A8（Android）。
 -->
 <!DOCTYPE html>
@@ -12,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenList Client · 设计稿 + 开工交接 v2.2</title>
+<title>OpenList Client · 设计稿 + 开工交接 v2.3</title>
 <style>
 :root{
   --sky:#38BDF8; --sky-600:#0EA5E9; --sky-700:#0284C7;
@@ -864,6 +866,7 @@ h3{letter-spacing:-.015em}
     <a href="#issues" style="color:#8A5B05"><svg class="ic" style="color:#E9A93B"><use href="#i-alert"/></svg>已知问题 2</a>
     <a href="#revisions"><svg class="ic"><use href="#i-check"/></svg>交互修订 12</a>
     <a href="#revisions2"><svg class="ic"><use href="#i-check"/></svg>修订 v2.2 · 6</a>
+    <a href="#revisions3"><svg class="ic"><use href="#i-check"/></svg>修订 v2.3 · 12</a>
   </nav>
   <div class="rail-foot">
     <b>v2.0 · 交付版 · 2026.10.19</b>
@@ -1809,7 +1812,7 @@ h3{letter-spacing:-.015em}
             <div class="dnav"><svg class="ic"><use href="#i-play"/></svg>播放与预览</div>
             <div class="dnav"><svg class="ic"><use href="#i-sun"/></svg>外观</div>
             <div class="dnav"><svg class="ic"><use href="#i-info"/></svg>关于与更新<span class="nt">新</span></div>
-            <div style="padding:10px 9px 0;font-size:8.5px;color:#A2B2C2">v2.1：移除「通知」「隐私与安全」，退出登录移到「关于」底部<br>v2.2：移除「存储挂载」，新增「下载目录」分区</div>
+            <div style="padding:10px 9px 0;font-size:8.5px;color:#A2B2C2">v2.1：移除「通知」「隐私与安全」，退出登录移到「关于」底部<br>v2.2：移除「存储挂载」，新增「下载目录」分区<br>v2.3：下载目录提到「传输」之上；下载目录分区去掉「授权说明」；选目录弹窗改居中</div>
             <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.2<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
           </aside>
           <div class="scontent">
@@ -2743,7 +2746,8 @@ h3{letter-spacing:-.015em}
     <!-- A6 -->
     <div class="screen" style="margin-top:20px">
       <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>设置</h3><p>服务器管理、下载目录与偏好集中在此；下载目录在 Android 需授权。</p>
-      <p style="margin-top:4px;color:#8A5B05"><b>v2.2：</b>顶部「已连接服务器」改 18px 圆角卡片（左右各 14px 外边距）；整页字号在 9–12px 基础上放大 12%；分区详情为独立页，带返回。</p></div></div>
+      <p style="margin-top:4px;color:#8A5B05"><b>v2.2：</b>顶部「已连接服务器」改 18px 圆角卡片（左右各 14px 外边距）；整页字号在 9–12px 基础上放大 12%；分区详情为独立页，带返回。</p>
+      <p style="margin-top:2px;color:#8A5B05"><b>v2.3：</b>字号放大比例提到 1.30×；设置项行高 58；按钮 42 / chip 34 / 图标按钮 40；顶部卡片副标题单行省略（版本只显示第一段）；下载目录排在传输设置之上。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus light" style="position:absolute;left:0;right:0;top:0;z-index:20"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
@@ -3489,7 +3493,7 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <script type="application/json" id="handoff-spec">
   {
     "product": "OpenList Client",
-    "designVersion": "2.2",
+    "designVersion": "2.3",
     "platforms": ["windows", "android"],
     "stack": {
       "framework": "Flutter 3.x",
@@ -3850,6 +3854,127 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
     <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.7</code>（设计稿 v2.2）。
     与 10 章冲突时以编号更大者为准；后续交互调整从 R-19 继续编号。
+  </div>
+</section>
+<!-- REVISIONS v2.3 -->
+<section class="sec" id="revisions3">
+  <div class="sec-head">
+    <div class="eyebrow">12 — Revisions</div>
+    <h2>v2.3 · Android 可读性与遗留审查项</h2>
+    <p>v2.2 真机安装后的第三轮反馈：字与按钮仍然偏小，两处文本溢出（关于页「服务端」行、
+    设置顶部服务器卡），下载目录入口位置与弹窗形态不合适；同时把 v1.0.8 审查清单里
+    遗留的 P2-13 ~ P2-16 一并修掉。以下 12 项为最终口径，已同步 W6 / A6 画板与代码。</p>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table class="rev-tbl">
+      <thead><tr><th style="width:52px">ID</th><th style="width:64px">端</th><th style="width:150px">位置</th><th style="width:250px">问题</th><th>期望行为（验收口径）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>R-19</b></td><td><span class="rev-tag mob">A1–A8</span></td>
+          <td>Android · 全局字号</td>
+          <td>1.12 倍后 9.5–11px 仍偏小，正文难读</td>
+          <td>移动端字号下限提到 <b>1.30×</b>：9.5/10.5/11.5 实际约 12.4/13.7/15；
+          仍用 clamp 实现，不覆盖系统更大的无障碍字号；桌面 ≥900 不变</td>
+        </tr>
+        <tr>
+          <td><b>R-20</b></td><td><span class="rev-tag mob">A1–A8</span></td>
+          <td>Android · 按钮与 chip</td>
+          <td>30px 高的小按钮点不中，chip 26px 更小</td>
+          <td>按钮默认高 <b>42</b>（行内 22–26 → 34）；图标按钮 <b>40×40</b>；
+          类型 chip <b>34</b>；文案统一单行省略</td>
+        </tr>
+        <tr>
+          <td><b>R-21</b></td><td><span class="rev-tag mob">A2 / A6</span></td>
+          <td>Android · 行高与批量条</td>
+          <td>字号放大后行内容易被裁，批量条一行放不下</td>
+          <td>文件行 58 → <b>66</b>，设置项 50 → <b>58</b>，底部 Tab 70 → <b>78</b>；
+          批量条改两行：上排「全选 + 已选 N 项」，下排五个等宽动作</td>
+        </tr>
+        <tr>
+          <td><b>R-22</b></td><td><span class="rev-tag web">W6</span><span class="rev-tag mob" style="margin-left:4px">A6</span></td>
+          <td>关于与更新 · 「服务端」行</td>
+          <td>服务端版本串很长（dev (Commit…) - Frontend… - Build at…），trailing 无宽度约束，
+          标题列被挤成 1 字宽，整行竖排</td>
+          <td>行内列宽固定 <code>title:trailing = 3:2</code>，trailing 右对齐 + 省略；
+          版本串走 <code>AppInfo.shortVersion()</code>（只保留第一段，≤18 字符）</td>
+        </tr>
+        <tr>
+          <td><b>R-23</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>「我的」顶部服务器卡</td>
+          <td>「host · 版本」长串冲出卡片圆角，盖住状态徽标</td>
+          <td>用户名与副标题都单行省略（<code>softWrap:false</code>），版本走短形式；
+          徽标区分「已连接 / 离线 / 未登录」</td>
+        </tr>
+        <tr>
+          <td><b>R-24</b></td><td><span class="rev-tag web">W6</span><span class="rev-tag mob" style="margin-left:4px">A6</span></td>
+          <td>设置 · 下载目录位置</td>
+          <td>下载目录排在传输设置下面，真机上要改目录得先找</td>
+          <td><b>下载目录排在传输设置之上</b>：桌面侧栏顺序为
+          服务器管理 / 下载目录 / 传输 / 播放与预览 / 外观 / 关于</td>
+        </tr>
+        <tr>
+          <td><b>R-25</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>下载目录分区</td>
+          <td>「授权说明」按钮只弹一句 toast，价值低且占位置</td>
+          <td><b>移除该按钮与底部说明条</b>；未授权时只在选择目录弹窗里给一行提示。
+          桌面保留「打开目录」</td>
+        </tr>
+        <tr>
+          <td><b>R-26</b></td><td><span class="rev-tag mob">A6</span></td>
+          <td>选择下载目录的弹窗</td>
+          <td>用底部面板呈现，贴在屏幕最下方、被手势条压住</td>
+          <td>改为<b>居中对话框</b>：标题行（图标 + 下载目录 + 实例名 + 关闭）、当前路径、
+          「恢复默认 / 选择目录」；只有文件长按才用底部面板（A7）</td>
+        </tr>
+        <tr>
+          <td><b>R-27</b></td><td><span class="rev-tag web">W1</span><span class="rev-tag win" style="margin-left:4px">W9</span></td>
+          <td>冷启动 · 离线</td>
+          <td>断网启动时 /api/me 失败即 <code>signedIn=false</code>，被守卫踢回登录页</td>
+          <td>只有 <b>401/403</b> 才清凭据；网络 / 超时 / DNS / 5xx 进入<b>只读离线态</b>
+          （目录走缓存，顶部提示离线），恢复联网后自动清除离线标记</td>
+        </tr>
+        <tr>
+          <td><b>R-28</b></td><td><span class="rev-tag web">W2</span></td>
+          <td>目录缓存</td>
+          <td>每个目录一份 JSON 无限堆积，prefs 会膨胀到几十 MB</td>
+          <td>LRU 上限 <b>24 个目录 / 2MB</b>，超出按最旧淘汰；提供
+          <code>clearListingCache()</code></td>
+        </tr>
+        <tr>
+          <td><b>R-29</b></td><td><span class="rev-tag web">W3</span></td>
+          <td>上传限速</td>
+          <td>设置里的「上传限速」只写进配置，上传走 dio 默认流，实际不限速</td>
+          <td>上传流按累计配额节流（第 n 字节在 n/rate 秒后发出）；
+          上传的 HTTP 校验同日改为 <code>&lt;400</code>，401 不再算成功</td>
+        </tr>
+        <tr>
+          <td><b>R-30</b></td><td><span class="rev-tag win">W9</span></td>
+          <td>Windows · 托盘图标存活</td>
+          <td>Explorer 重启后 <code>Shell_NotifyIcon</code> 注册被清，图标消失、
+          右键菜单也弹不出来（tray_manager 未监听 TaskbarCreated）</td>
+          <td>25s 看门狗：<code>getBounds()</code> 拿不到有效矩形时
+          <code>destroy()</code> → <code>setIcon()</code> 重新 <code>NIM_ADD</code> 并重建菜单</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pi" style="background:#E9FBF5;color:#0B7A63"><svg class="ic"><use href="#i-check"/></svg></span><h4>回归清单（v2.3 验收）</h4></div>
+    <div class="h-list">
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>可读性</b>：360dp 宽屏上列表副标题、按钮文字不截断；按钮一指点中</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>关于页</b>：服务端行标题正常横排，版本只显示 <code>dev</code>；</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>我的</b>：顶部卡片文字不越界；下载目录在传输设置之上；无「授权说明」</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>目录弹窗</b>：居中显示，恢复默认 / 选择目录可用，返回键可关闭</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>离线</b>：断网冷启动进入文件页（离线条 + 缓存列表），不被踢回登录</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>Windows</b>：任务管理器重启 Explorer 后 25s 内托盘图标自动回来，右键可弹菜单</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
+    <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.9</code>（设计稿 v2.3）。
+    与 10 / 11 章冲突时以编号更大者为准；后续交互调整从 R-31 继续编号。
   </div>
 </section>
 </div>

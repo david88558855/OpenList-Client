@@ -1596,10 +1596,11 @@ class _CircleBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
+        // v2.3：触控目标由 30 提到 40（与 OlMobile.iconButton 一致）。
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(color: p.surface, shape: BoxShape.circle, border: Border.all(color: p.line2)),
-        child: Center(child: OlIcon(icon, size: 14, color: p.ink2)),
+        child: Center(child: OlIcon(icon, size: 18, color: p.ink2)),
       ),
     );
   }
@@ -1614,7 +1615,7 @@ class _MobileMounts extends ConsumerWidget {
     final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
     if (storages.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 70,
+      height: 80,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 8, OlGap.pageMobile, 8),
@@ -1625,8 +1626,8 @@ class _MobileMounts extends ConsumerWidget {
           return GestureDetector(
             onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
             child: Container(
-              width: 148,
-              padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+              width: 166,
+              padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
               decoration: BoxDecoration(
                 color: p.card,
                 borderRadius: BorderRadius.circular(12),
@@ -1637,14 +1638,14 @@ class _MobileMounts extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      OlIcon('hard-drive', size: 12, color: mount.isUp ? OlTokens.sky700 : p.ink4),
+                      OlIcon('hard-drive', size: 14, color: mount.isUp ? OlTokens.sky700 : p.ink4),
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           mount.mountPath == '/' ? '根目录' : mount.mountPath,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
                         ),
                       ),
                     ],
@@ -1655,7 +1656,7 @@ class _MobileMounts extends ConsumerWidget {
                     mount.driver.isEmpty ? (mount.isUp ? '已挂载' : '离线') : mount.driver,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink3),
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink3),
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -1664,7 +1665,7 @@ class _MobileMounts extends ConsumerWidget {
                       const SizedBox(width: 4),
                       Text(
                         mount.isUp ? '正常' : '离线',
-                        style: TextStyle(fontSize: 8.5, color: p.ink4),
+                        style: TextStyle(fontSize: 9.5, color: p.ink4),
                       ),
                     ],
                   ),
@@ -1718,8 +1719,9 @@ class _KindFilter extends StatelessWidget {
           GestureDetector(
             onTap: () => onBatch(!batch),
             child: Container(
-              height: 26,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              // v2.3：与 chip 同高（34），点得中。
+              height: OlMobile.chipHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: batch ? OlTokens.sky600 : p.chipBg,
                 borderRadius: BorderRadius.circular(99),
@@ -1728,11 +1730,11 @@ class _KindFilter extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  OlIcon(batch ? 'check' : 'layers', size: 12, color: batch ? Colors.white : p.ink2),
-                  const SizedBox(width: 4),
+                  OlIcon(batch ? 'check' : 'layers', size: 14, color: batch ? Colors.white : p.ink2),
+                  const SizedBox(width: 5),
                   Text(
                     batch ? '完成' : '批量',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: batch ? Colors.white : p.ink2),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: batch ? Colors.white : p.ink2),
                   ),
                 ],
               ),
@@ -1839,7 +1841,8 @@ class _MobileRow extends StatelessWidget {
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 58,
+        // v2.3：字号放大后行高由 58 提到 66（OlMobile.rowHeight）。
+        height: OlMobile.rowHeight,
         decoration: BoxDecoration(
           color: selected && batch ? p.rowSel : null,
           border: Border(bottom: BorderSide(color: p.divider)),
@@ -1850,7 +1853,7 @@ class _MobileRow extends StatelessWidget {
               OlCheckbox(value: selected, onChanged: (_) => onTap()),
               const SizedBox(width: 10),
             ],
-            FileGlyph(item: item, size: 34, radius: 9, iconSize: 17),
+            FileGlyph(item: item, size: 38, radius: 10, iconSize: 19),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
@@ -1861,14 +1864,14 @@ class _MobileRow extends StatelessWidget {
                     item.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.ink),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     item.isDir ? '文件夹' : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9.5, color: p.ink4),
+                    style: TextStyle(fontSize: 10.5, color: p.ink4),
                   ),
                 ],
               ),
@@ -1904,42 +1907,49 @@ class _BatchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    // v2.3：字号放大后一行放不下「全选 + 计数 + 5 个动作」，
+    // 拆成两行：上排状态与全选，下排五个等宽动作，避免互相挤压。
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         color: p.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: p.line),
         boxShadow: const [BoxShadow(color: Color(0x260D1B2A), blurRadius: 24, offset: Offset(0, 10))],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            onTap: onSelectAll,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OlIcon('check', size: 16, color: p.ink2),
-                  const SizedBox(height: 3),
-                  Text('全选', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink2)),
-                ],
+          Row(
+            children: [
+              GestureDetector(
+                onTap: onSelectAll,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    OlIcon('check', size: 17, color: p.ink2),
+                    const SizedBox(width: 6),
+                    Text('全选', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink2)),
+                  ],
+                ),
               ),
-            ),
+              const Spacer(),
+              Text(
+                '已选 $count 项',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink3),
+              ),
+            ],
           ),
-          Expanded(
-            child: Text(
-              '已选 $count 项',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink3),
-            ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: _BatchAction(icon: 'download', label: '下载', enabled: count > 0, onTap: onDownload)),
+              Expanded(child: _BatchAction(icon: 'move', label: '移动', enabled: count > 0, onTap: onMove)),
+              Expanded(child: _BatchAction(icon: 'copy', label: '复制', enabled: count > 0, onTap: onCopy)),
+              Expanded(child: _BatchAction(icon: 'trash', label: '删除', enabled: count > 0, danger: true, onTap: onDelete)),
+              Expanded(child: _BatchAction(icon: 'x', label: '退出', enabled: true, onTap: onExit)),
+            ],
           ),
-          _BatchAction(icon: 'download', label: '下载', enabled: count > 0, onTap: onDownload),
-          _BatchAction(icon: 'move', label: '移动', enabled: count > 0, onTap: onMove),
-          _BatchAction(icon: 'copy', label: '复制', enabled: count > 0, onTap: onCopy),
-          _BatchAction(icon: 'trash', label: '删除', enabled: count > 0, danger: true, onTap: onDelete),
-          _BatchAction(icon: 'x', label: '退出', enabled: true, onTap: onExit),
         ],
       ),
     );
@@ -1966,14 +1976,15 @@ class _BatchAction extends StatelessWidget {
     final color = !enabled ? p.ink4 : (danger ? const Color(0xFFD92D4B) : p.ink2);
     return GestureDetector(
       onTap: enabled ? onTap : null,
+      behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            OlIcon(icon, size: 16, color: color),
-            const SizedBox(height: 3),
-            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color)),
+            OlIcon(icon, size: 19, color: color),
+            const SizedBox(height: 4),
+            Text(label, maxLines: 1, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
           ],
         ),
       ),

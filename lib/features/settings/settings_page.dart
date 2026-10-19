@@ -197,19 +197,36 @@ class _Row extends StatelessWidget {
               ),
               const SizedBox(width: 9),
               Expanded(
+                flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2)),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink2),
+                    ),
                     if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 1),
-                      Text(subtitle, style: TextStyle(fontSize: 9, color: p.ink4)),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 10, color: p.ink4),
+                      ),
                     ],
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              trailing,
+              // v2.3：trailing 必须限宽并右对齐。之前服务端版本串没有约束，
+              // 会把标题列挤到只剩 1 个字宽，整行变成竖排中文。
+              Flexible(
+                flex: 2,
+                child: Align(alignment: Alignment.centerRight, child: trailing),
+              ),
             ],
           ),
         ),
@@ -445,32 +462,30 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
                     child: OlSoftButton(
                       label: '更改目录',
                       icon: 'folder',
-                      height: 30,
                       onTap: profile == null
                           ? null
                           : () async {
-                              await showDownloadDirSheet(context, ref);
+                              await showDownloadDirDialog(context, ref);
                               await _load();
                             },
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OlGhostButton(
-                      label: Platform.isAndroid ? '授权说明' : '打开目录',
-                      icon: Platform.isAndroid ? 'shield' : 'external',
-                      height: 30,
-                      onTap: () {
-                        if (Platform.isAndroid) {
-                          olToast(context, 'Android 使用系统文件选择器（SAF）授权目录，更改目录时按提示授权');
-                          return;
-                        }
-                        final dir = _dir;
-                        if (dir == null) return;
-                        Process.run('explorer', [dir]);
-                      },
+                  // v2.3：Android 去掉「授权说明」按钮（授权在选目录时按提示完成），
+                  // 桌面保留「打开目录」——这是唯一能从设置跳到磁盘的入口。
+                  if (!Platform.isAndroid) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OlGhostButton(
+                        label: '打开目录',
+                        icon: 'external',
+                        onTap: () {
+                          final dir = _dir;
+                          if (dir == null) return;
+                          Process.run('explorer', [dir]);
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -502,8 +517,6 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
             ],
           ),
         ),
-        const SizedBox(height: 6),
-        const _InfoStrip(text: 'Android 需通过系统文件选择器授权目录；Windows 便携版默认落在「下载/OpenList」。大文件走前台服务与断点续传。'),
       ],
     );
   }
@@ -844,13 +857,22 @@ class _AboutSection extends ConsumerWidget {
                 icon: 'layers',
                 title: 'OpenList Client',
                 subtitle: 'Windows 便携版 · Android · 单代码库',
-                trailing: Text(AppInfo.versionLabel, style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3)),
+                trailing: Text(
+                  AppInfo.versionLabel,
+                  maxLines: 1,
+                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
+                ),
               ),
               _Row(
                 icon: 'server',
                 title: '服务端',
-                subtitle: session.profile?.baseUrl ?? '未连接',
-                trailing: Text(session.profile?.version ?? '—', style: TextStyle(fontSize: 10, color: p.ink3)),
+                subtitle: session.profile?.displayHost ?? '未连接',
+                trailing: Text(
+                  AppInfo.shortVersion(session.profile?.version ?? session.site?.version),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
+                ),
               ),
               _Row(
                 icon: 'external',
@@ -866,7 +888,7 @@ class _AboutSection extends ConsumerWidget {
                 icon: 'refresh',
                 title: '检查更新',
                 subtitle: '便携版 zip 解压即用',
-                trailing: Text('已是最新', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+                trailing: Text('已是最新', maxLines: 1, style: TextStyle(fontSize: 10, color: p.ink4)),
               ),
             ],
           ),
@@ -995,22 +1017,27 @@ class _MobileSettings extends ConsumerWidget {
                     children: [
                       Text(
                         profile?.username ?? '未登录',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        profile == null ? '未连接服务器' : '${profile.displayHost} · ${profile.version ?? session.site?.version ?? 'API v4'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF9DB4C8)),
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        profile == null
+                            ? '未连接服务器'
+                            : '${profile.displayHost} · ${AppInfo.shortVersion(profile.version ?? session.site?.version)}',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF9DB4C8)),
                       ),
                     ],
                   ),
                 ),
                 OlBadge(
-                  label: session.signedIn ? '已连接' : '离线',
-                  fg: const Color(0xFF0B5C4C),
-                  bg: const Color(0xFF7DD3FC),
+                  label: session.offline ? '离线' : (session.signedIn ? '已连接' : '未登录'),
+                  fg: session.offline ? const Color(0xFF5E4A22) : const Color(0xFF0B5C4C),
+                  bg: session.offline ? const Color(0xFFFCD9A0) : const Color(0xFF7DD3FC),
                 ),
               ],
             ),
@@ -1032,8 +1059,9 @@ class _MobileSettings extends ConsumerWidget {
                 _MobileGroup(
                   title: '传输与播放',
                   children: [
+                    // v2.3：下载目录提到传输设置之上（真机上更常改目录）。
+                    _MobileTile(icon: 'download', label: '下载目录', value: '查看 / 更改', onTap: () => context.go('/settings/download')),
                     _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速', onTap: () => context.go('/settings/transfer')),
-                    _MobileTile(icon: 'download', label: '下载目录', value: '查看 / 更改 / 授权', onTap: () => context.go('/settings/download')),
                     _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
                   ],
                 ),
@@ -1121,23 +1149,34 @@ class _MobileTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        // v2.3：行高 50 → 58，图标与字号同步放大，避免文字被裁。
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
         child: Row(
           children: [
-            OlIcon(icon, size: 15, color: danger ? const Color(0xFFD92D4B) : p.ink3),
-            const SizedBox(width: 10),
+            OlIcon(icon, size: 18, color: danger ? const Color(0xFFD92D4B) : p.ink3),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: danger ? const Color(0xFFD92D4B) : p.ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: danger ? const Color(0xFFD92D4B) : p.ink),
               ),
             ),
             if (value.isNotEmpty)
-              Text(value, style: TextStyle(fontSize: 9.5, color: p.ink4)),
-            const SizedBox(width: 5),
-            OlIcon('chev-r', size: 13, color: p.ink4),
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 11, color: p.ink4),
+                ),
+              ),
+            const SizedBox(width: 6),
+            OlIcon('chev-r', size: 15, color: p.ink4),
           ],
         ),
       ),

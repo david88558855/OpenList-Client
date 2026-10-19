@@ -923,7 +923,7 @@ class _TransferSettings extends ConsumerWidget {
           Text('下载位置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
           const SizedBox(height: 6),
           GestureDetector(
-            onTap: () => showDownloadDirSheet(context, ref),
+            onTap: () => showDownloadDirDialog(context, ref),
             child: Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(

@@ -394,11 +394,17 @@ class OpenListApi {
     return received;
   }
 
+  /// 上传单个文件。
+  ///
+  /// [throttleBytesPerSecond] 传 0 表示不限速。限速实现为「按累计字节数配额
+  /// 放行」的节流流：把 openRead() 的分块按预算延迟后再交给 Dio，因此不会在
+  /// 内核缓冲区里一次性把整份文件推出去（v2.3 修复「上传限速设置无效」）。
   Future<void> uploadFile({
     required String remotePath,
     required File source,
     required CancelToken cancelToken,
     required void Function(int sent, int total) onProgress,
+    int throttleBytesPerSecond = 0,
   }) async {
     final length = await source.length();
     final headers = <String, String>{
@@ -407,22 +413,46 @@ class OpenListApi {
       'Content-Length': '$length',
     };
     if (token != null && token!.isNotEmpty) headers['Authorization'] = token!;
+    final stream = throttleBytesPerSecond > 0
+        ? _throttle(source.openRead(), throttleBytesPerSecond, cancelToken)
+        : source.openRead();
     try {
       final res = await _dio.put<dynamic>(
         '/api/fs/put',
-        data: source.openRead(),
+        data: stream,
         options: Options(
           headers: headers,
           sendTimeout: const Duration(days: 1),
           receiveTimeout: const Duration(days: 1),
-          validateStatus: (s) => s != null && s < 500,
+          // 与 _get/_post 一致：>=400 必须走错误分支，否则 401 会被当成功。
+          validateStatus: (s) => s != null && s < 400,
         ),
         cancelToken: cancelToken,
         onSendProgress: onProgress,
       );
-      _unwrap(res.data);
+      _handle(res);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    }
+  }
+
+  /// 累计配额节流：第 n 个字节应在 n / rate 秒之后才发出。
+  Stream<List<int>> _throttle(
+    Stream<List<int>> input,
+    int bytesPerSecond,
+    CancelToken cancelToken,
+  ) async* {
+    final watch = Stopwatch()..start();
+    var sent = 0;
+    await for (final chunk in input) {
+      sent += chunk.length;
+      final expectedMs = sent * 1000 / bytesPerSecond;
+      final elapsedMs = watch.elapsedMilliseconds;
+      if (expectedMs > elapsedMs) {
+        await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsedMs).round()));
+      }
+      if (cancelToken.isCancelled) return;
+      yield chunk;
     }
   }
 }

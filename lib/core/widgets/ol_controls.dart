@@ -4,6 +4,27 @@ import 'package:flutter/services.dart';
 import '../theme/tokens.dart';
 import 'ol_icon.dart';
 
+// ---------------------------------------------------------------------------
+// 移动端（v2.3）：安卓真机上 30px 的桌面按钮点不中、9–11px 的字看不清。
+// 这里只改「组件自带尺寸」，调用方显式传的更大值保持不动；桌面完全不受影响。
+// ---------------------------------------------------------------------------
+bool _isMobile(BuildContext context) => MediaQuery.sizeOf(context).width < 900;
+
+/// 默认 30 → 42；行内紧凑（≤26）→ 34；调用方显式 28/34 等中间值按 34/42 抬。
+double _mobileHeight(BuildContext context, double height) {
+  if (!_isMobile(context)) return height;
+  if (height <= 26) return OlMobile.buttonCompact;
+  if (height <= 34) return OlMobile.buttonHeight;
+  return height;
+}
+
+/// 按钮文字下限 12（实际渲染仍会被全局 textScaler 再放大到 ~15）。
+double _mobileFont(BuildContext context, double fontSize) {
+  if (!_isMobile(context)) return fontSize;
+  return fontSize < 12 ? 12.0 : fontSize;
+}
+
+
 class OlPrimaryButton extends StatelessWidget {
   final String label;
   final String? icon;
@@ -27,9 +48,11 @@ class OlPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null && !busy;
+    final h = _mobileHeight(context, height);
+    final font = _mobileFont(context, fontSize);
     final content = Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: h,
+      padding: EdgeInsets.symmetric(horizontal: _isMobile(context) ? 16 : 12),
       decoration: BoxDecoration(
         gradient: enabled ? OlTokens.gradientPrimary : const LinearGradient(colors: [Color(0xFFB8D9EA), Color(0xFFB8E3E1)]),
         borderRadius: BorderRadius.circular(8),
@@ -48,11 +71,13 @@ class OlPrimaryButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white),
             )
           else if (icon != null)
-            OlIcon(icon!, size: 14, color: Colors.white, strokeWidth: 2),
+            OlIcon(icon!, size: _isMobile(context) ? 16 : 14, color: Colors.white, strokeWidth: 2),
           if (busy || icon != null) const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800, color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: font, fontWeight: FontWeight.w800, color: Colors.white),
           ),
         ],
       ),
@@ -83,13 +108,14 @@ class OlGhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    final mobile = _isMobile(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: height,
-          padding: const EdgeInsets.symmetric(horizontal: 11),
+          height: _mobileHeight(context, height),
+          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
           decoration: BoxDecoration(
             color: p.isDark ? const Color(0xFF12202F) : Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -99,10 +125,19 @@ class OlGhostButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: 14, color: p.ink2),
+                OlIcon(icon!, size: mobile ? 16 : 14, color: p.ink2),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: p.ink2)),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: _mobileFont(context, fontSize),
+                  fontWeight: FontWeight.w700,
+                  color: p.ink2,
+                ),
+              ),
             ],
           ),
         ),
@@ -121,13 +156,14 @@ class OlSoftButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = _isMobile(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: height,
-          padding: const EdgeInsets.symmetric(horizontal: 11),
+          height: _mobileHeight(context, height),
+          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
           decoration: BoxDecoration(
             color: const Color(0xFFEAF8FE),
             borderRadius: BorderRadius.circular(8),
@@ -136,10 +172,19 @@ class OlSoftButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: 14, color: const Color(0xFF08799F)),
+                OlIcon(icon!, size: mobile ? 16 : 14, color: const Color(0xFF08799F)),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF08799F))),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: _mobileFont(context, 11.5),
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF08799F),
+                ),
+              ),
             ],
           ),
         ),
@@ -158,13 +203,14 @@ class OlDangerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = _isMobile(context);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: height,
-          padding: const EdgeInsets.symmetric(horizontal: 11),
+          height: _mobileHeight(context, height),
+          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
           decoration: BoxDecoration(
             color: const Color(0xFFFFF1F3),
             border: Border.all(color: const Color(0xFFFFD9E0)),
@@ -174,10 +220,19 @@ class OlDangerButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: 14, color: const Color(0xFFD92D4B)),
+                OlIcon(icon!, size: mobile ? 16 : 14, color: const Color(0xFFD92D4B)),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFFD92D4B))),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: _mobileFont(context, 11.5),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFD92D4B),
+                ),
+              ),
             ],
           ),
         ),
@@ -209,20 +264,24 @@ class OlIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    // 移动端图标按钮补到 40×40（原 30 太小，经常点空）。
+    final mobile = _isMobile(context);
+    final side = mobile ? (size < OlMobile.iconButton ? OlMobile.iconButton : size) : size;
+    final glyph = mobile ? (iconSize < 18 ? 18.0 : iconSize) : iconSize;
     final child = MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: size,
-          height: size,
+          width: side,
+          height: side,
           decoration: BoxDecoration(
             color: squared ? (p.isDark ? const Color(0xFF12202F) : Colors.white) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: squared ? Border.all(color: p.isDark ? p.fieldBorder : const Color(0xFFE6EDF5)) : null,
           ),
           child: Center(
-            child: OlIcon(icon, size: iconSize, color: color ?? (p.isDark ? p.nav : const Color(0xFF5E7288))),
+            child: OlIcon(icon, size: glyph, color: color ?? (p.isDark ? p.nav : const Color(0xFF5E7288))),
           ),
         ),
       ),
@@ -297,6 +356,9 @@ class OlSeg<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    // v2.3：移动端分段控件同样抬到 30，文案 12。
+    final mobile = _isMobile(context);
+    final segHeight = mobile ? (height < 30 ? 30.0 : height) : height;
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
@@ -312,8 +374,8 @@ class OlSeg<T> extends StatelessWidget {
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: Container(
-                  height: height,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  height: segHeight,
+                  padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8),
                   decoration: BoxDecoration(
                     color: item.value == value ? (p.isDark ? const Color(0xFF1B2F45) : Colors.white) : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
@@ -335,7 +397,7 @@ class OlSeg<T> extends StatelessWidget {
                       Text(
                         item.label,
                         style: TextStyle(
-                          fontSize: height < 23 ? 9.5 : 10.5,
+                          fontSize: mobile ? 12 : (height < 23 ? 9.5 : 10.5),
                           fontWeight: FontWeight.w700,
                           color: item.value == value ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
                         ),
@@ -388,22 +450,32 @@ class OlChip extends StatelessWidget {
       fg = p.ink2;
       border = p.chipBorder;
     }
+    final mobile = _isMobile(context);
     return MouseRegion(
       cursor: onTap == null ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: height,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          height: mobile ? OlMobile.chipHeight : height,
+          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 10),
           decoration: BoxDecoration(color: bg, border: Border.all(color: border), borderRadius: BorderRadius.circular(99)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: 11, color: fg),
+                OlIcon(icon!, size: mobile ? 13 : 11, color: fg),
                 const SizedBox(width: 5),
               ],
-              Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg)),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: mobile ? 12 : 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                ),
+              ),
             ],
           ),
         ),

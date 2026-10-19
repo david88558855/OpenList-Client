@@ -329,7 +329,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     task.status = TransferStatus.running;
     task.error = null;
     _emit();
-    final limitKbps = ref.read(appSettingsProvider).downLimitKbps;
+    final settings = ref.read(appSettingsProvider);
+    final downLimitKbps = settings.downLimitKbps;
+    final upLimitKbps = settings.upLimitKbps;
     try {
       if (task.kind == TransferKind.download) {
         var sign = task.sign;
@@ -345,7 +347,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
           sign: sign,
           target: target,
           cancelToken: token,
-          throttleBytesPerSecond: limitKbps * 1024,
+          throttleBytesPerSecond: downLimitKbps * 1024,
           onProgress: (done, total) {
             task.done = done;
             if (total > 0) task.total = total;
@@ -360,6 +362,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
           remotePath: task.remotePath,
           source: File(task.localPath),
           cancelToken: token,
+          // v2.3：上传限速生效（此前只把下载限速传下去，上传设置是空转的）。
+          throttleBytesPerSecond: upLimitKbps * 1024,
           onProgress: (sent, total) {
             task.done = sent;
             if (total > 0) task.total = total;

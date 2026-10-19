@@ -38,6 +38,7 @@ class TrayService with TrayListener {
   ProviderSubscription<TransfersState>? _subscription;
   _OlWindowListener? _windowListener;
   DateTime? _lastLeftClick;
+  Timer? _watchdog;
 
   bool get isQuitting => _quitting;
 
@@ -57,9 +58,48 @@ class TrayService with TrayListener {
       _rebuildMenu();
     });
     _ready = true;
+    _startWatchdog();
+  }
+
+  /// Explorer 重启后任务栏重建，`Shell_NotifyIcon` 注册的图标会被清掉，
+  /// 而 tray_manager 0.2.x 不监听 `TaskbarCreated`（插件里没有这段代码），
+  /// 图标就永久消失、右键菜单也弹不出来（v2.3 修复 P2-16）。
+  ///
+  /// 兜底做法：每 25s 查一次图标在通知区域的矩形。拿不到（或被
+  /// `getBounds` 返回 0 尺寸）说明注册已失效，于是 `destroy()` 把插件的
+  /// `tray_icon_setted` 复位，再 `setIcon` 走一次 `NIM_ADD` 重新挂上。
+  void _startWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = Timer.periodic(const Duration(seconds: 25), (_) => _ensureIconAlive());
+  }
+
+  Future<void> _ensureIconAlive() async {
+    if (!_ready || _quitting) return;
+    var alive = false;
+    try {
+      final bounds = await trayManager.getBounds();
+      // 图标真的在通知区域时宽高必然大于 0；Explorer 重启后这里会是 0 或 null。
+      alive = bounds != null && bounds.width > 0 && bounds.height > 0;
+    } catch (_) {
+      alive = false;
+    }
+    if (alive) return;
+    debugPrint('tray: icon missing (Explorer restarted?), re-adding');
+    await _recreateIcon();
+  }
+
+  /// 重新注册托盘图标与菜单（NIM_DELETE → NIM_ADD）。
+  Future<void> _recreateIcon() async {
+    try {
+      await trayManager.destroy();
+    } catch (_) {}
+    await _applyIcon(_state);
+    await _rebuildMenu();
   }
 
   Future<void> dispose() async {
+    _watchdog?.cancel();
+    _watchdog = null;
     _subscription?.close();
     _subscription = null;
     if (_windowListener != null) {
@@ -174,6 +214,8 @@ class TrayService with TrayListener {
   Future<void> _quit() async {
     if (_quitting) return;
     _quitting = true;
+    _watchdog?.cancel();
+    _watchdog = null;
 
     // 1. 断开数据订阅，避免退出过程中还有 UI 回调（close() 是同步 void）
     try {

@@ -21,8 +21,9 @@ class SettingsSidebar extends ConsumerWidget {
 
   static const items = <List<String>>[
     ['servers', '服务器管理', 'server', '/servers'],
-    ['transfer', '传输', 'arrow-down', '/settings/transfer'],
+    // v2.3：下载目录排在传输之上，与移动端「我的」列表一致。
     ['download', '下载目录', 'download', '/settings/download'],
+    ['transfer', '传输', 'arrow-down', '/settings/transfer'],
     ['playback', '播放与预览', 'play', '/settings/playback'],
     ['appearance', '外观', 'sun', '/settings/appearance'],
     ['about', '关于与更新', 'info', '/settings/about'],

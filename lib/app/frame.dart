@@ -248,7 +248,8 @@ class _BottomNav extends ConsumerWidget {
       _NavItem('设置', 'settings', '/settings'),
     ];
     return Container(
-      height: 70 + bottomInset,
+      // v2.3：图标与文字放大后底栏由 70 抬到 78，避免文字贴边被裁。
+      height: 78 + bottomInset,
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: p.isDark ? const Color(0xFF0A1624) : const Color(0xFAFFFFFF),
@@ -271,7 +272,7 @@ class _BottomNav extends ConsumerWidget {
                       children: [
                         OlIcon(
                           items[i].icon,
-                          size: 21,
+                          size: 23,
                           color: i == index ? const Color(0xFF0782AE) : (p.isDark ? const Color(0xFF5E7488) : const Color(0xFF9AABBC)),
                           strokeWidth: i == index ? 2.1 : 1.9,
                         ),
@@ -291,7 +292,7 @@ class _BottomNav extends ConsumerWidget {
                     Text(
                       items[i].label,
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                         color: i == index ? const Color(0xFF0782AE) : (p.isDark ? const Color(0xFF5E7488) : const Color(0xFF9AABBC)),
                       ),
