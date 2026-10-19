@@ -1,0 +1,47 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.openlist.client"
+    compileSdk = 35
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+        applicationId = "com.openlist.client"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        resConfigs "zh", "en"
+    }
+
+    buildTypes {
+        release {
+            // CI 产物使用 debug 签名，便于直接安装验收；正式发布请替换为自己的 keystore。
+            signingConfig = signingConfigs.debug
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += ["META-INF/*.kotlin_module"]
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}

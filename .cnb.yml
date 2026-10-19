@@ -1,0 +1,40 @@
+# OpenList Client · CNB 云端构建
+# 本仓库禁止本地编译：所有编译与产包都在这里完成。
+main:
+  push:
+    - name: flutter-build
+      runner:
+        tags:
+          - cnb:arch:amd64
+      docker:
+        image: ghcr.io/cirruslabs/flutter:stable
+        volumes:
+          - /root/.pub-cache
+          - /root/.gradle
+      env:
+        PUB_CACHE: /root/.pub-cache
+        GRADLE_USER_HOME: /root/.gradle
+        CI: "true"
+      stages:
+        - name: static-check
+          jobs:
+            - name: flutter-analyze
+              # 静态检查只作提示，不阻塞出包；编译错误由下一个 stage 拦截。
+              allowFailure: true
+              timeout: 20m
+              script: |
+                set -e
+                flutter config --no-analytics
+                flutter --version
+                flutter pub get
+                flutter analyze
+        - name: build-android
+          jobs:
+            - name: flutter-build-apk
+              timeout: 60m
+              script: |
+                set -e
+                flutter config --no-analytics
+                flutter pub get
+                flutter build apk --release --target-platform android-arm64
+                ls -lh build/app/outputs/flutter-apk/
