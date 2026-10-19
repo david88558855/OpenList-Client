@@ -550,7 +550,7 @@ class _AboutSection extends ConsumerWidget {
       title: '关于与更新',
       icon: 'info',
       children: [
-        _Line(label: '客户端版本', trailing: Text('1.0.0 (1)', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
+        _Line(label: '客户端版本', trailing: Text('1.0.3 (4)', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
         _Line(label: '服务端版本', trailing: Text(session.profile?.version ?? session.site?.version ?? '未知', style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink3))),
         _Line(label: '站点名称', trailing: Text(session.site?.title ?? session.profile?.siteTitle ?? '—', style: TextStyle(fontSize: 10.5, color: p.ink3))),
         const SizedBox(height: 8),
@@ -565,7 +565,7 @@ class _AboutSection extends ConsumerWidget {
               await launchUrl(Uri.parse('https://github.com/OpenListTeam/OpenList'), mode: LaunchMode.externalApplication);
             }),
             const SizedBox(width: 8),
-            OlGhostButton(label: '检查更新', icon: 'refresh', onTap: () => olToast(context, '当前已是最新版本（1.0.0）')),
+            OlGhostButton(label: '检查更新', icon: 'refresh', onTap: () => olToast(context, '当前已是最新版本（1.0.3）')),
           ],
         ),
       ],
@@ -656,87 +656,106 @@ class _MobileProfile extends ConsumerWidget {
     final serverState = ref.watch(serverListProvider);
     final transfers = ref.watch(transfersProvider);
     final favorites = ref.watch(favoritesProvider).where((e) => e.serverId == profile?.id).length;
+    final mounts = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
     final p = context.ol;
+
+    final topInset = MediaQuery.paddingOf(context).top + 6;
+    const heroRow = 46.0;
+    const heroBottom = 62.0;
+    final heroHeight = topInset + heroRow + heroBottom;
 
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        Container(
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 6, 20, 22),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0B2233), Color(0xFF0D3B46)]),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        SizedBox(
+          height: heroHeight + 42,
+          child: Stack(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      gradient: OlTokens.gradientBrand,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      (profile?.username.isNotEmpty ?? false) ? profile!.username.substring(0, 1).toUpperCase() : 'O',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF04121D)),
-                    ),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(profile?.username ?? '未登录', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${profile?.name ?? ''} · ${session.user?.isAdmin == true ? '管理员' : '普通用户'}',
-                          style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => context.push('/servers'),
-                    child: const OlIcon('settings', size: 17, color: Color(0xFF8FA8BD)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: const Color(0x14FFFFFF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x1FFFFFFF))),
+                height: heroHeight,
+                padding: EdgeInsets.fromLTRB(20, topInset, 20, 0),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0B2233), Color(0xFF0D3B46)]),
+                ),
                 child: Row(
                   children: [
-                    _stat('实例', '${serverState.count}'),
-                    _divider(),
-                    _stat('收藏', '$favorites'),
-                    _divider(),
-                    _stat('传输', '${transfers.pendingCount}'),
-                    _divider(),
-                    _stat('延迟', '${session.latencyMs ?? '—'} ms'),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(gradient: OlTokens.gradientBrand, borderRadius: BorderRadius.circular(15)),
+                      alignment: Alignment.center,
+                      child: Text(
+                        (profile?.username.isNotEmpty ?? false) ? profile!.username.substring(0, 1).toUpperCase() : 'O',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF04121D)),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(profile?.username ?? '未登录', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const OlIcon('shield', size: 10, color: Color(0xFF8FA8BD)),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  '${session.user?.isAdmin == true ? '管理员' : '普通用户'} · ${profile?.displayHost ?? '未连接'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.push('/servers'),
+                      child: const OlIcon('settings', size: 17, color: Color(0xFF8FA8BD)),
+                    ),
                   ],
                 ),
+              ),
+              Positioned(
+                left: 18,
+                right: 18,
+                top: heroHeight - 44,
+                child: _UsageCard(mounts: mounts, onTap: () => context.go('/settings?tab=storage')),
               ),
             ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
           child: Column(
             children: [
-              _MobileTile(icon: 'server', label: '服务器管理', value: '${serverState.count} 个 · 点击切换', onTap: () => context.push('/servers')),
-              const DownloadDirTile(),
-              _MobileTile(icon: 'database', label: '存储挂载', value: '只读', onTap: () => context.go('/settings?tab=storage')),
-              _MobileTile(icon: 'arrow-down', label: '传输', value: '并发 ${ref.watch(appSettingsProvider).concurrency}', onTap: () => context.go('/settings?tab=transfer')),
-              _MobileTile(icon: 'play', label: '播放与预览', onTap: () => context.go('/settings?tab=playback')),
-              _MobileTile(icon: 'sun', label: '外观', value: _themeLabel(ref.watch(appSettingsProvider).themeMode), onTap: () => context.go('/settings?tab=appearance')),
-              _MobileTile(icon: 'bell', label: '通知', onTap: () => context.go('/settings?tab=notify')),
-              _MobileTile(icon: 'key', label: '隐私与安全', onTap: () => context.go('/settings?tab=security')),
-              _MobileTile(icon: 'info', label: '关于与更新', value: '1.0.0', onTap: () => context.go('/settings?tab=about')),
-              const SizedBox(height: 14),
+              _SettingsGroup(rows: [
+                _MobileTile(icon: 'server', label: '服务器管理', value: '${serverState.count} 个 · 点击切换', onTap: () => context.push('/servers')),
+                const DownloadDirTile(),
+                _MobileTile(icon: 'database', label: '存储挂载', value: '${mounts.length} 个 · 只读', onTap: () => context.go('/settings?tab=storage')),
+              ]),
+              _SettingsGroup(rows: [
+                _MobileTile(
+                  icon: 'arrow-down',
+                  label: '传输',
+                  value: '并发 ${ref.watch(appSettingsProvider).concurrency} · ${transfers.pendingCount} 待传',
+                  onTap: () => context.go('/settings?tab=transfer'),
+                ),
+                _MobileTile(icon: 'play', label: '播放与预览', value: '断点续播', onTap: () => context.go('/settings?tab=playback')),
+                _MobileTile(icon: 'sun', label: '外观', value: _themeLabel(ref.watch(appSettingsProvider).themeMode), onTap: () => context.go('/settings?tab=appearance')),
+              ]),
+              _SettingsGroup(rows: [
+                _MobileTile(icon: 'star', label: '我的收藏', value: '$favorites 个', onTap: () => context.push('/favorites')),
+                _MobileTile(icon: 'bell', label: '通知', value: ref.watch(appSettingsProvider).trayNotify ? '已开启' : '已关闭', onTap: () => context.go('/settings?tab=notify')),
+                _MobileTile(icon: 'key', label: '隐私与安全', onTap: () => context.go('/settings?tab=security')),
+                _MobileTile(icon: 'info', label: '关于与更新', value: '1.0.3', onTap: () => context.go('/settings?tab=about')),
+              ]),
+              const SizedBox(height: 2),
               GestureDetector(
                 onTap: () async {
                   await ref.read(sessionProvider.notifier).signOut();
@@ -755,8 +774,8 @@ class _MobileProfile extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text('OpenList Client 1.0.0 · Android · API v4', style: TextStyle(fontSize: 8.5, color: p.ink4)),
+              const SizedBox(height: 18),
+              Text('OpenList Client 1.0.3 · Android · API v4', style: TextStyle(fontSize: 8.5, color: p.ink4)),
               const SizedBox(height: 16),
             ],
           ),
@@ -776,19 +795,6 @@ class _MobileProfile extends ConsumerWidget {
     }
   }
 
-  Widget _stat(String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 8.5, color: Color(0xFF8FA8BD))),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider() => Container(width: 1, height: 22, color: const Color(0x1FFFFFFF));
 }
 
 class _MobileTile extends StatelessWidget {
@@ -804,17 +810,151 @@ class _MobileTile extends StatelessWidget {
     final p = context.ol;
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
         child: Row(
           children: [
-            OlIcon(icon, size: 16, color: p.ink3),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEFF7FC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(child: OlIcon(icon, size: 14, color: p.isDark ? const Color(0xFF7DD3FC) : const Color(0xFF3D7E9E))),
+            ),
             const SizedBox(width: 10),
-            Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: p.ink)),
-            const Spacer(),
-            if (value != null) Text(value!, style: TextStyle(fontSize: 10, color: p.ink4)),
-            const SizedBox(width: 4),
-            OlIcon('chev-r', size: 13, color: p.ink4),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink))),
+            if (value != null) Text(value!, style: TextStyle(fontSize: 9.5, color: p.ink4)),
+            const SizedBox(width: 5),
+            OlIcon('chev-r', size: 13, color: p.isDark ? const Color(0xFF35485C) : const Color(0xFFC2CFDB)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 设置分组卡片（设计稿 .gset：圆角 16、白底、1px 描边、行间 1px 分隔）
+class _SettingsGroup extends StatelessWidget {
+  final List<Widget> rows;
+  const _SettingsGroup({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      children.add(rows[i]);
+      if (i != rows.length - 1) {
+        children.add(Divider(height: 1, thickness: 1, color: p.isDark ? const Color(0xFF1A2A3C) : const Color(0xFFF4F7FA)));
+      }
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 11),
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFEDF2F8)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+/// 用量卡（设计稿 .usage-card：白底圆角 18、上移 44 叠在头部渐变上）
+class _UsageCard extends StatelessWidget {
+  final List<StorageMount> mounts;
+  final VoidCallback onTap;
+
+  const _UsageCard({required this.mounts, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    var total = 0;
+    var used = 0;
+    for (final m in mounts) {
+      total += m.totalSpace ?? 0;
+      used += m.usedSpace ?? 0;
+    }
+    final ratio = total > 0 ? (used / total).clamp(0.0, 1.0).toDouble() : 0.0;
+    final down = mounts.where((m) => !m.isUp).length;
+    final top = [...mounts]..sort((a, b) => (b.usedSpace ?? 0).compareTo(a.usedSpace ?? 0));
+    final chips = top.take(2).map((m) => '${baseName(m.mountPath)} ${formatBytes(m.usedSpace ?? 0)}').toList();
+    final rest = top.length > 2 ? total - top.take(2).fold<int>(0, (a, m) => a + (m.usedSpace ?? 0)) : 0;
+    if (rest > 0) chips.add('其他 ${formatBytes(rest)}');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(15, 14, 13, 14),
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFEDF2F8)),
+          boxShadow: const [BoxShadow(color: Color(0x7314A5E9), blurRadius: 30, offset: Offset(0, 16), spreadRadius: -22)],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 58,
+              height: 58,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 58,
+                    height: 58,
+                    child: CircularProgressIndicator(
+                      value: ratio,
+                      strokeWidth: 7,
+                      backgroundColor: p.isDark ? const Color(0xFF22303F) : const Color(0xFFE8F0F7),
+                      valueColor: const AlwaysStoppedAnimation(OlTokens.sky600),
+                    ),
+                  ),
+                  Text('${(ratio * 100).round()}%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: p.ink)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    total > 0 ? '${formatBytes(used, digits: 1)} / ${formatBytes(total, digits: 1)}' : '存储用量 —',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${mounts.length} 个挂载点${down > 0 ? ' · $down 个需要关注' : ''}',
+                    style: TextStyle(fontSize: 9.5, color: p.ink3),
+                  ),
+                  if (chips.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        for (var i = 0; i < chips.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              chips[i],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: p.ink4),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            OlIcon('chev-r', size: 14, color: p.isDark ? const Color(0xFF35485C) : const Color(0xFFC2CFDB)),
           ],
         ),
       ),

@@ -30,7 +30,7 @@ class SettingsSidebar extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final storages = ref.watch(storagesProvider).valueOrNull ?? const [];
     return Container(
-      width: 206,
+      width: 204,
       color: p.surface,
       padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
       child: Column(
@@ -74,7 +74,7 @@ class SettingsSidebar extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
             child: Text(
-              'OpenList Client 1.0.0\n${session.profile?.version ?? session.site?.version ?? 'API v4'} · ${_platformLabel()}\n便携数据 · userdata/',
+              'OpenList Client 1.0.3\n${session.profile?.version ?? session.site?.version ?? 'API v4'} · ${_platformLabel()}\n便携数据 · userdata/',
               style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
             ),
           ),
