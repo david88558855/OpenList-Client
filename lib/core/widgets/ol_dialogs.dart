@@ -34,13 +34,18 @@ Future<void> showOlActionSheet(
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x5707111D),
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) {
       void run(OlMenuItem item) {
         Navigator.of(sheetContext).pop();
         item.onTap?.call();
       }
 
+      final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.86;
       return Container(
+        // v2.4：内容超过一屏（动作多 + 字体放大）时必须可滚动，
+        // 否则溢出会裁掉下半部分，看起来像"点了没反应"。
+        constraints: BoxConstraints(maxHeight: maxHeight),
         decoration: BoxDecoration(
           color: p.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
@@ -75,100 +80,114 @@ Future<void> showOlActionSheet(
               ),
             ),
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.fromLTRB(2, 4, 2, 12),
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
-              child: Row(
-                children: [
-                  leading,
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
-                        ),
-                      ],
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(2, 4, 2, 12),
+                      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+                      child: Row(
+                        children: [
+                          leading,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                children: [
-                  for (final item in quick)
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => run(item),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: item.danger ? const Color(0xFFFFF1F3) : const Color(0xFFF1F8FC),
-                                borderRadius: BorderRadius.circular(13),
-                              ),
-                              child: Center(
-                                child: OlIcon(
-                                  item.icon,
-                                  size: 17,
-                                  color: item.danger ? const Color(0xFFD92D4B) : const Color(0xFF3D7E9E),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          for (final item in quick)
+                            Expanded(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => run(item),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: item.danger ? const Color(0xFFFFF1F3) : const Color(0xFFF1F8FC),
+                                        borderRadius: BorderRadius.circular(13),
+                                      ),
+                                      child: Center(
+                                        child: OlIcon(
+                                          item.icon,
+                                          size: 17,
+                                          color: item.danger ? const Color(0xFFD92D4B) : const Color(0xFF3D7E9E),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      item.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: p.ink2),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              item.label,
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink2),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ),
-            for (final item in items)
-              InkWell(
-                onTap: () => run(item),
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line2))),
-                  child: Row(
-                    children: [
-                      OlIcon(item.icon, size: 15, color: item.danger ? const Color(0xFFE06B82) : p.ink3),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item.label,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: item.danger ? const Color(0xFFD92D4B) : p.ink2,
+                    for (final item in items)
+                      InkWell(
+                        onTap: () => run(item),
+                        child: Container(
+                          height: 46,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line2))),
+                          child: Row(
+                            children: [
+                              OlIcon(item.icon, size: 16, color: item.danger ? const Color(0xFFE06B82) : p.ink3),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: item.danger ? const Color(0xFFD92D4B) : p.ink2,
+                                  ),
+                                ),
+                              ),
+                              OlIcon('chev-r', size: 14, color: p.ink4),
+                            ],
                           ),
                         ),
                       ),
-                      OlIcon('chev-r', size: 13, color: p.ink4),
-                    ],
-                  ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
       );

@@ -377,6 +377,26 @@ class _PreviewBodyState extends State<_PreviewBody> {
 
 
 /// Row “more” menu + right-click menu share the same entries.
+/// 媒体类文件的「打开」动作（v2.4）。
+///
+/// 之前只有视频 / 音频有入口，图片只能靠双击预览；现在点击即弹菜单，
+/// 所以图片也要给一个显式的预览项，否则点开菜单没有任何"能看"的动作。
+OlMenuItem? _openAction(BuildContext context, WidgetRef ref, FileItem item) {
+  if (item.isDir) return null;
+  switch (kindOf(item.name, false)) {
+    case FileKind.video:
+    case FileKind.audio:
+      return OlMenuItem('播放', 'play', () => openItem(context, ref, item));
+    case FileKind.image:
+      return OlMenuItem('预览', 'image', () => openItem(context, ref, item));
+    case FileKind.text:
+    case FileKind.code:
+      return OlMenuItem('预览', 'file-text', () => openItem(context, ref, item));
+    default:
+      return null;
+  }
+}
+
 Future<void> showItemMenu(
   BuildContext context,
   WidgetRef ref,
@@ -389,11 +409,10 @@ Future<void> showItemMenu(
   final path = item.parent ?? joinPath(files.path, item.name);
   final isFavorite = profile != null && ref.read(favoritesProvider).any((e) => e.serverId == profile.id && e.path == path);
   final targets = (selection != null && selection.length > 1) ? selection : [item];
-  final kind = kindOf(item.name, item.isDir);
 
+  final openAction = _openAction(context, ref, item);
   final entries = <OlMenuItem>[
-    if (kind == FileKind.video || kind == FileKind.audio)
-      OlMenuItem('播放', 'play', () => openItem(context, ref, item)),
+    if (openAction != null) openAction,
     if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
     OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
     OlMenuItem(
@@ -414,8 +433,7 @@ Future<void> showItemMenu(
   // A7：Android 用底部操作面板；Windows 用右键浮层。动作集合完全一致。
   if (Platform.isAndroid || context.isNarrow) {
     final quick = <OlMenuItem>[
-      if (kind == FileKind.video || kind == FileKind.audio)
-        OlMenuItem('播放', 'play', () => openItem(context, ref, item)),
+      if (openAction != null) openAction,
       if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
       OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
       OlMenuItem(

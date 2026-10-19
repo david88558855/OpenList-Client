@@ -5,15 +5,15 @@
 class AppInfo {
   const AppInfo._();
 
-  static const version = '1.0.10';
-  static const build = 11;
+  static const version = '1.0.11';
+  static const build = 12;
 
   static const name = 'OpenList Client';
 
-  /// 设置页 / 关于页展示用：1.0.10 (11)
+  /// 设置页 / 关于页展示用：1.0.11 (12)
   static String get versionLabel => '$version ($build)';
 
-  /// 侧栏页脚：OpenList Client 1.0.10
+  /// 侧栏页脚：OpenList Client 1.0.11
   static String get shortLabel => '$name $version';
 
   /// 服务端版本串的短形式。

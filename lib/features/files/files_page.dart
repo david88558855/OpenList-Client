@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -79,6 +81,15 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final kind = _kind;
     if (kind == null) return items;
     return items.where((e) => kindOf(e.name, e.isDir) == kind).toList();
+  }
+
+  /// 打开文件操作菜单（v2.4）。异常一律转成可见提示，避免静默失败。
+  Future<void> _showMenu(Offset position, FileItem item) async {
+    try {
+      await showItemMenu(context, ref, item, position, selection: ref.read(filesProvider).selectedItems);
+    } catch (error) {
+      if (mounted) olToast(context, '操作菜单打开失败：$error', error: true);
+    }
   }
 
   void _openItem(FileItem item) {
@@ -243,7 +254,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                 else
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) {
+                      (rowContext, index) {
                         final item = items[index];
                         final selected = state.selected.contains(item.name);
                         return Padding(
@@ -262,9 +273,14 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                                 return;
                               }
                               // v2.1：点击文件先给操作列表，不直接打开/预览。
-                              final box = context.findRenderObject() as RenderBox?;
-                              final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(40, 60));
-                              showItemMenu(context, ref, item, pos);
+                              // v2.4：用页面级 context（不是 sliver 项 context），
+                              // 避免列表重建后 context 失效导致弹层打不开；
+                              // 异常要显式提示，不能再"点了没反应"。
+                              final box = rowContext.findRenderObject() as RenderBox?;
+                              final pos = box == null
+                                  ? Offset.zero
+                                  : box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                              unawaited(_showMenu(pos, item));
                             },
                             onLongPress: () {
                               setState(() => _batch = true);
@@ -282,8 +298,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
           ),
           if (!_batch)
             Positioned(
+              // v2.4：FAB 下移到右下角，坐在「设置」Tab 的正上方（原来 86 太靠上）。
               right: 18,
-              bottom: 86,
+              bottom: 18,
               child: _Fab(
                 onUpload: () => pickAndUpload(context, ref),
                 onNewFolder: () => createFolder(context, ref),
@@ -1226,7 +1243,10 @@ class _EmptyBody extends StatelessWidget {
       child: OlEmptyState(
         icon: filtered ? 'filter' : 'folder',
         title: filtered ? '没有匹配的文件' : '这个目录还是空的',
-        subtitle: filtered ? '切换筛选条件，或搜索全部挂载点' : '把文件拖进来，或点右上角「上传」',
+        // v2.4：手机上没有右上角上传按钮，提示改为右下角「+」。
+        subtitle: filtered
+            ? '切换筛选条件，或搜索全部挂载点'
+            : (context.isNarrow ? '点右下角「+」上传文件或新建文件夹' : '把文件拖进来，或点右上角「上传」'),
       ),
     );
   }
@@ -1619,7 +1639,9 @@ class _MobileMounts extends ConsumerWidget {
     final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
     if (storages.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 80,
+      // v2.4：外层 ListView 的 8+8 padding 会吃掉卡片高度，之前 80 实际只剩 64，
+      // 卡片里的「正常」被压到底边。这里给到 96，卡片内容 70 才放得下。
+      height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 8, OlGap.pageMobile, 8),
@@ -1631,7 +1653,7 @@ class _MobileMounts extends ConsumerWidget {
             onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
             child: Container(
               width: 166,
-              padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+              padding: const EdgeInsets.fromLTRB(11, 12, 11, 12),
               decoration: BoxDecoration(
                 color: p.card,
                 borderRadius: BorderRadius.circular(12),
@@ -1708,12 +1730,14 @@ class _KindFilter extends StatelessWidget {
               child: Row(
                 children: [
                   OlChip(label: '全部', selected: value == null, onTap: () => onChanged(null)),
-                  const SizedBox(width: 7),
+                  const SizedBox(width: 6),
                   OlChip(label: '视频', selected: value == FileKind.video, onTap: () => onChanged(FileKind.video)),
-                  const SizedBox(width: 7),
+                  const SizedBox(width: 6),
                   OlChip(label: '图片', selected: value == FileKind.image, onTap: () => onChanged(FileKind.image)),
-                  const SizedBox(width: 7),
+                  const SizedBox(width: 6),
                   OlChip(label: '文档', selected: value == FileKind.text, onTap: () => onChanged(FileKind.text)),
+                  // 末尾留一点滚动余量，最后一片不会被视口边缘切掉边框。
+                  const SizedBox(width: 2),
                 ],
               ),
             ),
@@ -1725,7 +1749,7 @@ class _KindFilter extends StatelessWidget {
             child: Container(
               // v2.3：与 chip 同高（34），点得中。
               height: OlMobile.chipHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: batch ? OlTokens.sky600 : p.chipBg,
                 borderRadius: BorderRadius.circular(99),

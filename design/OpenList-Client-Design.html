@@ -1,12 +1,12 @@
 <!--
-  OpenList Client · Design + Handoff · v2.3（交付版）
+  OpenList Client · Design + Handoff · v2.4（交付版）
   唯一权威依据：本文件。所有界面、间距、字号、颜色均可在此直接读取。
   实现方请先读 08 — 开工交接：工程结构、design/ 目录约定、路由、API、验收标准。
   已知问题见 09 — Known Issues（K-01 / K-02 已修复，保留追溯）。
   交互修订见 10 — Revisions v2.1（R-01~R-12）、11 — Revisions v2.2（R-13~R-18）
-  与 12 — Revisions v2.3（R-19~R-30）：Android 字号/按钮可读性、关于页与设置卡片的
-  文本截断、下载目录入口顺序与弹窗形态，以及 4 项遗留审查项（离线启动、缓存上限、
-  上传限速、Explorer 重启后的托盘图标）。
+  12 — Revisions v2.3（R-19~R-30）与 13 — Revisions v2.4（R-31~R-37）：Android 字号/按钮
+  可读性、关于页与设置卡片的文本截断、下载目录入口顺序与弹窗形态、文件页点击语义与
+  挂载卡内边距、传输页重复开关等。
   本文件自包含，无外部图片/字体/JS 依赖。画板：W1–W9（Windows）、A1–A8（Android）。
 -->
 <!DOCTYPE html>
@@ -14,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenList Client · 设计稿 + 开工交接 v2.3</title>
+<title>OpenList Client · 设计稿 + 开工交接 v2.4</title>
 <style>
 :root{
   --sky:#38BDF8; --sky-600:#0EA5E9; --sky-700:#0284C7;
@@ -867,6 +867,7 @@ h3{letter-spacing:-.015em}
     <a href="#revisions"><svg class="ic"><use href="#i-check"/></svg>交互修订 12</a>
     <a href="#revisions2"><svg class="ic"><use href="#i-check"/></svg>修订 v2.2 · 6</a>
     <a href="#revisions3"><svg class="ic"><use href="#i-check"/></svg>修订 v2.3 · 12</a>
+    <a href="#revisions4"><svg class="ic"><use href="#i-check"/></svg>修订 v2.4 · 7</a>
   </nav>
   <div class="rail-foot">
     <b>v2.0 · 交付版 · 2026.10.19</b>
@@ -1432,7 +1433,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>单击文件：</b>弹出操作列表（v2.1，不直接打开）</span><span><b>单击文件夹：</b>进入</span><span><b>批量：</b>工具条「批量」或长按进入</span><span><b>挂载卡：</b>不显示容量</span><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>面包屑：</b>点任意上级段落直接跳转，13px 字号</span><span><b>服务器：</b>标题栏实例名进入服务器管理，已登录界面不展开列表</span></div>
+    <div class="screen-note"><span><b>单击文件：</b>弹出操作列表（v2.1，不直接打开）</span><span><b>媒体动作（v2.4）：</b>视频/音频「播放」· 图片/文本「预览」</span><span><b>筛选行（v2.4）：</b>chip 11px 内边距 + 6px 间距，360dp 一行放得下</span><span><b>挂载卡（v2.4）：</b>条高 96，卡片内边距 12</span><span><b>悬浮按钮（v2.4）：</b>bottom 18，坐在「设置」Tab 上方</span><span><b>单击文件夹：</b>进入</span><span><b>批量：</b>工具条「批量」或长按进入</span><span><b>挂载卡：</b>不显示容量</span><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>面包屑：</b>点任意上级段落直接跳转，13px 字号</span><span><b>服务器：</b>标题栏实例名进入服务器管理，已登录界面不展开列表</span></div>
   </div>
 
   <!-- W3 -->
@@ -1593,7 +1594,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>断点续传：</b>按分片记录 offset</span><span><b>托盘：</b>关闭窗口不中断，托盘显示实时速度</span><span><b>通知：</b>任务完成 / 失败系统通知</span></div>
+    <div class="screen-note"><span><b>断点续传：</b>按分片记录 offset</span><span><b>托盘：</b>关闭窗口不中断，托盘显示实时速度</span><span><b>通知：</b>任务完成 / 失败系统通知</span><span><b>v2.4：</b>页面内不再放「Wi-Fi / 后台 / 通知」三个开关，统一在「设置 → 传输」</span></div>
   </div>
 
   <!-- W4 -->
@@ -3493,7 +3494,7 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <script type="application/json" id="handoff-spec">
   {
     "product": "OpenList Client",
-    "designVersion": "2.3",
+    "designVersion": "2.4",
     "platforms": ["windows", "android"],
     "stack": {
       "framework": "Flutter 3.x",
@@ -3975,6 +3976,90 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
     <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.9</code>（设计稿 v2.3）。
     与 10 / 11 章冲突时以编号更大者为准；后续交互调整从 R-31 继续编号。
+  </div>
+</section>
+<!-- REVISIONS v2.4 -->
+<section class="sec" id="revisions4">
+  <div class="sec-head">
+    <div class="eyebrow">13 — Revisions</div>
+    <h2>v2.4 · 文件页细节与传输页去重</h2>
+    <p>v2.3 真机截图反馈：挂载卡底部被压扁、类型筛选最后一片被裁、单击文件没有弹出
+    操作列表、媒体文件缺少打开项、悬浮按钮位置过高；传输页还重复了设置里已有的三个开关。
+    以下 7 项为最终口径，已同步 A2 / A3 画板与代码。</p>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table class="rev-tbl">
+      <thead><tr><th style="width:52px">ID</th><th style="width:64px">端</th><th style="width:150px">位置</th><th style="width:250px">问题</th><th>期望行为（验收口径）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>R-31</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>挂载点卡片</td>
+          <td>卡片区外层 ListView 有 8+8 的上下内边距，80 的高度实际只剩 64，
+          卡片里的「正常」被压到底边</td>
+          <td>挂载条高度 <b>96</b>（卡片净高 80），卡片内边距 12/12；「正常」离底边
+          至少 12px</td>
+        </tr>
+        <tr>
+          <td><b>R-32</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>类型筛选行</td>
+          <td>四个 chip + 「批量」在 360dp 上总宽 344 &gt; 可用 324，最后一片「文档」
+          被滚动视口裁掉右边框</td>
+          <td>chip 水平内边距 14 → <b>11</b>、间距 7 → <b>6</b>、批量按钮 14 → 12，
+          并在末尾留 2px 余量；360dp 一行放得下（&lt;340dp 才滚动）</td>
+        </tr>
+        <tr>
+          <td><b>R-33</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>单击文件</td>
+          <td>点击文件没有出现操作面板：弹层用的是 sliver 项 context（列表重建即失效），
+          且异常被吞掉，表现为"点了没反应"</td>
+          <td>改用<b>页面级 context</b> 打开菜单；失败必须 `olToast` 出错误原因；
+          面板内容超出 86% 屏高时<b>可滚动</b>（不再是溢出裁切）</td>
+        </tr>
+        <tr>
+          <td><b>R-34</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>文件动作列表</td>
+          <td>只有视频/音频有「播放」，图片点开菜单没有"能看"的动作</td>
+          <td>视频 / 音频 → <b>播放</b>（进播放器）；图片 → <b>预览</b>（图片查看）；
+          文本 / 代码 → <b>预览</b>；目录不显示该动作</td>
+        </tr>
+        <tr>
+          <td><b>R-35</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>悬浮「+」按钮</td>
+          <td>bottom 86 悬在半空，与底部导航脱节</td>
+          <td>下移到 <b>bottom 18 / right 18</b>，正好坐在「设置」Tab 图标上方</td>
+        </tr>
+        <tr>
+          <td><b>R-36</b></td><td><span class="rev-tag mob">A3</span></td>
+          <td>传输页 · 开关组</td>
+          <td>「仅在 Wi-Fi 下传输 / 后台保持传输 / 任务完成通知」与设置 → 传输完全重复</td>
+          <td><b>删除</b>该卡片；三者的唯一入口是「设置 → 传输」，传输页只保留
+          速度卡、筛选、任务列表</td>
+        </tr>
+        <tr>
+          <td><b>R-37</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>空目录提示</td>
+          <td>手机上没有右上角上传按钮，文案却写「点右上角上传」</td>
+          <td>窄屏文案改为「点右下角「+」上传文件或新建文件夹」，桌面保留原文案</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pi" style="background:#E9FBF5;color:#0B7A63"><svg class="ic"><use href="#i-check"/></svg></span><h4>回归清单（v2.4 验收）</h4></div>
+    <div class="h-list">
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>挂载卡</b>：三行文字都在卡片内，「正常 / 离线」离底边有明显留白</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>筛选行</b>：「全部 / 视频 / 图片 / 文档」+「批量」一行完整显示，边框不被裁</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>单击文件</b>：立即弹出底部面板；图片有「预览」、视频音频有「播放」</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>悬浮按钮</b>：贴在「设置」图标上方，展开三项动作不遮挡列表</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>传输页</b>：空态下不再出现三个开关，设置里仍可修改</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
+    <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.11</code>（设计稿 v2.4）。
+    与 10–12 章冲突时以编号更大者为准；后续交互调整从 R-38 继续编号。
   </div>
 </section>
 </div>

@@ -457,7 +457,8 @@ class OlChip extends StatelessWidget {
         onTap: onTap,
         child: Container(
           height: mobile ? OlMobile.chipHeight : height,
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 10),
+          // v2.4：移动端 11（14 会让「全/视频/图片/文档 + 批量」超出 360dp 视口）。
+          padding: EdgeInsets.symmetric(horizontal: mobile ? 11 : 10),
           decoration: BoxDecoration(color: bg, border: Border.all(color: border), borderRadius: BorderRadius.circular(99)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
