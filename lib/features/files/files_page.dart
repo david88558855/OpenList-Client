@@ -1250,8 +1250,8 @@ class _DetailBody extends ConsumerWidget {
           children: [
             Expanded(
               child: OlPrimaryButton(
-                label: playable ? '播放' : '打开',
-                icon: 'play',
+                label: item.isDir ? '打开' : (playable ? '播放' : '预览'),
+                icon: item.isDir ? 'folder' : (playable ? 'play' : 'eye'),
                 height: 28,
                 fontSize: 10.5,
                 onTap: () => openItem(context, ref, item),
