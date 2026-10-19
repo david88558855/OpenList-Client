@@ -32,6 +32,8 @@ class TrayService with TrayListener {
   ProviderContainer? _container;
   bool _ready = false;
   bool _quitting = false;
+  bool _windowReady = false;
+  bool _pendingShow = false;
   TrayIconState _state = TrayIconState.idle;
   ProviderSubscription<TransfersState>? _subscription;
   _OlWindowListener? _windowListener;
@@ -66,6 +68,7 @@ class TrayService with TrayListener {
     }
     trayManager.removeListener(this);
     _ready = false;
+    _windowReady = false;
   }
 
   TrayIconState _deriveState(TransfersState state) {
@@ -118,7 +121,7 @@ class TrayService with TrayListener {
   Future<void> _rebuildMenu() async {
     final menu = Menu(
       items: [
-        MenuItem(key: 'show', label: '显示主界面', onClick: (item) => _showWindow()),
+        MenuItem(key: 'show', label: '显示主界面', onClick: (item) => showMainWindow()),
         MenuItem.separator(),
         MenuItem(key: 'quit', label: '退出', onClick: (item) => _quit()),
       ],
@@ -130,11 +133,41 @@ class TrayService with TrayListener {
     }
   }
 
-  Future<void> _showWindow() async {
+  /// 主实例就绪前收到的「显示」请求先暂存，等托盘/窗口 ready 后再执行。
+  void requestShow() {
+    if (!_windowReady) {
+      _pendingShow = true;
+      return;
+    }
+    showMainWindow();
+  }
+
+  void markWindowReady() {
+    _windowReady = true;
+    if (_pendingShow) {
+      _pendingShow = false;
+      showMainWindow();
+    }
+  }
+
+  /// 把主窗口唤到前台（v2.1 修复：托盘「显示主界面」无响应）。
+  ///
+  /// 从托盘唤回时窗口可能处于 隐藏 / 最小化 / 被其他窗口遮挡 三种状态，
+  /// 单独 show() 在 Windows 前台锁下不会真正置前，因此按序恢复、置顶再取消。
+  Future<void> showMainWindow() async {
     if (_quitting) return;
-    await windowManager.show();
-    await windowManager.restore();
-    await windowManager.focus();
+    try {
+      if (!await windowManager.isVisible()) await windowManager.show();
+      if (await windowManager.isMinimized()) await windowManager.restore();
+      await windowManager.setSkipTaskbar(false);
+      await windowManager.show();
+      await windowManager.focus();
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setAlwaysOnTop(false);
+      await windowManager.focus();
+    } catch (error) {
+      debugPrint('tray: showMainWindow failed ($error)');
+    }
   }
 
   /// 唯一退出入口：串行、幂等、单次执行（K-02）。
@@ -179,7 +212,7 @@ class TrayService with TrayListener {
     _lastLeftClick = now;
     if (last != null && now.difference(last) <= const Duration(milliseconds: 450)) {
       _lastLeftClick = null;
-      _showWindow();
+      showMainWindow();
     }
   }
 

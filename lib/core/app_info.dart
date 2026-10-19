@@ -5,14 +5,14 @@
 class AppInfo {
   const AppInfo._();
 
-  static const version = '1.0.5';
-  static const build = 6;
+  static const version = '1.0.6';
+  static const build = 7;
 
   static const name = 'OpenList Client';
 
-  /// 设置页 / 关于页展示用：1.0.5 (6)
+  /// 设置页 / 关于页展示用：1.0.6 (7)
   static String get versionLabel => '$version ($build)';
 
-  /// 侧栏页脚：OpenList Client 1.0.5
+  /// 侧栏页脚：OpenList Client 1.0.6
   static String get shortLabel => '$name $version';
 }

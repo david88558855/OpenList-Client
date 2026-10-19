@@ -34,6 +34,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   bool _dragging = false;
   FileKind? _kind;
 
+  /// 批量模式：点击行只做勾选；长按任意行也会进入批量模式并勾选该行。
+  bool _batch = false;
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +131,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           _Toolbar(
                             kind: _kind,
                             onKind: (k) => setState(() => _kind = k),
+                            batch: _batch,
+                            onBatch: (v) => setState(() {
+                              _batch = v;
+                              if (!v) ref.read(filesProvider.notifier).clearSelection();
+                            }),
                           ),
                           Expanded(child: _buildBody(state)),
                           const _DropHint(),
@@ -158,8 +166,20 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     }
     if (items.isEmpty) return _EmptyBody(filtered: _kind != null);
     return state.grid
-        ? _GridView(items: items, scroll: _scroll, onOpen: _openItem)
-        : _ListView(items: items, scroll: _scroll, onOpen: _openItem);
+        ? _GridView(
+            items: items,
+            scroll: _scroll,
+            onOpen: _openItem,
+            batch: _batch,
+            onMenu: (item, position) => showItemMenu(context, ref, item, position, selection: state.selectedItems),
+          )
+        : _ListView(
+            items: items,
+            scroll: _scroll,
+            onOpen: _openItem,
+            batch: _batch,
+            onMenu: (item, position) => showItemMenu(context, ref, item, position, selection: state.selectedItems),
+          );
   }
 
   // ---------------------------------------------------------------- A2 移动端
@@ -178,7 +198,15 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                 const SliverToBoxAdapter(child: _MobileHead()),
                 const SliverToBoxAdapter(child: _MobileMounts()),
                 SliverToBoxAdapter(
-                  child: _KindFilter(value: _kind, onChanged: (k) => setState(() => _kind = k)),
+                  child: _KindFilter(
+                    value: _kind,
+                    onChanged: (k) => setState(() => _kind = k),
+                    batch: _batch,
+                    onBatch: (v) => setState(() {
+                      _batch = v;
+                      if (!v) ref.read(filesProvider.notifier).clearSelection();
+                    }),
+                  ),
                 ),
                 SliverToBoxAdapter(child: _MobileCrumb(state: state)),
                 if (items.isEmpty && state.loading)
@@ -202,15 +230,30 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = items[index];
+                        final selected = state.selected.contains(item.name);
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
                           child: _MobileRow(
                             item: item,
-                            onTap: () => _openItem(item),
-                            onLongPress: () async {
+                            selected: selected,
+                            batch: _batch,
+                            onTap: () {
+                              if (_batch) {
+                                ref.read(filesProvider.notifier).toggleSelect(item.name);
+                                return;
+                              }
+                              if (item.isDir) {
+                                _openItem(item);
+                                return;
+                              }
+                              // v2.1：点击文件先给操作列表，不直接打开/预览。
                               final box = context.findRenderObject() as RenderBox?;
-                              final pos = box == null ? Offset.zero : box.localToGlobal(Offset.zero);
-                              await showItemMenu(context, ref, item, pos);
+                              final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(40, 60));
+                              showItemMenu(context, ref, item, pos);
+                            },
+                            onLongPress: () {
+                              setState(() => _batch = true);
+                              if (!selected) ref.read(filesProvider.notifier).toggleSelect(item.name);
                             },
                           ),
                         );
@@ -222,15 +265,45 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               ],
             ),
           ),
-          Positioned(
-            right: 18,
-            bottom: 86,
-            child: _Fab(
-              onUpload: () => pickAndUpload(context, ref),
-              onNewFolder: () => createFolder(context, ref),
-              onOffline: () => offlineDownload(context, ref),
+          if (!_batch)
+            Positioned(
+              right: 18,
+              bottom: 86,
+              child: _Fab(
+                onUpload: () => pickAndUpload(context, ref),
+                onNewFolder: () => createFolder(context, ref),
+                onOffline: () => offlineDownload(context, ref),
+              ),
             ),
-          ),
+          if (_batch)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: _BatchBar(
+                count: state.selected.length,
+                onSelectAll: () {
+                  final notifier = ref.read(filesProvider.notifier);
+                  if (state.selected.length == items.length) {
+                    notifier.clearSelection();
+                  } else {
+                    notifier.selectAll();
+                  }
+                },
+                onDownload: () async {
+                  for (final item in state.selectedItems) {
+                    await downloadItem(context, ref, item);
+                  }
+                },
+                onMove: () => moveOrCopyItems(context, ref, state.selectedItems, move: true),
+                onCopy: () => moveOrCopyItems(context, ref, state.selectedItems, move: false),
+                onDelete: () => deleteItems(context, ref, state.selectedItems),
+                onExit: () => setState(() {
+                  _batch = false;
+                  ref.read(filesProvider.notifier).clearSelection();
+                }),
+              ),
+            ),
           if (state.offline)
             Positioned(
               left: 0,
@@ -416,7 +489,8 @@ class _MountRow extends StatelessWidget {
                 ),
               ),
               Text(
-                up ? formatBytes(mount.totalSpace) : '离线',
+                // v2.1：挂载项不再展示容量，只标状态。
+                up ? '正常' : '离线',
                 style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
               ),
             ],
@@ -653,7 +727,9 @@ class _SearchMini extends StatelessWidget {
 class _Toolbar extends ConsumerWidget {
   final FileKind? kind;
   final ValueChanged<FileKind?> onKind;
-  const _Toolbar({required this.kind, required this.onKind});
+  final bool batch;
+  final ValueChanged<bool> onBatch;
+  const _Toolbar({required this.kind, required this.onKind, required this.batch, required this.onBatch});
 
   Future<void> _sortMenu(BuildContext context, WidgetRef ref, Offset pos) async {
     final state = ref.read(filesProvider);
@@ -750,6 +826,14 @@ class _Toolbar extends ConsumerWidget {
             ),
           ),
           OlIconButton(icon: 'folder-plus', tooltip: '新建文件夹', onTap: () => createFolder(context, ref)),
+          const SizedBox(width: 6),
+          OlGhostButton(
+            label: batch ? '完成' : '批量',
+            icon: batch ? 'check' : 'layers',
+            height: 28,
+            fontSize: 10.5,
+            onTap: () => onBatch(!batch),
+          ),
         ],
       ),
     );
@@ -830,8 +914,16 @@ class _ListView extends ConsumerWidget {
   final List<FileItem> items;
   final ScrollController scroll;
   final ValueChanged<FileItem> onOpen;
+  final bool batch;
+  final void Function(FileItem item, Offset position) onMenu;
 
-  const _ListView({required this.items, required this.scroll, required this.onOpen});
+  const _ListView({
+    required this.items,
+    required this.scroll,
+    required this.onOpen,
+    required this.batch,
+    required this.onMenu,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -871,9 +963,22 @@ class _ListView extends ConsumerWidget {
               return _FileRow(
                 item: item,
                 selected: state.selected.contains(item.name),
-                onTap: () => ref.read(filesProvider.notifier).toggleSelect(item.name),
-                onDoubleTap: () => onOpen(item),
-                onMenu: (pos) => showItemMenu(context, ref, item, pos, selection: state.selectedItems),
+                onTap: () {
+                  if (batch) {
+                    ref.read(filesProvider.notifier).toggleSelect(item.name);
+                    return;
+                  }
+                  // v2.1：单击文件夹进入；单击文件先给操作列表。
+                  if (item.isDir) {
+                    onOpen(item);
+                  } else {
+                    final box = context.findRenderObject() as RenderBox?;
+                    final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(40, 44));
+                    onMenu(item, pos);
+                  }
+                },
+                onDoubleTap: item.isDir ? () => onOpen(item) : null,
+                onMenu: (pos) => onMenu(item, pos),
               );
             },
           ),
@@ -887,7 +992,7 @@ class _FileRow extends StatefulWidget {
   final FileItem item;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onDoubleTap;
+  final VoidCallback? onDoubleTap;
   final ValueChanged<Offset> onMenu;
 
   const _FileRow({
@@ -983,8 +1088,16 @@ class _GridView extends ConsumerWidget {
   final List<FileItem> items;
   final ScrollController scroll;
   final ValueChanged<FileItem> onOpen;
+  final bool batch;
+  final void Function(FileItem item, Offset position) onMenu;
 
-  const _GridView({required this.items, required this.scroll, required this.onOpen});
+  const _GridView({
+    required this.items,
+    required this.scroll,
+    required this.onOpen,
+    required this.batch,
+    required this.onMenu,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1004,9 +1117,20 @@ class _GridView extends ConsumerWidget {
         final item = items[index];
         final selected = state.selected.contains(item.name);
         return GestureDetector(
-          onTap: () => ref.read(filesProvider.notifier).toggleSelect(item.name),
-          onDoubleTap: () => onOpen(item),
-          onSecondaryTapDown: (d) => showItemMenu(context, ref, item, d.globalPosition, selection: state.selectedItems),
+          onTap: () {
+            if (batch) {
+              ref.read(filesProvider.notifier).toggleSelect(item.name);
+              return;
+            }
+            if (item.isDir) {
+              onOpen(item);
+            } else {
+              final box = context.findRenderObject() as RenderBox?;
+              onMenu(item, box == null ? Offset.zero : box.localToGlobal(const Offset(40, 44)));
+            }
+          },
+          onDoubleTap: item.isDir ? () => onOpen(item) : null,
+          onSecondaryTapDown: (d) => onMenu(item, d.globalPosition),
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -1407,7 +1531,7 @@ class _MobileHead extends ConsumerWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => context.go('/servers'),
+                  onTap: () => context.push('/servers'),
                   child: Row(
                     children: [
                       Flexible(
@@ -1426,7 +1550,8 @@ class _MobileHead extends ConsumerWidget {
               ),
               _CircleBtn(icon: 'search', onTap: () => context.go('/search')),
               const SizedBox(width: 8),
-              _CircleBtn(icon: 'more-v', onTap: () => context.go('/settings')),
+              // v2.1：右上角由「更多」改为刷新。
+              _CircleBtn(icon: 'refresh', onTap: () => ref.read(filesProvider.notifier).refresh()),
             ],
           ),
           const SizedBox(height: 10),
@@ -1474,12 +1599,11 @@ class _MobileMounts extends ConsumerWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final mount = storages[index];
-          final ratio = mount.usageRatio ?? 0;
           return GestureDetector(
             onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
             child: Container(
               width: 148,
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
               decoration: BoxDecoration(
                 color: p.card,
                 borderRadius: BorderRadius.circular(12),
@@ -1503,13 +1627,23 @@ class _MobileMounts extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
-                  OlUsageBar(value: ratio, height: 3),
-                  const SizedBox(height: 5),
+                  // v2.1：挂载卡片不再显示容量，只保留驱动与状态。
                   Text(
-                    mount.isUp ? '${formatBytes(mount.usedSpace)} / ${formatBytes(mount.totalSpace)}' : '离线',
+                    mount.driver.isEmpty ? (mount.isUp ? '已挂载' : '离线') : mount.driver,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 8.5, color: p.ink4),
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink3),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      OlDot(color: mount.isUp ? OlTokens.ok : const Color(0xFFCBD5E1), size: 5),
+                      const SizedBox(width: 4),
+                      Text(
+                        mount.isUp ? '正常' : '离线',
+                        style: TextStyle(fontSize: 8.5, color: p.ink4),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1524,22 +1658,63 @@ class _MobileMounts extends ConsumerWidget {
 class _KindFilter extends StatelessWidget {
   final FileKind? value;
   final ValueChanged<FileKind?> onChanged;
-  const _KindFilter({required this.value, required this.onChanged});
+  final bool batch;
+  final ValueChanged<bool> onBatch;
+  const _KindFilter({
+    required this.value,
+    required this.onChanged,
+    required this.batch,
+    required this.onBatch,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    final p = context.ol;
+    return Padding(
       padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 4, OlGap.pageMobile, 4),
       child: Row(
         children: [
-          OlChip(label: '全部', selected: value == null, onTap: () => onChanged(null)),
-          const SizedBox(width: 7),
-          OlChip(label: '视频', selected: value == FileKind.video, onTap: () => onChanged(FileKind.video)),
-          const SizedBox(width: 7),
-          OlChip(label: '图片', selected: value == FileKind.image, onTap: () => onChanged(FileKind.image)),
-          const SizedBox(width: 7),
-          OlChip(label: '文档', selected: value == FileKind.text, onTap: () => onChanged(FileKind.text)),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  OlChip(label: '全部', selected: value == null, onTap: () => onChanged(null)),
+                  const SizedBox(width: 7),
+                  OlChip(label: '视频', selected: value == FileKind.video, onTap: () => onChanged(FileKind.video)),
+                  const SizedBox(width: 7),
+                  OlChip(label: '图片', selected: value == FileKind.image, onTap: () => onChanged(FileKind.image)),
+                  const SizedBox(width: 7),
+                  OlChip(label: '文档', selected: value == FileKind.text, onTap: () => onChanged(FileKind.text)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // v2.1：类型筛选右侧的批量入口（长按列表项也会进入）。
+          GestureDetector(
+            onTap: () => onBatch(!batch),
+            child: Container(
+              height: 26,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: batch ? OlTokens.sky600 : p.chipBg,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: batch ? OlTokens.sky600 : p.chipBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OlIcon(batch ? 'check' : 'layers', size: 12, color: batch ? Colors.white : p.ink2),
+                  const SizedBox(width: 4),
+                  Text(
+                    batch ? '完成' : '批量',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: batch ? Colors.white : p.ink2),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1554,21 +1729,38 @@ class _MobileCrumb extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final segs = state.path.split('/').where((e) => e.isNotEmpty).toList();
+    final notifier = ref.read(filesProvider.notifier);
     return Padding(
       padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 2, OlGap.pageMobile, 6),
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
-              onTap: () => ref.read(filesProvider.notifier).open('/'),
-              child: Text(
-                segs.isEmpty ? '全部文件' : '/${segs.join('/')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink2),
+            // v2.1：路径栏按层级分段，点第 N 段回到第 N 层，不再一律回根目录。
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _CrumbTap(
+                    label: '全部文件',
+                    current: segs.isEmpty,
+                    onTap: () => notifier.open('/'),
+                  ),
+                  for (var i = 0; i < segs.length; i++) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Text('/', style: TextStyle(fontSize: 12, color: p.ink4)),
+                    ),
+                    _CrumbTap(
+                      label: segs[i],
+                      current: i == segs.length - 1,
+                      onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Text('${state.items.length} 个项目', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink4)),
         ],
       ),
@@ -1576,11 +1768,45 @@ class _MobileCrumb extends ConsumerWidget {
   }
 }
 
+class _CrumbTap extends StatelessWidget {
+  final String label;
+  final bool current;
+  final VoidCallback onTap;
+  const _CrumbTap({required this.label, required this.current, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: current ? FontWeight.w800 : FontWeight.w600,
+            color: current ? p.ink : p.ink3,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileRow extends StatelessWidget {
   final FileItem item;
+  final bool selected;
+  final bool batch;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  const _MobileRow({required this.item, required this.onTap, required this.onLongPress});
+  const _MobileRow({
+    required this.item,
+    required this.selected,
+    required this.batch,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1591,9 +1817,16 @@ class _MobileRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 58,
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
+        decoration: BoxDecoration(
+          color: selected && batch ? p.rowSel : null,
+          border: Border(bottom: BorderSide(color: p.divider)),
+        ),
         child: Row(
           children: [
+            if (batch) ...[
+              OlCheckbox(value: selected, onChanged: (_) => onTap()),
+              const SizedBox(width: 10),
+            ],
             FileGlyph(item: item, size: 34, radius: 9, iconSize: 17),
             const SizedBox(width: 11),
             Expanded(
@@ -1618,6 +1851,106 @@ class _MobileRow extends StatelessWidget {
               ),
             ),
             OlIcon('chev-r', size: 14, color: p.ink4),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 批量操作条（A2）：勾选后出现的底部操作。
+class _BatchBar extends StatelessWidget {
+  final int count;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDownload;
+  final VoidCallback onMove;
+  final VoidCallback onCopy;
+  final VoidCallback onDelete;
+  final VoidCallback onExit;
+
+  const _BatchBar({
+    required this.count,
+    required this.onSelectAll,
+    required this.onDownload,
+    required this.onMove,
+    required this.onCopy,
+    required this.onDelete,
+    required this.onExit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.line),
+        boxShadow: const [BoxShadow(color: Color(0x260D1B2A), blurRadius: 24, offset: Offset(0, 10))],
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onSelectAll,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OlIcon('check', size: 16, color: p.ink2),
+                  const SizedBox(height: 3),
+                  Text('全选', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: p.ink2)),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '已选 $count 项',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.ink3),
+            ),
+          ),
+          _BatchAction(icon: 'download', label: '下载', enabled: count > 0, onTap: onDownload),
+          _BatchAction(icon: 'move', label: '移动', enabled: count > 0, onTap: onMove),
+          _BatchAction(icon: 'copy', label: '复制', enabled: count > 0, onTap: onCopy),
+          _BatchAction(icon: 'trash', label: '删除', enabled: count > 0, danger: true, onTap: onDelete),
+          _BatchAction(icon: 'x', label: '退出', enabled: true, onTap: onExit),
+        ],
+      ),
+    );
+  }
+}
+
+class _BatchAction extends StatelessWidget {
+  final String icon;
+  final String label;
+  final bool enabled;
+  final bool danger;
+  final VoidCallback onTap;
+  const _BatchAction({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    final color = !enabled ? p.ink4 : (danger ? const Color(0xFFD92D4B) : p.ink2);
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OlIcon(icon, size: 16, color: color),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color)),
           ],
         ),
       ),

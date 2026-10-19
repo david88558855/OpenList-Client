@@ -29,7 +29,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final signedIn = ref.read(sessionProvider).signedIn;
       final path = state.uri.path;
       final onLogin = path == '/login';
-      if (!signedIn && !onLogin) return '/login';
+      // 服务器管理在未登录时也必须可进：首次运行要能添加实例，否则登录页的
+      // 「服务器管理」入口会被登录守卫弹回 /login（v1.0.5 的 bug）。
+      final serverArea = path == '/servers' || path.startsWith('/servers/');
+      if (!signedIn && !onLogin && !serverArea) return '/login';
       if (signedIn && onLogin) return '/files';
       return null;
     },
@@ -53,6 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'appearance'),
+      ),
+      // 设置分区用独立路径：只改 query 时同一条路由不会重建页面，
+      // 表现为「点了没反应」（v1.0.5 的 bug）。
+      GoRoute(
+        path: '/settings/:tab',
+        builder: (context, state) => SettingsPage(tab: state.pathParameters['tab'] ?? 'appearance'),
       ),
       GoRoute(path: '/servers', builder: (context, state) => const ServersPage()),
       GoRoute(

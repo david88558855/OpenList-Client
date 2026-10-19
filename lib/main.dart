@@ -23,11 +23,14 @@ Future<void> main() async {
       ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
 
   if (Platform.isWindows) {
+    // 单实例：已有实例在跑时只把它的窗口唤到前台，本进程立即退出。
     final primary = await SingleInstance.becomePrimary(
-        onActivate: SingleInstance.revealWindow);
+      onActivate: TrayService.instance.requestShow,
+    );
     if (!primary) {
-      await SingleInstance.pokeExisting();
-      exit(0);
+      final handedOver = await SingleInstance.activateExisting();
+      if (handedOver) exit(0);
+      // 端口被其他程序占用且无应答：继续启动，避免应用完全打不开。
     }
   }
 
@@ -49,6 +52,7 @@ Future<void> main() async {
     });
     if (Platform.isWindows) {
       await TrayService.instance.attach(container);
+      TrayService.instance.markWindowReady();
     }
   }
 

@@ -4,25 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/providers.dart';
 import '../../core/app_info.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
-import '../../app/providers.dart';
 
+/// W6 设置侧栏。
+///
+/// 顺序按 v2.1 设计稿：服务器管理 / 存储挂载 / 传输 / 播放与预览 / 外观 / 关于与更新。
+/// 「通知」与「隐私与安全」已移除（其能力并入传输与关于）；「退出登录」放在关于页底部。
 class SettingsSidebar extends ConsumerWidget {
   final String active;
-  const SettingsSidebar({super.key, required this.active});
+  final ValueChanged<String>? onSelect;
+  const SettingsSidebar({super.key, required this.active, this.onSelect});
 
   static const items = <List<String>>[
     ['servers', '服务器管理', 'server', '/servers'],
-    ['storage', '存储挂载', 'database', '/settings?tab=storage'],
-    ['transfer', '传输', 'arrow-down', '/settings?tab=transfer'],
-    ['playback', '播放与预览', 'play', '/settings?tab=playback'],
-    ['appearance', '外观', 'sun', '/settings?tab=appearance'],
-    ['notify', '通知', 'bell', '/settings?tab=notify'],
-    ['security', '隐私与安全', 'key', '/settings?tab=security'],
-    ['about', '关于与更新', 'info', '/settings?tab=about'],
+    ['storage', '存储挂载', 'database', '/settings/storage'],
+    ['transfer', '传输', 'arrow-down', '/settings/transfer'],
+    ['playback', '播放与预览', 'play', '/settings/playback'],
+    ['appearance', '外观', 'sun', '/settings/appearance'],
+    ['about', '关于与更新', 'info', '/settings/about'],
   ];
 
   @override
@@ -30,44 +33,64 @@ class SettingsSidebar extends ConsumerWidget {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
     final storages = ref.watch(storagesProvider).valueOrNull ?? const [];
+
+    void open(String key, String route) {
+      if (key == 'servers') {
+        context.push('/servers');
+        return;
+      }
+      onSelect?.call(key);
+      context.go(route);
+    }
+
     return Container(
       width: 204,
-      color: p.surface,
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border(right: BorderSide(color: p.line2)),
+      ),
       padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const OlSectionLabel('设置'),
           for (final item in items)
-            InkWell(
-              onTap: () => context.go(item[3]),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 31,
-                padding: const EdgeInsets.symmetric(horizontal: 9),
-                decoration: BoxDecoration(
-                  color: active == item[0] ? p.navOnBg : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    OlIcon(item[2], size: 15, color: active == item[0] ? const Color(0xFF0EA5E9) : p.navIcon),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        item[1],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active == item[0] ? p.navOn : p.nav),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => open(item[0], item[3]),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 31,
+                  margin: const EdgeInsets.only(bottom: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
+                  decoration: BoxDecoration(
+                    color: active == item[0] ? p.navOnBg : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      OlIcon(item[2], size: 15, color: active == item[0] ? OlTokens.sky600 : p.navIcon),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item[1],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active == item[0] ? p.navOn : p.nav),
+                        ),
                       ),
-                    ),
-                    if (item[0] == 'storage' && storages.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(color: active == item[0] ? p.card : p.navBadgeBg, borderRadius: BorderRadius.circular(5)),
-                        child: Text('${storages.length}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink3)),
-                      ),
-                  ],
+                      if (item[0] == 'storage' && storages.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: active == item[0] ? p.card : p.navBadgeBg,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text('${storages.length}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink3)),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

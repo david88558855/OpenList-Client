@@ -18,18 +18,43 @@ import 'settings_sidebar.dart';
 ///
 /// 账户与存储分开：账户决定登录态，存储只读展示每个挂载点的健康与容量。
 /// 管理后台写操作一律跳浏览器（产品基线 02）。
-class SettingsPage extends ConsumerWidget {
+///
+/// 分区切换同时做两件事：本地 setState（保证点击即有反馈）+ 同步路由
+/// `/settings/<tab>`（保证深链与返回栈正确）。只改 query 时同一路由不会重建，
+/// 是 v1.0.5「设置分区点不开」的根因。
+class SettingsPage extends ConsumerStatefulWidget {
   final String tab;
   const SettingsPage({super.key, this.tab = 'appearance'});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  late String _tab = widget.tab;
+
+  static const _known = {'servers', 'storage', 'transfer', 'playback', 'appearance', 'about'};
+
+  @override
+  void didUpdateWidget(covariant SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tab != oldWidget.tab) _tab = widget.tab;
+  }
+
+  void _select(String tab) {
+    if (!_known.contains(tab)) return;
+    setState(() => _tab = tab);
+    context.go('/settings/$tab');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (context.isNarrow) return const AppFrame(navIndex: 3, child: _MobileSettings());
     return AppFrame(
       showNav: false,
       child: Row(
         children: [
-          SettingsSidebar(active: tab),
+          SettingsSidebar(active: _tab, onSelect: _select),
           Expanded(
             child: ColoredBox(
               color: context.ol.card,
@@ -37,7 +62,7 @@ class SettingsPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 760),
-                  child: _SectionBody(section: tab),
+                  child: _SectionBody(section: _tab),
                 ),
               ),
             ),
@@ -64,10 +89,6 @@ class _SectionBody extends ConsumerWidget {
         return const _TransferSection();
       case 'playback':
         return const _PlaybackSection();
-      case 'notify':
-        return const _NotifySection();
-      case 'security':
-        return const _SecuritySection();
       case 'about':
         return const _AboutSection();
       case 'appearance':
@@ -218,7 +239,7 @@ class _ServersSection extends ConsumerWidget {
         _SectionHead(
           title: '服务器管理',
           subtitle: '当前连接的 OpenList 实例与登录身份',
-          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.go('/servers')),
+          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.push('/servers')),
         ),
         Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -280,7 +301,7 @@ class _ServersSection extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.go('/servers')),
+              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.push('/servers')),
             ],
           ),
         ),
@@ -624,218 +645,6 @@ class _PlaybackSection extends ConsumerWidget {
   }
 }
 
-class _NotifySection extends ConsumerWidget {
-  const _NotifySection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
-    final notifier = ref.watch(appSettingsProvider.notifier);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHead(title: '通知', subtitle: '传输完成、失败与托盘提示'),
-        _Card(
-          child: Column(
-            children: [
-              _Row(
-                icon: 'bell',
-                title: '任务完成通知',
-                subtitle: '下载/上传结束后提示',
-                trailing: OlSwitch(value: settings.trayNotify, small: true, onChanged: notifier.setTrayNotify),
-              ),
-              _Row(
-                icon: 'minimize',
-                title: '关闭到托盘',
-                subtitle: '关闭窗口不退出应用（W9 固定行为）',
-                trailing: OlSwitch(value: settings.closeToTray, small: true, onChanged: notifier.setCloseToTray),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 外观
-// ---------------------------------------------------------------------------
-class _AppearanceSection extends ConsumerWidget {
-  const _AppearanceSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
-    final notifier = ref.watch(appSettingsProvider.notifier);
-    final p = context.ol;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHead(title: '外观', subtitle: '默认跟随系统；播放器始终深色'),
-        _GroupLabel('主题'),
-        _Card(
-          padding: const EdgeInsets.all(11),
-          child: Row(
-            children: [
-              _ThemeCard(
-                label: '浅色',
-                selected: settings.themeMode == ThemeMode.light,
-                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFFE9F1F8)]),
-                onTap: () => notifier.setTheme(ThemeMode.light),
-              ),
-              const SizedBox(width: 9),
-              _ThemeCard(
-                label: '深色',
-                selected: settings.themeMode == ThemeMode.dark,
-                gradient: const LinearGradient(colors: [Color(0xFF0D1A29), Color(0xFF13293B)]),
-                onTap: () => notifier.setTheme(ThemeMode.dark),
-              ),
-              const SizedBox(width: 9),
-              _ThemeCard(
-                label: '跟随系统',
-                selected: settings.themeMode == ThemeMode.system,
-                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFF0D1A29)]),
-                onTap: () => notifier.setTheme(ThemeMode.system),
-              ),
-            ],
-          ),
-        ),
-        _GroupLabel('列表'),
-        _Card(
-          child: Column(
-            children: [
-              _Row(
-                icon: 'panel',
-                title: '紧凑列表',
-                subtitle: '行高 36px，单屏显示更多',
-                trailing: Text('固定 44px', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ),
-              _Row(
-                icon: 'image',
-                title: '显示缩略图',
-                subtitle: '图片与视频封面预览',
-                trailing: Text('自动', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ThemeCard extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final LinearGradient gradient;
-  final VoidCallback onTap;
-  const _ThemeCard({required this.label, required this.selected, required this.gradient, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              height: 54,
-              decoration: BoxDecoration(
-                gradient: gradient,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: selected ? OlTokens.sky600 : p.line2, width: selected ? 2 : 1),
-              ),
-              child: selected
-                  ? const Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: EdgeInsets.all(5),
-                        child: OlIcon('check', size: 12, color: Color(0xFF0EA5E9)),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? p.ink : p.ink3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 隐私与安全 / 关于
-// ---------------------------------------------------------------------------
-class _SecuritySection extends ConsumerWidget {
-  const _SecuritySection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHead(title: '隐私与安全', subtitle: '凭据只存系统安全存储，不上传、不写日志'),
-        _Card(
-          child: Column(
-            children: [
-              _Row(
-                icon: 'key',
-                title: 'Token 存储',
-                subtitle: 'Windows 凭据管理器 / Android Keystore',
-                trailing: Text('已启用', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: const Color(0xFF0B7A63))),
-              ),
-              _Row(
-                icon: 'globe',
-                title: '明文 HTTP',
-                subtitle: '仅内网地址放行，其余强制 HTTPS',
-                trailing: Text('内网', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ),
-              _Row(
-                icon: 'database',
-                title: '本地缓存',
-                subtitle: '目录列表与缩略图，按服务器隔离',
-                trailing: OlGhostButton(
-                  label: '清理',
-                  height: 24,
-                  fontSize: 9.5,
-                  onTap: () {
-                    ref.invalidate(filesProvider);
-                    olToast(context, '已清理当前目录缓存');
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OlDangerButton(
-            label: '退出登录',
-            icon: 'logout',
-            height: 34,
-            onTap: () async {
-              await ref.read(sessionProvider.notifier).signOut();
-              if (context.mounted) context.go('/login');
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _AboutSection extends ConsumerWidget {
   const _AboutSection();
 
@@ -885,6 +694,20 @@ class _AboutSection extends ConsumerWidget {
         Text(
           '第三方程式库版权归各自作者所有；OpenList 品牌素材归 OpenList Team。',
           style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4),
+        ),
+        const SizedBox(height: 16),
+        // v2.1：退出登录从「隐私与安全」移到「关于」下方，作为最后一项。
+        SizedBox(
+          width: double.infinity,
+          child: OlDangerButton(
+            label: '退出登录',
+            icon: 'logout',
+            height: 34,
+            onTap: () async {
+              await ref.read(sessionProvider.notifier).signOut();
+              if (context.mounted) context.go('/login');
+            },
+          ),
         ),
       ],
     );
@@ -960,28 +783,33 @@ class _MobileSettings extends ConsumerWidget {
                 _MobileGroup(
                   title: '账户',
                   children: [
-                    _MobileTile(icon: 'server', label: '服务器管理', value: '切换 / 添加 / 编辑', onTap: () => context.go('/servers')),
-                    _MobileTile(icon: 'database', label: '存储挂载', value: '只读健康与容量', onTap: () => context.go('/settings?tab=storage')),
-                    _MobileTile(icon: 'logout', label: '退出登录', value: '', danger: true, onTap: () async {
-                      await ref.read(sessionProvider.notifier).signOut();
-                      if (context.mounted) context.go('/login');
-                    }),
+                    _MobileTile(icon: 'server', label: '服务器管理', value: '切换 / 添加 / 编辑', onTap: () => context.push('/servers')),
+                    _MobileTile(icon: 'database', label: '存储挂载', value: '只读健康与容量', onTap: () => context.go('/settings/storage')),
                   ],
                 ),
                 _MobileGroup(
                   title: '传输与播放',
                   children: [
-                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速 / 下载目录', onTap: () => context.go('/settings?tab=transfer')),
-                    _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings?tab=playback')),
-                    _MobileTile(icon: 'bell', label: '通知', value: '完成与失败提示', onTap: () => context.go('/settings?tab=notify')),
+                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速 / 下载目录', onTap: () => context.go('/settings/transfer')),
+                    _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
                   ],
                 ),
                 _MobileGroup(
                   title: '应用',
                   children: [
-                    _MobileTile(icon: 'sun', label: '外观', value: '跟随系统', onTap: () => context.go('/settings?tab=appearance')),
-                    _MobileTile(icon: 'key', label: '隐私与安全', value: '凭据已加密', onTap: () => context.go('/settings?tab=security')),
-                    _MobileTile(icon: 'info', label: '关于 OpenList', value: AppInfo.version, onTap: () => context.go('/settings?tab=about')),
+                    _MobileTile(icon: 'sun', label: '外观', value: '跟随系统', onTap: () => context.go('/settings/appearance')),
+                    _MobileTile(icon: 'info', label: '关于 OpenList', value: AppInfo.version, onTap: () => context.go('/settings/about')),
+                    // v2.1：退出登录放在「关于」下方。
+                    _MobileTile(
+                      icon: 'logout',
+                      label: '退出登录',
+                      value: '',
+                      danger: true,
+                      onTap: () async {
+                        await ref.read(sessionProvider.notifier).signOut();
+                        if (context.mounted) context.go('/login');
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),

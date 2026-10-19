@@ -72,7 +72,7 @@ class _ServersPageState extends ConsumerState<ServersPage> {
       return;
     }
     if (open) {
-      context.go('/files');
+      _backToPrevious(context);
     } else {
       olToast(context, '已切换到 ${profile.name}');
     }
@@ -318,7 +318,7 @@ class _ServersPageState extends ConsumerState<ServersPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                OlIconButton(icon: 'chev-l', size: 30, iconSize: 18, onTap: () => context.go('/files')),
+                OlIconButton(icon: 'chev-l', size: 30, iconSize: 18, onTap: () => _backToPrevious(context)),
                 const SizedBox(width: 6),
                 Text('服务器', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: p.ink)),
                 const Spacer(),
@@ -832,5 +832,14 @@ class _MobileServerCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 返回上一页：从设置页 push 进来时回设置，从标题栏直接进来时回文件页。
+void _backToPrevious(BuildContext context) {
+  if (GoRouter.of(context).canPop()) {
+    context.pop();
+  } else {
+    context.go('/files');
   }
 }

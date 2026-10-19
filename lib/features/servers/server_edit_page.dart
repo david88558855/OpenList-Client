@@ -20,8 +20,8 @@ class ServerEditPage extends ConsumerWidget {
     final narrow = MediaQuery.sizeOf(context).width < 900;
     final form = ServerForm(
       profile: profile.isEmpty ? null : profile.first,
-      onSaved: () => context.go('/servers'),
-      onDeleted: () => context.go('/servers'),
+      onSaved: () => _back(context),
+      onDeleted: () => _back(context),
     );
 
     if (!narrow) {
@@ -64,7 +64,7 @@ class ServerEditPage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  OlIconButton(icon: 'chev-l', size: 30, iconSize: 18, onTap: () => context.go('/servers')),
+                  OlIconButton(icon: 'chev-l', size: 30, iconSize: 18, onTap: () => _back(context)),
                   const SizedBox(width: 4),
                   Text(
                     profile.isEmpty ? '添加服务器' : '编辑服务器',
@@ -78,5 +78,14 @@ class ServerEditPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// 编辑页返回：优先回服务器列表（保持在设置链路里），没有栈时兜底。
+void _back(BuildContext context) {
+  if (GoRouter.of(context).canPop()) {
+    context.pop();
+  } else {
+    context.go('/servers');
   }
 }

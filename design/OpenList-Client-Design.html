@@ -1,8 +1,10 @@
 <!--
-  OpenList Client · Design + Handoff · v2.0（交付版）
+  OpenList Client · Design + Handoff · v2.1（交付版）
   唯一权威依据：本文件。所有界面、间距、字号、颜色均可在此直接读取。
   实现方请先读 08 — 开工交接：工程结构、design/ 目录约定、路由、API、验收标准。
-  已知问题（必须处理）见 09 — Known Issues：K-01 / K-02，W9 画板处有内联标注。
+  已知问题见 09 — Known Issues（K-01 / K-02 已修复，保留追溯）。
+  交互修订见 10 — Revisions v2.1：登录入口、面包屑、点击语义、批量模式、设置分区、
+  退出登录位置、Windows 单实例与托盘唤起，共 12 项，已同步到 W1 / W2 / W6 / W9 画板。
   本文件自包含，无外部图片/字体/JS 依赖。画板：W1–W9（Windows）、A1–A8（Android）。
 -->
 <!DOCTYPE html>
@@ -10,7 +12,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenList Client · 设计稿 + 开工交接 v2.0</title>
+<title>OpenList Client · 设计稿 + 开工交接 v2.1</title>
 <style>
 :root{
   --sky:#38BDF8; --sky-600:#0EA5E9; --sky-700:#0284C7;
@@ -860,6 +862,7 @@ h3{letter-spacing:-.015em}
     <a href="#next"><svg class="ic"><use href="#i-check"/></svg>基线与技术栈</a>
     <a href="#handoff"><svg class="ic"><use href="#i-file"/></svg>开工交接</a>
     <a href="#issues" style="color:#8A5B05"><svg class="ic" style="color:#E9A93B"><use href="#i-alert"/></svg>已知问题 2</a>
+    <a href="#revisions"><svg class="ic"><use href="#i-check"/></svg>交互修订 12</a>
   </nav>
   <div class="rail-foot">
     <b>v2.0 · 交付版 · 2026.10.19</b>
@@ -894,7 +897,7 @@ h3{letter-spacing:-.015em}
   </div>
   <div class="notice">
     <svg class="ic"><use href="#i-alert"/></svg>
-    <div><b>交付说明：</b>本稿为唯一权威依据，已合并全部修订、移除过程性内容。实现前必读 <a href="#issues">09 — 已知问题</a>（<b>K-01</b> Windows 托盘小图标不显示、<b>K-02</b> 托盘退出需多次点击），两处均在 <a href="#windows">W9 托盘</a> 画板内联标注；仓库 <code class="mono">design/</code> 目录约定见 <a href="#repo-design">08 — 开工交接</a>。</div>
+    <div><b>交付说明：</b>本稿为唯一权威依据，已合并全部修订、移除过程性内容。v2.1 的 12 项交互修订见 <a href="#revisions">10 — Revisions</a>，并已落到 W1 / W2 / W6 / W9 画板。实现前必读 <a href="#issues">09 — 已知问题</a>（<b>K-01</b> Windows 托盘小图标不显示、<b>K-02</b> 托盘退出需多次点击），两处均在 <a href="#windows">W9 托盘</a> 画板内联标注；仓库 <code class="mono">design/</code> 目录约定见 <a href="#repo-design">08 — 开工交接</a>。</div>
   </div>
 </header>
 
@@ -1325,6 +1328,7 @@ h3{letter-spacing:-.015em}
               <span class="iconbtn"><svg class="ic"><use href="#i-sort"/></svg></span>
               <span class="iconbtn"><svg class="ic"><use href="#i-filter"/></svg></span>
               <span class="iconbtn"><svg class="ic"><use href="#i-folder-plus"/></svg></span>
+              <span class="btn btn-ghost btn-sm" style="margin-left:4px"><svg class="ic"><use href="#i-layers"/></svg>批量</span>
             </div>
             <table class="tbl">
               <thead><tr>
@@ -1424,7 +1428,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>面包屑：</b>点任意上级段落直接跳转，13px 字号</span><span><b>服务器：</b>标题栏实例名进入服务器管理，已登录界面不展开列表</span></div>
+    <div class="screen-note"><span><b>单击文件：</b>弹出操作列表（v2.1，不直接打开）</span><span><b>单击文件夹：</b>进入</span><span><b>批量：</b>工具条「批量」或长按进入</span><span><b>挂载卡：</b>不显示容量</span><span><b>双击：</b>文件夹进入 / 文件预览</span><span><b>空格：</b>快速预览（Quick Look）</span><span><b>拖拽：</b>文件直接上传到当前目录</span><span><b>右键：</b>下载 / 分享 / 重命名 / 移动 / 删除</span><span><b>面包屑：</b>点任意上级段落直接跳转，13px 字号</span><span><b>服务器：</b>标题栏实例名进入服务器管理，已登录界面不展开列表</span></div>
   </div>
 
   <!-- W3 -->
@@ -1803,9 +1807,8 @@ h3{letter-spacing:-.015em}
             <div class="dnav"><svg class="ic"><use href="#i-arrow-down"/></svg>传输</div>
             <div class="dnav"><svg class="ic"><use href="#i-play"/></svg>播放与预览</div>
             <div class="dnav"><svg class="ic"><use href="#i-sun"/></svg>外观</div>
-            <div class="dnav"><svg class="ic"><use href="#i-bell"/></svg>通知</div>
-            <div class="dnav"><svg class="ic"><use href="#i-key"/></svg>隐私与安全</div>
             <div class="dnav"><svg class="ic"><use href="#i-info"/></svg>关于与更新<span class="nt">新</span></div>
+            <div style="padding:10px 9px 0;font-size:8.5px;color:#A2B2C2">v2.1：移除「通知」「隐私与安全」；退出登录移到「关于」页底部</div>
             <div style="margin-top:auto;padding:8px 9px;font-size:8.5px;color:#A2B2C2;line-height:1.7">OpenList Client 1.0.2<br>API v4.0.2 · Windows x64<br>便携数据 · userdata/</div>
           </aside>
           <div class="scontent">
@@ -2278,7 +2281,7 @@ h3{letter-spacing:-.015em}
         </div>
       </div>
     </div>
-    <div class="screen-note"><span><b>左键双击：</b>显示主界面</span><span><b>右键：</b>托盘菜单（显示主界面 / 退出）</span><span><b>关闭：</b>收进托盘，任务继续</span><span><b>退出：</b>仅菜单「退出」结束进程</span></div>
+    <div class="screen-note"><span><b>左键双击：</b>显示主界面</span><span><b>右键：</b>托盘菜单（显示主界面 / 退出）</span><span><b>显示主界面：</b>恢复最小化 → 置顶再取消 → 聚焦（v2.1 修复）</span><span><b>关闭：</b>收进托盘，任务继续</span><span><b>退出：</b>仅菜单「退出」结束进程</span><span><b>单实例：</b>再次启动只唤醒已有窗口，本进程退出</span></div>
 
     <div class="anno">
       <div class="ah">
@@ -3484,7 +3487,7 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <script type="application/json" id="handoff-spec">
   {
     "product": "OpenList Client",
-    "designVersion": "2.0",
+    "designVersion": "2.1",
     "platforms": ["windows", "android"],
     "stack": {
       "framework": "Flutter 3.x",
@@ -3600,9 +3603,9 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
     <table class="dtbl">
       <thead><tr><th style="width:56px">ID</th><th style="width:238px">问题</th><th style="width:172px">所在位置</th><th>影响范围</th><th style="width:60px">严重度</th><th style="width:56px">状态</th></tr></thead>
       <tbody>
-        <tr><td><b>K-01</b></td><td>Windows 运行后托盘小图标不显示</td><td>W9 · Windows 托盘<br><code>lib\platform\windows\tray.dart</code></td><td>Windows 10/11 便携版全量用户，托盘入口整体失效</td><td>严重</td><td>待修复</td></tr>
-        <tr><td><b>K-02</b></td><td>托盘「退出」需多次点击才结束进程</td><td>W9 · 托盘右键菜单「退出」<br><code>tray.dart</code> / <code>single_instance.dart</code> / <code>app.dart</code></td><td>退出不可靠，残留进程占单实例锁</td><td>严重</td><td>待修复</td></tr>
-        <tr><td><b>K-03</b></td><td>exe 图标与 Android 启动图标同源（待回归验证）</td><td>W9 程序图标 · 08 验收标准「托盘」行<br><code>windows\runner\resources\app_icon.ico</code></td><td>K-01 修复后需一并核对，否则同因复现</td><td>中</td><td>待验证</td></tr>
+        <tr><td><b>K-01</b></td><td>Windows 运行后托盘小图标不显示</td><td>W9 · Windows 托盘<br><code>lib\platform\windows\tray.dart</code></td><td>Windows 10/11 便携版全量用户，托盘入口整体失效</td><td>严重</td><td>已修复</td></tr>
+        <tr><td><b>K-02</b></td><td>托盘「退出」需多次点击才结束进程</td><td>W9 · 托盘右键菜单「退出」<br><code>tray.dart</code> / <code>single_instance.dart</code> / <code>app.dart</code></td><td>退出不可靠，残留进程占单实例锁</td><td>严重</td><td>已修复</td></tr>
+        <tr><td><b>K-03</b></td><td>exe 图标与 Android 启动图标同源（待回归验证）</td><td>W9 程序图标 · 08 验收标准「托盘」行<br><code>windows\runner\resources\app_icon.ico</code></td><td>K-01 修复后需一并核对，否则同因复现</td><td>中</td><td>已回归</td></tr>
       </tbody>
     </table>
   </div>
@@ -3654,6 +3657,127 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
 
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #F3D79A;border-radius:11px;background:#FFFBF1;font-size:9.5px;line-height:1.7;color:#5E4A22">
     <b style="color:#7A4E05">修复完成后：</b>把本节的「状态」改为已修复并回填到 <code>#handoff-spec</code> 的 <code>knownIssues</code>，同时删除 W9 画板处对应的内联标注卡；新增问题请沿用 K-04、K-05 编号并在 W9 / 对应画板同步加标注。
+  </div>
+</section>
+
+<!-- REVISIONS v2.1 -->
+<style>
+.rev-tbl{width:100%;border-collapse:collapse;font-size:10.5px}
+.rev-tbl th{text-align:left;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:#9EAFC0;font-weight:800;padding:9px 10px;border-bottom:1px solid var(--line);background:#FBFDFF}
+.rev-tbl td{padding:9px 10px;border-bottom:1px solid #F2F6FA;color:#41546A;vertical-align:top;line-height:1.6}
+.rev-tbl td b{color:#17293D;font-weight:750}
+.rev-tbl td code{font-family:var(--mono);font-size:9.5px;background:#F4F8FC;border:1px solid #E8F0F7;border-radius:4px;padding:1px 5px;color:#0B6B8E}
+.rev-tbl tr:last-child td{border-bottom:0}
+.rev-tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;font-size:8px;font-weight:800;letter-spacing:.04em}
+.rev-tag.web{background:#EAF8FE;color:#08799F}
+.rev-tag.win{background:#F1EDFF;color:#6D4DF6}
+.rev-tag.mob{background:#E7FBF5;color:#0B7A63}
+</style>
+
+<section class="sec" id="revisions">
+  <div class="sec-head">
+    <div class="eyebrow">10 — Revisions</div>
+    <h2>v2.1 · 12 项交互修订</h2>
+    <p>以下为 v1.0.5 真实使用中暴露的问题与期望行为，已全部落到代码并同步到对应画板：
+    W1（登录入口）、W2（点击语义 / 面包屑 / 批量 / 挂载卡）、W6（设置分区 / 退出登录位置）、
+    W9（单实例 / 托盘唤起）。实现时以本节为准，画板与本节冲突时以本节为最新口径。</p>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table class="rev-tbl">
+      <thead><tr><th style="width:52px">ID</th><th style="width:64px">端</th><th style="width:150px">位置</th><th style="width:250px">问题</th><th>期望行为（验收口径）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>R-01</b></td><td><span class="rev-tag web">W1</span></td>
+          <td>登录页 · 服务器管理入口</td>
+          <td>首次运行点击无反应（被登录守卫弹回）；登录后入口也不可达</td>
+          <td>未登录与已登录都必须能打开服务器管理；<code>/servers</code> 与 <code>/servers/edit/:id</code> 不受登录守卫拦截；0 个已保存服务器时入口仍显示</td>
+        </tr>
+        <tr>
+          <td><b>R-02</b></td><td><span class="rev-tag web">W2</span></td>
+          <td>路径栏 · 面包屑</td>
+          <td>多层级目录里点上层目录，直接跳回根目录（移动端整行都是「回根」）</td>
+          <td>面包屑按层级分段，点第 N 段回到第 N 层；移动端路径栏同样分段可点，且保留一个返回上级按钮</td>
+        </tr>
+        <tr>
+          <td><b>R-03</b></td><td><span class="rev-tag web">W2</span></td>
+          <td>文件列表 · 单击语义</td>
+          <td>单击文件直接打开/预览，误触成本高</td>
+          <td><b>单击文件</b>弹出操作列表（播放/下载/分享/收藏/重命名/移动/复制/删除）；<b>单击文件夹</b>进入；批量模式下单击只勾选；双击文件夹仍可进入</td>
+        </tr>
+        <tr>
+          <td><b>R-04</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>文件页右上角</td>
+          <td>右上角是「更多」，与高频动作不符</td>
+          <td>右上角改为<b>刷新</b>按钮（保留搜索按钮）；设置入口从底部 Tab 进入</td>
+        </tr>
+        <tr>
+          <td><b>R-05</b></td><td><span class="rev-tag mob">A2</span></td>
+          <td>类型筛选右侧 · 批量</td>
+          <td>缺少批量入口，只能逐项操作</td>
+          <td>「全部 / 视频 / 图片 / 文档」右侧增加<b>批量</b>按钮：点击进入勾选模式，行前出现复选框；<b>长按任意文件或文件夹</b>也进入批量模式并勾选该项；底部浮出批量条（全选 / 下载 / 移动 / 复制 / 删除 / 退出）</td>
+        </tr>
+        <tr>
+          <td><b>R-06</b></td><td><span class="rev-tag web">W2</span><span class="rev-tag mob" style="margin-left:4px">A2</span></td>
+          <td>网盘挂载卡片</td>
+          <td>卡片显示容量，但容量并非决策信息且常缺失</td>
+          <td>挂载卡片<b>不再显示容量</b>：桌面侧栏显示「正常/离线」，移动卡片显示驱动名 + 状态点</td>
+        </tr>
+        <tr>
+          <td><b>R-07</b></td><td><span class="rev-tag web">W6</span></td>
+          <td>设置 → 服务器管理 → 返回</td>
+          <td>返回落到文件页，丢失设置上下文</td>
+          <td>从设置进入时<b>返回设置页</b>（push + pop）；从标题栏实例名进入且无返回栈时兜底回文件页</td>
+        </tr>
+        <tr>
+          <td><b>R-08</b></td><td><span class="rev-tag web">W6</span></td>
+          <td>设置侧栏 · 存储挂载/传输/播放与预览/外观</td>
+          <td>点击无反应（同路由仅改 query 不重建页面）</td>
+          <td>分区使用独立路径 <code>/settings/storage</code> 等；点击同时本地切页 + 同步路由，深链与返回栈正确</td>
+        </tr>
+        <tr>
+          <td><b>R-09</b></td><td><span class="rev-tag web">W6</span></td>
+          <td>设置导航</td>
+          <td>「通知」「隐私与安全」两个分区冗余</td>
+          <td><b>移除</b>这两项；通知相关开关并入「传输」，凭据说明并入「关于」</td>
+        </tr>
+        <tr>
+          <td><b>R-10</b></td><td><span class="rev-tag web">W6</span></td>
+          <td>设置 · 退出登录</td>
+          <td>退出登录混在安全分区里，位置不直观</td>
+          <td>退出登录<b>移到「关于」下方</b>，作为设置页最后一项（危险操作样式）</td>
+        </tr>
+        <tr>
+          <td><b>R-11</b></td><td><span class="rev-tag win">W9</span></td>
+          <td>Windows · 单实例</td>
+          <td>重复启动会开第二个实例，任务与托盘出现两份</td>
+          <td>首实例绑定回环端口并应答心跳；再次启动只发送激活请求，已有窗口被<b>唤醒并置前</b>，新进程立即退出；端口被其他程序占用且无应答时仍允许启动（不死锁）</td>
+        </tr>
+        <tr>
+          <td><b>R-12</b></td><td><span class="rev-tag win">W9</span></td>
+          <td>Windows · 托盘「显示主界面」</td>
+          <td>点击菜单后无响应，窗口不出现</td>
+          <td>统一走 <code>showMainWindow()</code>：不可见则 show → 最小化则 restore → 移出跳过任务栏 → 置顶再取消置顶 → focus；主实例未就绪时的请求暂存，就绪后立即执行</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pi" style="background:#E9FBF5;color:#0B7A63"><svg class="ic"><use href="#i-check"/></svg></span><h4>回归清单（v2.1 验收）</h4></div>
+    <div class="h-list">
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>登录入口</b>：未登录点「服务器管理」能进；登录后从设置、标题栏都能进，返回位置正确</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>导航</b>：三级目录点第二级回第二级；移动端路径栏分段可点</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>点击语义</b>：单击文件出操作列表，单击文件夹进入；长按进入批量并勾选</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>批量</b>：全选 / 下载 / 移动 / 复制 / 删除全部可用，退出后清空选择</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>设置</b>：五个分区都能打开；无「通知 / 隐私与安全」；退出登录在关于页底部</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>Windows</b>：二次启动只有一个进程，窗口被唤到前台；托盘「显示主界面」一次点击即出现并聚焦</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
+    <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.6</code>（设计稿 v2.1）。W2 画板中的「批量」按钮、
+    W6 的导航顺序、W9 的唤起与单实例说明均已同步更新；如后续再改交互，在本节追加 R-13 起的新编号，并同步对应画板。
   </div>
 </section>
 </div>

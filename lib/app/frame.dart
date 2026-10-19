@@ -128,7 +128,7 @@ class OlTitleBar extends ConsumerWidget {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             // 已登录界面不再展开服务器列表，统一进服务器管理页。
-            onTap: () => context.go('/servers'),
+            onTap: () => context.push('/servers'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(
