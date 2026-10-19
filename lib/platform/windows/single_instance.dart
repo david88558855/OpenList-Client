@@ -20,7 +20,11 @@ class SingleInstance {
   static const _pong = 'openlist-pong';
   static const _activate = 'openlist-show';
 
+  /// 主实例的监听 socket（保持引用，避免被 GC 回收导致端口释放）。
   static RawDatagramSocket? _socket;
+
+  /// 当前进程是否已持有单实例端口（调试/日志用）。
+  static bool get isPrimary => _socket != null;
 
   /// 成为主实例：绑定端口并监听激活/心跳请求。
   static Future<bool> becomePrimary({void Function()? onActivate}) async {

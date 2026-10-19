@@ -9,7 +9,6 @@ import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
-import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import 'download_dir.dart';
 import 'settings_sidebar.dart';
