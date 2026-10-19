@@ -60,22 +60,6 @@ main:
                 set -e
                 sh tool/ci_build_android.sh
 
-    - name: windows-x64-portable
-      runner:
-        namespace: group
-        tags:
-          - windows
-      stages:
-        - name: build-windows
-          jobs:
-            - name: flutter-build-windows
-              # 没有 Windows 自托管节点时不让整条流水线变红
-              allowFailure: true
-              timeout: 90m
-              script: |
-                $ErrorActionPreference = "Stop"
-                ./tool/ci_build_windows.ps1
-
 # 打 tag（v*）：构建 + 把产物作为附件发布到该 tag 的 Release。
 "$":
   tag_push:
@@ -108,25 +92,51 @@ main:
                 set -e
                 sh tool/ci_publish_release.sh
 
-    - name: release-windows
-      runner:
-        namespace: group
-        tags:
-          - windows
-      stages:
-        - name: build-windows
-          jobs:
-            - name: flutter-build-windows
-              allowFailure: true
-              timeout: 90m
-              script: |
-                $ErrorActionPreference = "Stop"
-                ./tool/ci_build_windows.ps1
-        - name: publish-release
-          jobs:
-            - name: upload-portable
-              allowFailure: true
-              timeout: 30m
-              script: |
-                $ErrorActionPreference = "Stop"
-                ./tool/ci_publish_release.ps1
+# ---------------------------------------------------------------------------
+# Windows x64 便携包（默认关闭）
+#
+# Flutter 桌面端必须在 Windows + MSVC 上编译；CNB 社区版没有 Windows runner，
+# 需要根组织先挂一台自托管构建节点（组织设置 → 构建节点，标签含 windows），
+# 然后取消下面注释即可在每次推送 / 打 tag 时自动产出
+# dist/OpenList-Client-<ver>-windows-x64-portable.zip 并上传到 Release。
+#
+#     - name: windows-x64-portable
+#       runner:
+#         namespace: group
+#         tags:
+#           - windows
+#       stages:
+#         - name: build-windows
+#           jobs:
+#             - name: flutter-build-windows
+#               # 没有 Windows 自托管节点时不让整条流水线变红
+#               allowFailure: true
+#               timeout: 90m
+#               script: |
+#                 $ErrorActionPreference = "Stop"
+#                 ./tool/ci_build_windows.ps1
+#
+# 打 tag 时同样可以自动发布 Windows 便携包（放在 "$" → tag_push 下）：
+#
+#     - name: release-windows
+#       runner:
+#         namespace: group
+#         tags:
+#           - windows
+#       stages:
+#         - name: build-windows
+#           jobs:
+#             - name: flutter-build-windows
+#               allowFailure: true
+#               timeout: 90m
+#               script: |
+#                 $ErrorActionPreference = "Stop"
+#                 ./tool/ci_build_windows.ps1
+#         - name: publish-release
+#           jobs:
+#             - name: upload-portable
+#               allowFailure: true
+#               timeout: 30m
+#               script: |
+#                 $ErrorActionPreference = "Stop"
+#                 ./tool/ci_publish_release.ps1
