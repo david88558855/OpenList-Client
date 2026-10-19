@@ -14,6 +14,168 @@ class OlMenuItem {
   const OlMenuItem(this.label, this.icon, this.onTap, {this.danger = false, this.divider = false});
 }
 
+/// A7 · Android 长按操作面板。
+///
+/// 结构按设计稿：顶部拖拽条 → 「已选择 N 个项目 / 取消」→ 文件行 →
+/// 四个高频动作（播放 / 下载 / 分享 / 收藏）→ 次级动作列表（含删除）。
+/// 桌面端继续用 [showOlMenu] 的右键浮层，两端动作集合一致。
+Future<void> showOlActionSheet(
+  BuildContext context, {
+  required int count,
+  required String title,
+  required String subtitle,
+  required Widget leading,
+  required List<OlMenuItem> quick,
+  required List<OlMenuItem> items,
+}) async {
+  final p = context.ol;
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0x5707111D),
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      void run(OlMenuItem item) {
+        Navigator.of(sheetContext).pop();
+        item.onTap?.call();
+      }
+
+      return Container(
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        padding: EdgeInsets.fromLTRB(14, 8, 14, 18 + MediaQuery.paddingOf(sheetContext).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(color: p.line, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                children: [
+                  Text(
+                    count > 1 ? '已选择 $count 个项目' : '已选择 1 个项目',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.of(sheetContext).pop(),
+                    child: Text('取消', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: OlTokens.sky700)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.fromLTRB(2, 4, 2, 12),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                children: [
+                  for (final item in quick)
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => run(item),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: item.danger ? const Color(0xFFFFF1F3) : const Color(0xFFF1F8FC),
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: Center(
+                                child: OlIcon(
+                                  item.icon,
+                                  size: 17,
+                                  color: item.danger ? const Color(0xFFD92D4B) : const Color(0xFF3D7E9E),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.label,
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            for (final item in items)
+              InkWell(
+                onTap: () => run(item),
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(border: Border(top: BorderSide(color: p.line2))),
+                  child: Row(
+                    children: [
+                      OlIcon(item.icon, size: 15, color: item.danger ? const Color(0xFFE06B82) : p.ink3),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: item.danger ? const Color(0xFFD92D4B) : p.ink2,
+                          ),
+                        ),
+                      ),
+                      OlIcon('chev-r', size: 13, color: p.ink4),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 Future<void> showOlMenu(BuildContext context, {required Offset position, required List<OlMenuItem> items}) async {
   final p = context.ol;
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;

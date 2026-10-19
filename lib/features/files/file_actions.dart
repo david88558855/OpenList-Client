@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -400,6 +401,37 @@ Future<void> showItemMenu(
     OlMenuItem('复制到…', 'copy', () => moveOrCopyItems(context, ref, targets, move: false)),
     OlMenuItem('删除', 'trash', () => deleteItems(context, ref, targets), danger: true),
   ];
+
+  // A7：Android 用底部操作面板；Windows 用右键浮层。动作集合完全一致。
+  if (Platform.isAndroid || context.isNarrow) {
+    final quick = <OlMenuItem>[
+      if (kind == FileKind.video || kind == FileKind.audio)
+        OlMenuItem('播放', 'play', () => openItem(context, ref, item)),
+      if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
+      OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
+      OlMenuItem(
+        isFavorite ? '取消收藏' : '收藏',
+        'star',
+        () async {
+          if (profile == null) return;
+          await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
+          if (context.mounted) olToast(context, isFavorite ? '已取消收藏' : '已加入收藏');
+        },
+      ),
+    ];
+    final quickLabels = quick.map((e) => e.label).toSet();
+    await showOlActionSheet(
+      context,
+      count: targets.length,
+      title: item.name,
+      subtitle: item.isDir ? '文件夹' : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
+      leading: FileGlyph(item: item, size: 38, radius: 10, iconSize: 18),
+      quick: quick,
+      items: entries.where((e) => !quickLabels.contains(e.label)).toList(),
+    );
+    return;
+  }
+
   await showOlMenu(context, position: position, items: entries);
 }
 

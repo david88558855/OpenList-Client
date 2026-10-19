@@ -148,17 +148,22 @@ class TrayService with TrayListener {
       _subscription = null;
     } catch (_) {}
 
-    // 2. 关闭窗口拦截必须先关掉，否则 close/destroy 会被 hide 吃掉
+    // 2. 偏好落盘（便携版 userdata/prefs.json），避免退出时丢最后一次写入
+    try {
+      await _container?.read(prefsProvider).flush().timeout(const Duration(milliseconds: 800));
+    } catch (_) {}
+
+    // 3. 关闭窗口拦截必须先关掉，否则 close/destroy 会被 hide 吃掉
     try {
       await windowManager.setPreventClose(false).timeout(const Duration(milliseconds: 500));
     } catch (_) {}
 
-    // 3. 移除托盘图标（NIM_DELETE），避免残留占位
+    // 4. 移除托盘图标（NIM_DELETE），避免残留占位
     try {
       await trayManager.destroy().timeout(const Duration(milliseconds: 800));
     } catch (_) {}
 
-    // 4. 释放窗口与单实例锁，最后进程退出
+    // 5. 释放窗口与单实例锁，最后进程退出
     try {
       await windowManager.destroy().timeout(const Duration(milliseconds: 800));
     } catch (_) {}
