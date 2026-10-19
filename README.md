@@ -1,6 +1,6 @@
 # OpenList Client
 
-OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视觉与交互严格按 `OpenList-Client-Design.html` v2.0 的 W1–W9 / A1–A8 画板实现，不使用 WebView 包裹设计稿，也不引入任何外部图片或字体资源。
+OpenList 的 Windows / Android 原生客户端。单代码库 Flutter 3.x，视觉与交互严格按 `OpenList-Client-Design.html` v2.1 的 W1–W9 / A1–A8 画板实现，不使用 WebView 包裹设计稿，也不引入任何外部图片或字体资源。
 
 | 项目 | 说明 |
 | --- | --- |
@@ -29,12 +29,12 @@ Android arm64 APK 与 Windows x64 便携包；打 `v*` tag 时自动把两者作
 
 | 项 | 值 |
 | --- | --- |
-| 最新版本 | [`v1.0.5`](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.5)（UI 按设计稿 v2.0 重写 · 托盘 K-01/K-02 修复） |
-| Android | `OpenList-Client-1.0.5-android-arm64.apk`（65,780,103 字节） |
-| Android SHA-256 | `f52ffa984849e0f6c6efda393b37f37129ab575c1c1dd653d6a600c8dc714764` |
-| Windows | `OpenList-Client-1.0.5-windows-x64-portable.zip`（34,122,819 字节，解压即用） |
-| Windows SHA-256 | `f025b66b120be5c3529510a3147c6d68fdcfc392b9dca55462bfcff6e6113a17` |
-| 下载 | <https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.5> |
+| 最新版本 | [`v1.0.6`](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.6)（设计稿 v2.1 · 12 项交互修订 + Windows 单实例/托盘唤起） |
+| Android | `OpenList-Client-1.0.6-android-arm64.apk`（65,780,103 字节） |
+| Android SHA-256 | `b63572269a81d6e9311eb777fc5f970bb9b17eabb70a7aa05a6d56b59c7189d2` |
+| Windows | `OpenList-Client-1.0.6-windows-x64-portable.zip`（34,124,070 字节，解压即用） |
+| Windows SHA-256 | `ed62d018e615e7117c3e056125ae821b192a51d1662215841e4cb41f2d0be93a` |
+| 下载 | <https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.6> |
 | 说明 | APK 为 debug 签名，可直接安装；**Windows 只发便携版 zip**，偏好写在 `userdata/prefs.json` |
 
 下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
