@@ -28,11 +28,19 @@ tag `v1.0.0` 触发发布流水线，APK 作为 Release 附件上传。
 
 | 项 | 值 |
 | --- | --- |
-| 版本 | `v1.0.0` |
-| 产物 | `OpenList-Client-1.0.0-android-arm64.apk`（约 63 MB） |
-| 校验 | 同名 `.sha256` 一并发布 |
-| 下载 | 仓库 Release 页面 → `v1.0.0` → Assets |
+| 版本 | [`v1.0.0`](https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/tag/v1.0.0) |
+| 产物 | `OpenList-Client-1.0.0-android-arm64.apk`（65,464,152 字节 / 62.4 MiB） |
+| SHA-256 | `8bbfbc3b2366f676404a06bfffa478b09e73e36f1e8c03a18fb9ed967914f50b` |
+| 下载 | <https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.0/OpenList-Client-1.0.0-android-arm64.apk> |
 | 说明 | Release APK 为 debug 签名，可直接安装验收；上架前请替换 keystore |
+
+下载后可校验一致性（与构建日志里的 `sha256sum` 输出比对）：
+
+```bash
+curl -L -o app.apk https://cnb.cool/haoxuanhaoxuan/OpenList-Client/-/releases/download/v1.0.0/OpenList-Client-1.0.0-android-arm64.apk
+sha256sum app.apk
+# 8bbfbc3b2366f676404a06bfffa478b09e73e36f1e8c03a18fb9ed967914f50b
+```
 
 发布流程（全自动）：
 
