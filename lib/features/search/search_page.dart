@@ -34,6 +34,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   String? _error;
   int _scope = 0;
   int _cursor = 0;
+  int _seq = 0;
 
   @override
   void initState() {
@@ -79,13 +80,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     // 否则「当前目录」会搜全盘、「全部挂载」只在根目录里找。
     final currentOnly = _scope == 0;
     final parent = currentOnly ? ref.read(filesProvider).path : '/';
+    final seq = ++_seq;
     try {
       final results = await api.search(
         parent: parent,
         keywords: keyword,
         scope: currentOnly ? 1 : 0,
       );
-      if (!mounted) return;
+      // 防抖期间可能有多个请求在飞，只接受最后一次的结果。
+      if (!mounted || seq != _seq) return;
       setState(() {
         _results = results;
         _loading = false;
@@ -93,7 +96,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         _cursor = 0;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _seq) return;
       setState(() {
         _loading = false;
         _searched = true;

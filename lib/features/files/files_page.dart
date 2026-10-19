@@ -190,9 +190,14 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final items = _filtered(state.items);
     return PopScope(
       // v2.2：Android 物理返回键在子目录里应回到上一级，而不是直接退出应用。
-      canPop: state.path == '/',
+      canPop: state.path == '/' && !_batch,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_batch) {
+          setState(() => _batch = false);
+          ref.read(filesProvider.notifier).clearSelection();
+          return;
+        }
         ref.read(filesProvider.notifier).goUp();
       },
       child: AppFrame(

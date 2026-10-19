@@ -40,6 +40,18 @@ class OpenListApi {
     );
   }
 
+  /// HTTP 层错误（401/403/404/429/5xx）必须显式转成 ApiException：
+  /// validateStatus 放行了 <500，代理直接返回 401 HTML 时否则会被当成成功。
+  dynamic _handle(Response<dynamic> res) {
+    final status = res.statusCode ?? 0;
+    if (status >= 400) {
+      final body = res.data;
+      final msg = body is Map ? (body['message'] ?? '').toString() : '';
+      throw ApiException(status, msg, httpStatus: status);
+    }
+    return _unwrap(res.data);
+  }
+
   dynamic _unwrap(dynamic data) {
     if (data is Map) {
       final code = data['code'];
@@ -51,21 +63,40 @@ class OpenListApi {
     return data;
   }
 
+  /// 429 只重试一次，退避 2s（服务端未给 Retry-After 时的兜底）。
+  static const _rateLimitBackoff = Duration(seconds: 2);
+
   Future<dynamic> _get(String path, {Map<String, dynamic>? query}) async {
-    try {
-      final res = await _dio.get(path, queryParameters: query, options: _opts());
-      return _unwrap(res.data);
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final res = await _dio.get(path, queryParameters: query, options: _opts());
+        return _handle(res);
+      } on DioException catch (e) {
+        throw ApiException.fromDio(e);
+      } on ApiException catch (e) {
+        if (e.code == 429 && attempt == 0) {
+          await Future<void>.delayed(_rateLimitBackoff);
+          continue;
+        }
+        rethrow;
+      }
     }
   }
 
   Future<dynamic> _post(String path, [Map<String, dynamic>? body]) async {
-    try {
-      final res = await _dio.post(path, data: body ?? const {}, options: _opts());
-      return _unwrap(res.data);
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final res = await _dio.post(path, data: body ?? const {}, options: _opts());
+        return _handle(res);
+      } on DioException catch (e) {
+        throw ApiException.fromDio(e);
+      } on ApiException catch (e) {
+        if (e.code == 429 && attempt == 0) {
+          await Future<void>.delayed(_rateLimitBackoff);
+          continue;
+        }
+        rethrow;
+      }
     }
   }
 

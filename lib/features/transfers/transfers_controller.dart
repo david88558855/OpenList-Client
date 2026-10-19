@@ -149,7 +149,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     if (item.isDir) return '暂不支持整目录下载';
     final dir = await _downloadDir(profile);
     final remotePath = item.parent ?? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}');
-    final localPath = '$dir${Platform.pathSeparator}${_safeName(item.name)}';
+    // 同名文件不能互相覆盖：已在队列里的同一远程文件复用原路径（续传），
+    // 否则在磁盘上顺延出「name (2).ext」。
+    final localPath = _resolveLocalPath(dir, item.name, remotePath);
     final task = TransferTask(
       id: 'dl-${DateTime.now().microsecondsSinceEpoch}-${item.name.hashCode}',
       serverId: profile.id,
@@ -231,7 +233,11 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     if (task != null && task.status != TransferStatus.done) {
       try {
         final file = File(task.localPath);
-        if (task.kind == TransferKind.download && file.existsSync()) file.deleteSync();
+        // 只清理未完成的半成品：完整文件（同名已下载完）不能因为移除任务被删掉。
+        final complete = task.total > 0 && file.existsSync() && file.lengthSync() >= task.total;
+        if (task.kind == TransferKind.download && file.existsSync() && !complete) {
+          file.deleteSync();
+        }
       } catch (_) {
         // ignore
       }
@@ -382,6 +388,27 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       _emit();
       await _pump();
     }
+  }
+
+  String _resolveLocalPath(String dir, String name, String remotePath) {
+    for (final task in state.tasks) {
+      if (task.kind == TransferKind.download &&
+          task.remotePath == remotePath &&
+          task.status != TransferStatus.done) {
+        return task.localPath;
+      }
+    }
+    final safe = _safeName(name);
+    final candidate = File('$dir${Platform.pathSeparator}$safe');
+    if (!candidate.existsSync()) return candidate.path;
+    final dot = safe.lastIndexOf('.');
+    final base = dot > 0 ? safe.substring(0, dot) : safe;
+    final ext = dot > 0 ? safe.substring(dot) : '';
+    for (var i = 2; i < 1000; i++) {
+      final next = File('$dir${Platform.pathSeparator}$base ($i)$ext');
+      if (!next.existsSync()) return next.path;
+    }
+    return candidate.path;
   }
 
   Future<String> _downloadDir(ServerProfile profile) async {

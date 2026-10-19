@@ -13,6 +13,7 @@ import '../../app/providers.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/storage/server_store.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
@@ -42,6 +43,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   final List<FileItem> _playlist = [];
   bool _subtitleAttached = false;
 
+  // dispose() 里不能再用 ref（Riverpod 会抛「used after dispose」），
+  // 所以把保存续播所需的对象提前缓存下来。
+  ServerStore? _store;
+  String? _serverId;
+  bool _resumeEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +56,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     _currentName = widget.name.isEmpty ? baseName(widget.path) : widget.name;
     _rate = ref.read(appSettingsProvider).playbackSpeed;
     _volume = 100;
+    _store = ref.read(serverStoreProvider);
+    _serverId = ref.read(sessionProvider).profile?.id;
+    _resumeEnabled = ref.read(appSettingsProvider).resumePlayback;
     _boot();
   }
 
@@ -149,11 +159,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   void _saveProgress() {
-    final profile = ref.read(sessionProvider).profile;
-    if (profile == null || !ref.read(appSettingsProvider).resumePlayback) return;
+    final store = _store;
+    final serverId = _serverId;
+    if (store == null || serverId == null || !_resumeEnabled) return;
     final position = _player.state.position;
     if (position.inSeconds > 5) {
-      ref.read(serverStoreProvider).saveResume(profile.id, _currentPath, position.inSeconds);
+      store.saveResume(serverId, _currentPath, position.inSeconds);
     }
   }
 

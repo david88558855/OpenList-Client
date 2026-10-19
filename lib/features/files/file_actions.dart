@@ -121,6 +121,15 @@ Future<void> moveOrCopyItems(BuildContext context, WidgetRef ref, List<FileItem>
     if (context.mounted) olToast(context, '目标目录与当前目录相同', error: true);
     return;
   }
+  // 目录不能移动到自身或自己的子目录（服务端会失败，或产生环）。
+  for (final item in items) {
+    if (!item.isDir) continue;
+    final itemPath = joinPath(dir, item.name);
+    if (target == itemPath || target.startsWith('$itemPath/')) {
+      if (context.mounted) olToast(context, '不能把「${item.name}」移动到它自己的子目录', error: true);
+      return;
+    }
+  }
   final names = items.map((e) => e.name).toList();
   final error = await ref.read(filesProvider.notifier).mutate(
         (api) => move ? api.move(dir, target, names) : api.copy(dir, target, names),
