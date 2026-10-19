@@ -85,6 +85,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     final state = ref.watch(transfersProvider);
     return AppFrame(
       navIndex: 1,
+      handleBack: true,
       child: Row(
         children: [
           _QueueSidebar(filter: _filter, onFilter: (f) => setState(() => _filter = f)),
@@ -130,6 +131,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     final visible = _visible(state);
     return AppFrame(
       navIndex: 1,
+      handleBack: true,
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(

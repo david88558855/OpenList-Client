@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../app/providers.dart';
 import '../../core/api/api_exception.dart';
@@ -11,6 +10,7 @@ import '../../core/api/openlist_api.dart';
 import '../../core/models/api_types.dart';
 import '../../core/models/server_profile.dart';
 import '../../core/models/transfer_task.dart';
+import '../../core/storage/download_paths.dart';
 
 class TransfersState {
   final List<TransferTask> tasks;
@@ -416,29 +416,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   }
 
   Future<String> _downloadDir(ServerProfile profile) async {
-    final store = ref.read(serverStoreProvider);
-    // 用户在设置里显式选择过的目录优先，其次再按实例隔离规则推导。
-    final saved = store.readDownloadDir(profile.id);
-    if (saved != null && saved.isNotEmpty) {
-      await Directory(saved).create(recursive: true);
-      return saved;
-    }
-    String base;
-    if (Platform.isAndroid) {
-      final external = await getExternalStorageDirectory();
-      final fallback = await getApplicationDocumentsDirectory();
-      base = (external ?? fallback).path;
-    } else {
-      final downloads = await getDownloadsDirectory();
-      final fallback = await getApplicationDocumentsDirectory();
-      base = (downloads ?? fallback).path;
-    }
-    final dir = profile.isolatedDownload
-        ? '$base${Platform.pathSeparator}OpenList${Platform.pathSeparator}${_safeName(profile.name)}'
-        : '$base${Platform.pathSeparator}OpenList';
-    await Directory(dir).create(recursive: true);
-    if (profile.isolatedDownload) await store.saveDownloadDir(profile.id, dir);
-    return dir;
+    // v2.5：与设置页共用同一套路径规则（Android 落在公共 Download/OpenList），
+    // 并处理目录创建失败（未授权公共目录时退回应用私有目录）。
+    return ensureDownloadDirFor(ref.read(serverStoreProvider), profile);
   }
 
   String _safeName(String value) {

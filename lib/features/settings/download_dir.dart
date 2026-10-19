@@ -4,10 +4,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../app/providers.dart';
 import '../../core/models/server_profile.dart';
+import '../../core/storage/download_paths.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
@@ -43,31 +43,13 @@ class StorageAccess {
   }
 }
 
-/// 系统默认下载根目录（不含 OpenList 子目录）。
-Future<String> defaultDownloadBase() async {
-  if (Platform.isAndroid) {
-    final external = await getExternalStorageDirectory();
-    final fallback = await getApplicationDocumentsDirectory();
-    return (external ?? fallback).path;
-  }
-  final downloads = await getDownloadsDirectory();
-  final fallback = await getApplicationDocumentsDirectory();
-  return (downloads ?? fallback).path;
-}
-
-String _safeName(String value) {
-  final sanitized = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
-  return sanitized.isEmpty ? 'item' : sanitized;
-}
-
 /// 当前生效的下载目录：用户显式选择的优先，否则按实例隔离规则推导。
-Future<String> resolveDownloadDir(WidgetRef ref, ServerProfile profile) async {
-  final saved = ref.read(serverStoreProvider).readDownloadDir(profile.id);
-  if (saved != null && saved.isNotEmpty) return saved;
-  final base = await defaultDownloadBase();
-  final sep = Platform.pathSeparator;
-  return profile.isolatedDownload ? '$base${sep}OpenList$sep${_safeName(profile.name)}' : '$base${sep}OpenList';
-}
+///
+/// v2.5：路径规则统一收敛到 `core/storage/download_paths.dart`——
+/// Android 默认落在公共目录 `/storage/emulated/0/Download/OpenList`，
+/// 开启隔离开时再拼服务器显示名。这里只保留 WidgetRef 版本方便 UI 调用。
+Future<String> resolveDownloadDir(WidgetRef ref, ServerProfile profile) =>
+    resolveDownloadDirFor(ref.read(serverStoreProvider), profile);
 
 /// 下载目录弹窗：显示当前目录 / 恢复默认 / 选择目录。
 ///

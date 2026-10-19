@@ -142,6 +142,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final narrow = MediaQuery.sizeOf(context).width < 900;
     return AppFrame(
       showNav: false,
+      // v2.5：系统返回先回文件页（搜索是从文件页 go 过来的），再按才退出应用。
+      handleBack: true,
+      onBack: () async {
+        context.go('/files');
+        return true;
+      },
       child: Focus(
         onKeyEvent: _onKey,
         child: narrow ? _buildMobile(context) : _buildDesktop(context),

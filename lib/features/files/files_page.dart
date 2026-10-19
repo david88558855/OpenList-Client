@@ -200,20 +200,22 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   Widget _buildMobile(BuildContext context) {
     final state = ref.watch(filesProvider);
     final items = _filtered(state.items);
-    return PopScope(
-      // v2.2：Android 物理返回键在子目录里应回到上一级，而不是直接退出应用。
-      canPop: state.path == '/' && !_batch,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
+    return AppFrame(
+      navIndex: 0,
+      // v2.2：返回键在子目录里先回上一级；v2.5：到根目录后交给框架做「双击退出」。
+      handleBack: true,
+      onBack: () async {
         if (_batch) {
           setState(() => _batch = false);
           ref.read(filesProvider.notifier).clearSelection();
-          return;
+          return true;
         }
-        ref.read(filesProvider.notifier).goUp();
+        if (state.path != '/') {
+          await ref.read(filesProvider.notifier).goUp();
+          return true;
+        }
+        return false;
       },
-      child: AppFrame(
-      navIndex: 0,
       child: Stack(
         children: [
           RefreshIndicator(
@@ -355,7 +357,6 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               ),
             ),
         ],
-      ),
       ),
     );
   }

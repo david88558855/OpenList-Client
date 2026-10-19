@@ -1,17 +1,24 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/theme/tokens.dart';
 import '../core/widgets/ol_controls.dart';
+import '../core/widgets/ol_dialogs.dart';
 import '../core/widgets/ol_icon.dart';
 import 'providers.dart';
 
 /// Desktop window chrome (W1/W2…) + Android bottom navigation (A2/A3/A6).
-class AppFrame extends ConsumerWidget {
+///
+/// v2.5：Android 系统返回键统一在这里接管——根 Tab 页（`handleBack: true`）
+/// 第一次按只提示「再按一次返回桌面」，2 秒内再按一次才真正退出应用；
+/// 页面可以用 [onBack] 抢先处理（例如文件页逐级回退、设置分区页回总览）。
+/// 被 push 出来的页面（服务器管理 / 播放器）不接管，保持正常的出栈返回。
+class AppFrame extends ConsumerStatefulWidget {
   final Widget child;
   final int navIndex;
   final bool showNav;
@@ -21,6 +28,12 @@ class AppFrame extends ConsumerWidget {
   /// 设置页的个人资料渐变）。此时框架不再叠加任何内边距，避免重复避让。
   final bool edgeToEdge;
 
+  /// 是否接管系统返回键。根 Tab 页与「go」出来的分区页传 true。
+  final bool handleBack;
+
+  /// 页面自定义返回：返回 true 表示本次返回已被页面消费，不再走「双击退出」。
+  final Future<bool> Function()? onBack;
+
   const AppFrame({
     super.key,
     required this.child,
@@ -28,22 +41,46 @@ class AppFrame extends ConsumerWidget {
     this.showNav = true,
     this.showTitleBar = true,
     this.edgeToEdge = false,
+    this.handleBack = false,
+    this.onBack,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppFrame> createState() => _AppFrameState();
+}
+
+class _AppFrameState extends ConsumerState<AppFrame> {
+  /// 连续两次返回的判定窗口。
+  static const _exitWindow = Duration(seconds: 2);
+  DateTime? _lastBackAt;
+
+  Future<void> _handleSystemBack() async {
+    if (widget.onBack != null && await widget.onBack!.call()) return;
+    final now = DateTime.now();
+    final last = _lastBackAt;
+    if (last != null && now.difference(last) <= _exitWindow) {
+      _lastBackAt = null;
+      await SystemNavigator.pop();
+      return;
+    }
+    _lastBackAt = now;
+    if (mounted) olToast(context, '再按一次返回桌面');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final narrow = mq.size.width < 900;
     final p = context.ol;
-    final navShown = narrow && showNav;
+    final navShown = narrow && widget.showNav;
 
     // 顶部：始终避开状态栏/刘海，否则内容会压到状态栏上。
     // 底部：有底部导航时由导航条自己撑满系统导航栏区域；没有导航时由框架补足，
     // 避免内容被系统手势条盖住。软键盘弹出时 viewInsets 已经压缩了可用高度，
     // 此时不再追加底部内边距，否则会多出一段空白。
-    final insets = _frameInsets(mq, bleed: edgeToEdge, navShown: navShown);
+    final insets = _frameInsets(mq, bleed: widget.edgeToEdge, navShown: navShown);
 
-    Widget content = child;
+    Widget content = widget.child;
     if (insets != EdgeInsets.zero) {
       // 消费掉已经补过的内边距：子页面再次读取 MediaQuery.padding 时不会重复避让。
       content = MediaQuery.removePadding(
@@ -57,7 +94,7 @@ class AppFrame extends ConsumerWidget {
     }
 
     Widget body = content;
-    if (!narrow && showTitleBar) {
+    if (!narrow && widget.showTitleBar) {
       body = Column(
         children: [
           const OlTitleBar(),
@@ -69,8 +106,18 @@ class AppFrame extends ConsumerWidget {
       body = Column(
         children: [
           Expanded(child: body),
-          _BottomNav(index: navIndex, bottomInset: _systemBottomInset(mq)),
+          _BottomNav(index: widget.navIndex, bottomInset: _systemBottomInset(mq)),
         ],
+      );
+    }
+    if (widget.handleBack && Platform.isAndroid) {
+      body = PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleSystemBack();
+        },
+        child: body,
       );
     }
     return Scaffold(

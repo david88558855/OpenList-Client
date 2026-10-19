@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.0.12 · 2026-10-19
+
+### Android 下载目录（设计稿 v2.5 · R-38）
+- 默认目录从应用私有路径
+  `/storage/emulated/0/Android/data/<pkg>/files/OpenList`
+  改到**公共下载目录** `/storage/emulated/0/Download/OpenList`。
+- 开启「按实例隔离」时在默认目录下按服务器显示名建子目录：
+  `/storage/emulated/0/Download/OpenList/<服务器名>`。
+- 路径规则收敛到 `core/storage/download_paths.dart`（设置页 / 传输控制器共用，不再两份实现）；
+  从 `getExternalStorageDirectory()` 截出存储根，兼容多用户与可移动存储。
+- 未授予「所有文件访问权限」时 `mkdir` 失败：退回应用私有目录，并在首次下载时提示一次。
+  Manifest 增加 `requestLegacyExternalStorage` 兼容 Android 10。
+
+### Android 返回键（R-39）
+- 根页面（文件 / 传输 / 收藏 / 我的）第一次返回只提示「再按一次返回桌面」，
+  2 秒内再按一次才退出应用；统一由 `AppFrame` 接管（`handleBack` / `onBack`）。
+- 文件页：子目录先逐级回退、批量模式先退出批量；搜索页先回文件页；
+  设置分区页先回「我的」；push 出来的页面（服务器管理 / 播放器）保持正常出栈。
+
 ## v1.0.11 · 2026-10-19
 
 ### 文件页（设计稿 v2.4 · R-31 ~ R-35 / R-37）

@@ -1,12 +1,12 @@
 <!--
-  OpenList Client · Design + Handoff · v2.4（交付版）
+  OpenList Client · Design + Handoff · v2.5（交付版）
   唯一权威依据：本文件。所有界面、间距、字号、颜色均可在此直接读取。
   实现方请先读 08 — 开工交接：工程结构、design/ 目录约定、路由、API、验收标准。
   已知问题见 09 — Known Issues（K-01 / K-02 已修复，保留追溯）。
   交互修订见 10 — Revisions v2.1（R-01~R-12）、11 — Revisions v2.2（R-13~R-18）
-  12 — Revisions v2.3（R-19~R-30）与 13 — Revisions v2.4（R-31~R-37）：Android 字号/按钮
-  可读性、关于页与设置卡片的文本截断、下载目录入口顺序与弹窗形态、文件页点击语义与
-  挂载卡内边距、传输页重复开关等。
+  12 — Revisions v2.3（R-19~R-30）、13 — Revisions v2.4（R-31~R-37）与
+  14 — Revisions v2.5（R-38~R-39）：Android 默认下载目录改到公共 Download/OpenList、
+  系统返回键改为连按两次才退出应用。
   本文件自包含，无外部图片/字体/JS 依赖。画板：W1–W9（Windows）、A1–A8（Android）。
 -->
 <!DOCTYPE html>
@@ -14,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenList Client · 设计稿 + 开工交接 v2.4</title>
+<title>OpenList Client · 设计稿 + 开工交接 v2.5</title>
 <style>
 :root{
   --sky:#38BDF8; --sky-600:#0EA5E9; --sky-700:#0284C7;
@@ -868,6 +868,7 @@ h3{letter-spacing:-.015em}
     <a href="#revisions2"><svg class="ic"><use href="#i-check"/></svg>修订 v2.2 · 6</a>
     <a href="#revisions3"><svg class="ic"><use href="#i-check"/></svg>修订 v2.3 · 12</a>
     <a href="#revisions4"><svg class="ic"><use href="#i-check"/></svg>修订 v2.4 · 7</a>
+    <a href="#revisions5"><svg class="ic"><use href="#i-check"/></svg>修订 v2.5 · 2</a>
   </nav>
   <div class="rail-foot">
     <b>v2.0 · 交付版 · 2026.10.19</b>
@@ -2748,7 +2749,8 @@ h3{letter-spacing:-.015em}
     <div class="screen" style="margin-top:20px">
       <div class="screen-head" style="margin-bottom:10px"><span class="num">A6</span><div><h3>设置</h3><p>服务器管理、下载目录与偏好集中在此；下载目录在 Android 需授权。</p>
       <p style="margin-top:4px;color:#8A5B05"><b>v2.2：</b>顶部「已连接服务器」改 18px 圆角卡片（左右各 14px 外边距）；整页字号在 9–12px 基础上放大 12%；分区详情为独立页，带返回。</p>
-      <p style="margin-top:2px;color:#8A5B05"><b>v2.3：</b>字号放大比例提到 1.30×；设置项行高 58；按钮 42 / chip 34 / 图标按钮 40；顶部卡片副标题单行省略（版本只显示第一段）；下载目录排在传输设置之上。</p></div></div>
+      <p style="margin-top:2px;color:#8A5B05"><b>v2.3：</b>字号放大比例提到 1.30×；设置项行高 58；按钮 42 / chip 34 / 图标按钮 40；顶部卡片副标题单行省略（版本只显示第一段）；下载目录排在传输设置之上。</p>
+      <p style="margin-top:2px;color:#8A5B05"><b>v2.5：</b>默认下载目录改为公共 <code>/storage/emulated/0/Download/OpenList</code>（隔离开启时再拼服务器名），本页只展示当前路径，不再重复「授权说明」。</p></div></div>
       <div class="pfit">
         <div class="phone">
           <div class="pstatus light" style="position:absolute;left:0;right:0;top:0;z-index:20"><span>22:19</span><div class="pr"><span class="sig"><i></i><i></i><i></i><i></i></span><svg class="ic"><use href="#i-wifi"/></svg><span class="batt"><i></i></span></div></div>
@@ -3494,7 +3496,7 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <script type="application/json" id="handoff-spec">
   {
     "product": "OpenList Client",
-    "designVersion": "2.4",
+    "designVersion": "2.5",
     "platforms": ["windows", "android"],
     "stack": {
       "framework": "Flutter 3.x",
@@ -4060,6 +4062,58 @@ Get-ChildItem "$ReleaseDir" -Recurse -File <span class="k">|</span>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
     <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.11</code>（设计稿 v2.4）。
     与 10–12 章冲突时以编号更大者为准；后续交互调整从 R-38 继续编号。
+  </div>
+</section>
+<!-- REVISIONS v2.5 -->
+<section class="sec" id="revisions5">
+  <div class="sec-head">
+    <div class="eyebrow">14 — Revisions</div>
+    <h2>v2.5 · Android 下载路径与返回键</h2>
+    <p>两条平台约定：下载默认落在系统「下载」目录（文件管理器可见），返回键需要连按两次才退出，
+    避免误触直接回桌面。</p>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <table class="rev-tbl">
+      <thead><tr><th style="width:52px">ID</th><th style="width:64px">端</th><th style="width:150px">位置</th><th style="width:250px">问题 / 动机</th><th>期望行为（验收口径）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>R-38</b></td><td><span class="rev-tag mob">A6 / A3</span></td>
+          <td>下载目录</td>
+          <td>默认目录落在应用私有路径
+          <code>/storage/emulated/0/Android/data/&lt;pkg&gt;/files/OpenList</code>，
+          文件管理器看不到，也接不上系统「下载」</td>
+          <td>Android 默认 <b><code>/storage/emulated/0/Download/OpenList</code></b>；
+          开启「按实例隔离」时再拼服务器显示名：
+          <code>/storage/emulated/0/Download/OpenList/&lt;服务器名&gt;</code>；
+          用户在设置里选过目录则显式目录优先；未授予「所有文件访问权限」时退回应用私有目录
+          并在首次下载时提示一次</td>
+        </tr>
+        <tr>
+          <td><b>R-39</b></td><td><span class="rev-tag mob">A1–A8</span></td>
+          <td>系统返回键</td>
+          <td>根页面按一次返回就直接退到桌面，误触成本高</td>
+          <td>根页面（文件 / 传输 / 收藏 / 我的）第一次返回只提示
+          <b>「再按一次返回桌面」</b>，2 秒内再按一次才退出；
+          文件页在子目录先逐级回退、批量模式先退出批量；
+          搜索页先回文件页、设置分区页先回「我的」；push 出来的页面保持正常出栈</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pi" style="background:#E9FBF5;color:#0B7A63"><svg class="ic"><use href="#i-check"/></svg></span><h4>回归清单（v2.5 验收）</h4></div>
+    <div class="h-list">
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>下载路径</b>：授权后下载的文件出现在「内部存储 / Download / OpenList」下</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>隔离目录</b>：开启后路径变成 <code>Download/OpenList/&lt;服务器名&gt;</code></div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>返回键</b>：根页面按一次出提示，2 秒内再按一次才回桌面</div></div>
+      <div class="h-li"><svg class="ic"><use href="#i-check"/></svg><div><b>子目录</b>：按返回逐级回退，不退出应用</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #DCEFF7;border-radius:11px;background:#F7FCFE;font-size:9.5px;line-height:1.7;color:#5E7288">
+    <b style="color:#22364B">版本口径：</b>本节对应客户端 <code>1.0.12</code>（设计稿 v2.5）。
   </div>
 </section>
 </div>

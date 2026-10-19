@@ -49,6 +49,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Widget build(BuildContext context) {
     return AppFrame(
       navIndex: 2,
+      handleBack: true,
       child: context.isNarrow
           ? _MobileBody(tab: _tab, onTab: _select)
           : Row(

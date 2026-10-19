@@ -53,11 +53,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (context.isNarrow) {
       // A6：/settings 是「我的」列表；/settings/<tab> 是分区页（带返回）。
       final showList = _tab == 'servers' || _tab == 'profile' || !_known.contains(_tab);
-      if (showList) return const AppFrame(navIndex: 3, child: _MobileSettings());
+      if (showList) return const AppFrame(navIndex: 3, handleBack: true, child: _MobileSettings());
       return _MobileSectionPage(tab: _tab);
     }
     return AppFrame(
       showNav: false,
+      handleBack: true,
       child: Row(
         children: [
           SettingsSidebar(active: _tab, onSelect: _select),
@@ -937,39 +938,39 @@ class _MobileSectionPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) context.go('/settings');
+    return AppFrame(
+      navIndex: 3,
+      showNav: false,
+      // v2.5：系统返回先回「我的」，再按才退出应用。
+      handleBack: true,
+      onBack: () async {
+        context.go('/settings');
+        return true;
       },
-      child: AppFrame(
-        navIndex: 3,
-        showNav: false,
-        child: ColoredBox(
-          color: p.card,
-          child: Column(
-            children: [
-              SizedBox(
-                height: 54,
-                child: Row(
-                  children: [
-                    OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => context.go('/settings')),
-                    const SizedBox(width: 2),
-                    Text(
-                      _titles[tab] ?? '设置',
-                      style: TextStyle(fontSize: 17, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink),
-                    ),
-                  ],
-                ),
+      child: ColoredBox(
+        color: p.card,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 54,
+              child: Row(
+                children: [
+                  OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => context.go('/settings')),
+                  const SizedBox(width: 2),
+                  Text(
+                    _titles[tab] ?? '设置',
+                    style: TextStyle(fontSize: 17, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink),
+                  ),
+                ],
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                  child: _SectionBody(section: tab),
-                ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                child: _SectionBody(section: tab),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

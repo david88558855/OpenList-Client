@@ -16,6 +16,7 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../settings/download_dir.dart';
 
 String _basename(String path) {
   final parts = path.split(RegExp(r'[\\/]'));
@@ -143,7 +144,21 @@ Future<void> moveOrCopyItems(BuildContext context, WidgetRef ref, List<FileItem>
   }
 }
 
+/// 本次进程内只提示一次「公共目录未授权」，避免每次下载都弹。
+bool _storageHintShown = false;
+
 Future<void> downloadItem(BuildContext context, WidgetRef ref, FileItem item) async {
+  // v2.5：默认下载目录改到公共 Download 目录，未授权时会在 ensureDownloadDirFor
+  // 里退回应用私有目录——这里显式说明一次，避免用户找不到文件。
+  if (Platform.isAndroid && !_storageHintShown) {
+    final granted = await StorageAccess.hasAllFiles();
+    if (!granted) {
+      _storageHintShown = true;
+      if (context.mounted) {
+        olToast(context, '未授予「所有文件访问权限」，本次保存到应用私有目录；可在 设置 → 下载目录 授权后改用公共 Download 目录');
+      }
+    }
+  }
   final error = await ref.read(transfersProvider.notifier).enqueueDownload(item, ref.read(filesProvider).path);
   if (!context.mounted) return;
   if (error != null) {
