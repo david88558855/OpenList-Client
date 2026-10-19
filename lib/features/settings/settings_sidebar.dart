@@ -89,7 +89,7 @@ class SettingsSidebar extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
             child: Text(
-              '${AppInfo.shortLabel}\n${session.profile?.version ?? session.site?.version ?? 'API v4'} · ${_platformLabel()}\n便携数据 · userdata/',
+              '${AppInfo.shortLabel}\n${AppInfo.shortVersion(session.profile?.version ?? session.site?.version)} · ${_platformLabel()}\n便携数据 · userdata/',
               style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
             ),
           ),

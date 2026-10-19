@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
+import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
@@ -920,8 +921,11 @@ class _StatusBar extends ConsumerWidget {
           if (files.offline)
             Text('离线 · 缓存目录', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: OlTokens.warn)),
           const SizedBox(width: 12),
+          // v2.3：状态栏同样只显示短版本，长串会把整行挤出屏幕。
           Text(
-            session.profile?.version ?? session.site?.version ?? '',
+            AppInfo.shortVersion(session.profile?.version ?? session.site?.version),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink3),
           ),
         ],

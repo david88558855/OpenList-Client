@@ -312,7 +312,7 @@ class _ServersSection extends ConsumerWidget {
                       [
                         profile?.username ?? '—',
                         session.user?.role == 3 ? '管理员' : '普通用户',
-                        profile?.version ?? session.site?.version ?? 'API v4',
+                        AppInfo.shortVersion(profile?.version ?? session.site?.version),
                         if (session.latencyMs != null) '${session.latencyMs} ms',
                         '${servers.length} 个服务器',
                       ].join(' · '),

@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.10 · 2026-10-19
+
+### 版本串收口（v2.3 补漏）
+- 状态栏、设置「服务器」区头部、桌面侧栏页脚过去直接显示服务端完整版本串
+  （`dev (Commit: unknown) - Frontend: rolling - Build at: unknown`），在窄窗与
+  Android 上会把整行挤出去。三处统一改用 `AppInfo.shortVersion()`，并加单行省略。
+
 ## v1.0.9 · 2026-10-19
 
 ### 安卓可用性（设计稿 v2.3 · R-19 / R-20 / R-21）
