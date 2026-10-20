@@ -7,19 +7,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Key/value store.
 ///
-/// v1.0.20 起 Windows 走**真正的便携存储**：
+/// v1.0.20 起 Windows 走**真正的便携存储**，v1.0.29 起配置来源唯一化：
 ///   - 权威文件：`<主程序目录>/userdata/prefs.json`（相对 exe 解析，
 ///     整个目录拷走/搬走，配置跟着走）；
+///   - **唯一判定依据**：仅当主程序目录下存在 prefs.json 才加载使用；
+///     目录下没有该文件即视为无配置（**不从旧版 / 系统用户目录移植任何数据**）；
 ///   - 所有读写都在内存 Map 上完成，写操作合并后 250ms 落盘（tmp → rename 原子写），
 ///     进程退出前 `flush()` 保证最后一次写入不丢；
 ///   - 主程序目录不可写（例如装在 Program Files）时退到
 ///     `%LOCALAPPDATA%/OpenListClient/userdata/prefs.json`。
 ///
 /// 其它平台（Android）仍然用 SharedPreferences，行为不变。
-///
-/// 兼容：老版本把数据放在系统用户目录（SharedPreferences）。首次以新版本启动时，
-/// 会把旧存储里 prefs.json 尚未覆盖的键**合并**进来，再写回便携文件——
-/// 用户升级后不会丢服务器列表、收藏、浏览位置等。
 ///
 /// 键名沿用固定约定：ol_servers_index / ol_active_server_id / ol_srv_<id>_* /
 /// ol_prefs / ol_transfers。密钥（密码 / Token）永远不进这个文件，只在系统安全存储。
@@ -33,9 +31,6 @@ class Prefs {
   /// 落盘互斥：同一时刻只允许一路写 `.tmp`（见 `_flushNow`）。
   bool _flushing = false;
   bool _pending = false;
-
-  /// 迁移完成标记：写在便携文件里，避免每次启动都被旧 SharedPreferences 覆盖。
-  static const _migratedKey = 'ol_portable_migrated';
 
   Prefs._file(this._data, this._file) : _sp = null;
   Prefs._sp(this._sp)
@@ -55,23 +50,24 @@ class Prefs {
     }
     final file = _portablePath();
     if (file == null) {
-      // 程序目录与 LOCALAPPDATA 都不可写（极端情况）：退回系统存储，
-      // 至少不让数据只停留在内存里。
+      // 程序目录不可写（极端情况）：退回系统存储，至少不让数据只停留在内存里。
       debugPrint('prefs: no writable portable dir, falling back to shared_preferences');
       final sp = await SharedPreferences.getInstance();
       return Prefs._sp(sp);
     }
     final data = <String, Object?>{};
-    var dirty = false;
 
-    if (file != null && file.existsSync()) {
+    // v1.0.29：配置的唯一判定依据是「主程序目录下是否存在 prefs.json」。
+    // 只读这个文件；不再从旧版 / 系统用户目录（SharedPreferences）移植任何数据。
+    // 目录下没有该文件就当作无配置，运行时把首次改动写回该文件。
+    if (file.existsSync()) {
       try {
         final decoded = jsonDecode(await file.readAsString());
         if (decoded is Map) {
           decoded.forEach((k, v) => data[k.toString()] = v);
         }
       } catch (error) {
-        // 文件损坏：备份现场，随后由迁移补回
+        // 文件损坏：备份现场并视为无配置（不静默清空，也绝不从别处移植）
         try {
           await file.rename('${file.path}.bak');
         } catch (_) {}
@@ -79,27 +75,7 @@ class Prefs {
       }
     }
 
-    // 一次性迁移：老版本把数据放在系统用户目录（SharedPreferences）。
-    // SharedPreferences 是旧版的权威存储，每次写入都 await 过，所以它不会比
-    // prefs.json 镜像旧 —— 首次迁移以它为准覆盖文件。
-    // 迁移完成写入标记，之后永远只认便携文件（否则每次启动都会被旧数据覆盖）。
-    if (data[_migratedKey] != true) {
-      try {
-        final sp = await SharedPreferences.getInstance();
-        for (final key in sp.getKeys()) {
-          final value = sp.get(key);
-          if (value != null) data[key] = value;
-        }
-        data[_migratedKey] = true;
-        dirty = true;
-      } catch (error) {
-        debugPrint('prefs: migrate from shared_preferences failed ($error)');
-      }
-    }
-
-    final prefs = Prefs._file(data, file);
-    if (dirty) await prefs._flushNow(force: true);
-    return prefs;
+    return Prefs._file(data, file);
   }
 
   /// `<主程序目录>/userdata/prefs.json`，不可写时退到 LOCALAPPDATA。
