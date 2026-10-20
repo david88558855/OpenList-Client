@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.0.21 · 2026-10-20
+
+全量代码审查（三轮）后的修复与清理，详细报告见 `docs/CODE-REVIEW.md`。
+
+### 修复（数据 / 功能必现问题）
+- **配置文件原子替换**：`prefs.json` 由「先删后改名」改为「旧文件转 `.bak` → 新文件就位 → 失败回滚 `.bak`」，
+  避免断电或 rename 失败导致配置全丢。
+- **落盘互斥**：定时器回调与 `flush()` 不再并发写同一个 `.tmp`（之前可能产出半截 JSON），
+  用 `_flushing/_pending` 串行化，末尾补跑一次。
+- **下载取消不再算完成**：`downloadToFile` 取消时抛 `ApiException`，不再把半截文件标记为「已完成」。
+- **搜索清空无效化在途请求**：清空关键词时 `++seq` 并复位 loading，旧结果不再回填。
+- **搜索异常兜底**：非 `ApiException`（Socket/Timeout/解析）也会结束 loading 并给出提示；
+  未连接服务器时提示「尚未连接服务器，无法搜索」。
+
+### 清理
+- 删除死代码约 220 行：`OlMediaThumb`、`OlUsageBar`、`OlPageScaffold`、`OlHairline`、
+  `OlThemeContext`、`formatDateTime`、`segmentsOf`。
+
+### 文档
+- 新增 `docs/CODE-REVIEW.md`：三轮审查结果，按 P0/P1/P2 分级，含位置、原因、影响与处理状态。
+- 新增 `docs/PROJECT.md`：项目用途、架构、模块、依赖、运行方式与关键约定。
+
 ## v1.0.20 · 2026-10-20
 
 ### 服务器配置改为便携存储（真正随程序目录迁移）

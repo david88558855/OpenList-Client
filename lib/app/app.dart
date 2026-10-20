@@ -68,22 +68,6 @@ class _OlScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-/// Shared page scaffold: card background, no app bar, safe areas handled.
-class OlPageScaffold extends StatelessWidget {
-  final Widget child;
-  final Color? background;
-
-  const OlPageScaffold({super.key, required this.child, this.background});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: background ?? context.ol.card,
-      body: child,
-    );
-  }
-}
-
 /// Full-bleed dark surface used by the player and mobile login.
 class OlDarkScaffold extends StatelessWidget {
   final Widget child;
@@ -94,21 +78,6 @@ class OlDarkScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF07101B),
       body: child,
-    );
-  }
-}
-
-/// 1px hairline; follows the palette so it fades out in dark mode.
-class OlHairline extends StatelessWidget {
-  final bool horizontal;
-  const OlHairline({super.key, this.horizontal = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: horizontal ? double.infinity : 1,
-      height: horizontal ? 1 : double.infinity,
-      color: context.ol.line2,
     );
   }
 }

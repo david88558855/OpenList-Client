@@ -388,7 +388,11 @@ class OpenListApi {
           }
         }
         onProgress(received, total);
-        if (cancelToken.isCancelled) break;
+        if (cancelToken.isCancelled) {
+          // v1.0.21：取消必须抛出去。之前是 break 后照常返回 received 长度，
+          // 上层会把半截文件当成「已完成」（文件被静默截断且标记成功）。
+          throw const ApiException(-1, '传输已取消');
+        }
       }
     } finally {
       await sink.flush();

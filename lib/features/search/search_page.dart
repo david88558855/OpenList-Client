@@ -56,10 +56,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _onChanged(String value) {
     _debounce?.cancel();
     if (value.trim().isEmpty) {
+      // v1.0.21：清空必须让在途请求作废（++_seq）并结束 loading，
+      // 否则上一个关键字的结果会在清空后回填，搜索框空着却列出一堆结果。
+      _seq++;
       setState(() {
         _results = const [];
         _searched = false;
         _error = null;
+        _loading = false;
+        _cursor = 0;
       });
       return;
     }
@@ -69,7 +74,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Future<void> _run() async {
     final keyword = _controller.text.trim();
     final api = ref.read(sessionProvider).api;
-    if (api == null) return;
+    if (api == null) {
+      // 未连接时给明确反馈，而不是静默什么都不发生
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _searched = true;
+        _error = '尚未连接服务器，无法搜索';
+      });
+      return;
+    }
     if (keyword.isEmpty) return;
     setState(() {
       _loading = true;
@@ -101,6 +115,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         _loading = false;
         _searched = true;
         _error = e.friendly;
+      });
+    } catch (e) {
+      // v1.0.21：非 ApiException（Socket / Timeout / 解析异常）之前没有任何兜底，
+      // loading 会永久卡住，页面再也搜不动。
+      if (!mounted || seq != _seq) return;
+      setState(() {
+        _loading = false;
+        _searched = true;
+        _error = '搜索失败：$e';
       });
     }
   }

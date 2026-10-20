@@ -30,6 +30,10 @@ class Prefs {
   Timer? _flushTimer;
   bool _dirty = false;
 
+  /// 落盘互斥：同一时刻只允许一路写 `.tmp`（见 `_flushNow`）。
+  bool _flushing = false;
+  bool _pending = false;
+
   /// 迁移完成标记：写在便携文件里，避免每次启动都被旧 SharedPreferences 覆盖。
   static const _migratedKey = 'ol_portable_migrated';
 
@@ -238,11 +242,24 @@ class Prefs {
     await _flushNow(force: true);
   }
 
+  /// 落盘。
+  ///
+  /// 两条硬约束（审查发现的问题，v1.0.21）：
+  ///   1. **互斥**：定时器回调与 `flush()` 可能同时进来，两路写同一个 `.tmp`
+  ///      会产出半截 JSON。这里用 `_flushing` + `_pending` 串行化，同一时刻只有一路在写。
+  ///   2. **可回滚的原子替换**：旧文件先改名成 `.bak` 再让 `.tmp` 就位（不是先删后改名），
+  ///      替换失败还能把 `.bak` 还原回去，避免"目标已删、新文件没就位"导致的配置全丢。
   Future<void> _flushNow({bool force = false}) async {
     final file = _file;
     if (file == null) return;
     if (!_dirty && !force) return;
+    if (_flushing) {
+      _pending = true;
+      return;
+    }
+    _flushing = true;
     _dirty = false;
+    final bak = File('${file.path}.bak');
     try {
       final map = <String, dynamic>{};
       _data.forEach((key, value) {
@@ -253,12 +270,34 @@ class Prefs {
       await file.parent.create(recursive: true);
       final tmp = File('${file.path}.tmp');
       await tmp.writeAsString(jsonEncode(map), flush: true);
-      if (file.existsSync()) file.deleteSync();
-      await tmp.rename(file.path);
+
+      if (file.existsSync()) {
+        try {
+          if (bak.existsSync()) bak.deleteSync();
+          file.renameSync(bak.path);
+        } catch (error) {
+          debugPrint('prefs: rotate to .bak failed ($error)');
+        }
+      }
+      try {
+        await tmp.rename(file.path);
+      } catch (error) {
+        // 替换失败：把备份还原，宁可留着旧数据也不要丢
+        try {
+          if (!file.existsSync() && bak.existsSync()) bak.renameSync(file.path);
+        } catch (_) {}
+        rethrow;
+      }
     } catch (error) {
       // 落盘失败保留脏标记，下次写入或退出时再试
       _dirty = true;
       debugPrint('prefs: flush failed ($error)');
+    } finally {
+      _flushing = false;
+      if (_pending) {
+        _pending = false;
+        unawaited(_flushNow());
+      }
     }
   }
 }

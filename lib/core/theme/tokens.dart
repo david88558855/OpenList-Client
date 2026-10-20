@@ -252,13 +252,6 @@ class OlPalette {
   );
 }
 
-extension OlThemeContext on BuildContext {
-  OlPalette get ol => Theme.of(this).brightness == Brightness.dark
-      ? OlPalette.dark
-      : OlPalette.light;
-  bool get isNarrow => MediaQuery.sizeOf(this).width < 900;
-}
-
 /// Text styles — 02 · Type scale：DISPLAY 32 / TITLE 20 / BODY 13 / CAPTION 10 / MICRO 9。
 class OlText {
   const OlText._();

@@ -38,11 +38,6 @@ String formatDate(DateTime? d) {
   return '${d.year}-${two(d.month)}-${two(d.day)}';
 }
 
-String formatDateTime(DateTime? d) {
-  if (d == null) return '—';
-  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-}
-
 String relativeTime(DateTime? d) {
   if (d == null) return '从未';
   final diff = DateTime.now().difference(d);
@@ -177,8 +172,4 @@ String baseName(String path) {
   final normalized = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
   final i = normalized.lastIndexOf('/');
   return i < 0 ? normalized : normalized.substring(i + 1);
-}
-
-List<String> segmentsOf(String path) {
-  return path.split('/').where((s) => s.isNotEmpty).toList();
 }
