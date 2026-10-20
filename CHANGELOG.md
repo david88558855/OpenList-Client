@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.25 · 2026-10-20
+
+### 结构整理：设置页拆分（审查报告 #31 的第二块）
+- `settings_page.dart` 从 **1208 行拆到 90 行**：
+
+  | 文件 | 行数 | 内容 |
+  |---|---|---|
+  | `settings_page.dart` | 90 | 页面壳与分区切换状态 |
+  | `parts/settings_common.dart` | 167 | 分区路由、卡片 / 行 / 分组标签 |
+  | `parts/settings_sections.dart` | 691 | 服务器（只读）、下载目录、传输、播放与预览、外观、关于 |
+  | `parts/settings_mobile.dart` | 273 | Android「我的」列表与分区页 |
+
+- 同样是 `part` 方案：类名与逻辑零改动，`flutter analyze` 与两端构建通过。
+
 ## v1.0.24 · 2026-10-20
 
 ### 结构整理：文件页拆分（审查报告 #31 的第一块）

@@ -52,7 +52,8 @@ lib/
 │   ├── widgets/             # 设计系统：ol_controls / ol_dialogs / ol_icon / file_widgets / workspace_nav
 │   └── format.dart          # 字节、时间、路径
 ├── features/                # 按业务切分：auth / files / transfers / search / media / servers / settings
-│   └── files/parts/         # 文件页按职责拆出的部分（part of files_page.dart）
+│   ├── files/parts/         # 文件页按职责拆出的部分（part of files_page.dart）
+│   └── settings/parts/      # 设置页按分区/移动端拆出的部分（part of settings_page.dart）
 └── platform/windows/        # tray.dart（托盘）、single_instance.dart（文件锁单实例）
 ```
 
