@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.15 · 2026-10-20
+
+### 转场动画全部关闭
+- 切换版块 / 导航栏时不再有任何过渡动作。之前桌面是 `FadeUpwards`（淡入 + 上滑 1/12 屏高），
+  Android 是 Material 3 的 `Zoom`（整页放大再缩小），在文件 / 传输 / 收藏 / 分享 / 设置之间
+  来回点会被感知成"页面在跳"。
+- 做法：`PageTransitionsTheme` 对全部平台映射到自定义的 `_NoTransitionBuilder`，
+  `buildTransitions` 直接返回 `child`，新页面立即出现；组件级动画（开关滑块、FAB 旋转、
+  底部操作面板滑入）不受影响。
+
 ## v1.0.14 · 2026-10-20
 
 ### 导航结构（两端）

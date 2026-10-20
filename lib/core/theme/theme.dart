@@ -20,14 +20,17 @@ ThemeData olTheme(Brightness brightness) {
     canvasColor: p.card,
     splashFactory: InkRipple.splashFactory,
     dividerColor: p.line2,
-    // v2.6：桌面端不用 Material 3 默认的 Zoom 转场——切页面时整页「放大又缩小」
-    // 在 1440×900 的窗口里非常刺眼。桌面统一改成淡入，Android 保留系统手感。
+    // v1.0.15：切换版块 / 导航栏一律硬切换，不要任何转场动作。
+    // 之前桌面是 FadeUpwards（淡入 + 上滑 1/12 屏高），Android 是 Material 3 的 Zoom
+    //（整页放大再缩小），在页面之间来回点时观感很差。这里全平台映射到「直接换页」。
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
-        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-        TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
-        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        TargetPlatform.windows: _NoTransitionBuilder(),
+        TargetPlatform.linux: _NoTransitionBuilder(),
+        TargetPlatform.macOS: _NoTransitionBuilder(),
+        TargetPlatform.android: _NoTransitionBuilder(),
+        TargetPlatform.iOS: _NoTransitionBuilder(),
+        TargetPlatform.fuchsia: _NoTransitionBuilder(),
       },
     ),
     textTheme: base.textTheme.apply(
@@ -45,6 +48,24 @@ ThemeData olTheme(Brightness brightness) {
       hintStyle: TextStyle(fontSize: 11.5, color: p.ink4, fontWeight: FontWeight.w500),
     ),
   );
+}
+
+/// 无转场：直接返回子组件，不淡入、不上滑、不缩放。
+///
+/// 应用的主导航（文件 / 传输 / 收藏 / 分享 / 设置 / 服务器管理）都是平级页面，
+/// 任何"过渡动作"都会被感知成页面在跳。这里统一关掉，交给系统让新页面立即出现。
+class _NoTransitionBuilder extends PageTransitionsBuilder {
+  const _NoTransitionBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }
 
 /// 系统栏样式：状态栏与导航栏都透明，让页面/导航条自身的底色一直铺到屏幕边缘。
