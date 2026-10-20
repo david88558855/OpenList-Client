@@ -137,6 +137,12 @@ class Prefs {
     return _data[key];
   }
 
+  /// 写入标量。
+  ///
+  /// v1.0.23：只有 `setString/setBool/setInt/setDouble` 会走到这里（JSON 结构
+  /// 由 `setJsonList/setJsonMap` 先编码成 String）。之前保留了一个 List 分支，
+  /// 在 SharedPreferences 侧会把元素强制字符串化，两端行为不一致——已删除，
+  /// 遇到非标量直接忽略并留日志，不再静默写出"看起来成功"的脏数据。
   Future<void> _write(String key, Object? value) async {
     final sp = _sp;
     if (sp != null) {
@@ -148,8 +154,8 @@ class Prefs {
         await sp.setInt(key, value);
       } else if (value is double) {
         await sp.setDouble(key, value);
-      } else if (value is List) {
-        await sp.setStringList(key, value.map((e) => '$e').toList());
+      } else {
+        debugPrint('prefs: unsupported value type for $key (${value.runtimeType})');
       }
       return;
     }

@@ -208,8 +208,14 @@ class FilesNotifier extends StateNotifier<FilesState> {
         orderDirection: state.desc ? 'desc' : 'asc',
       );
       if (!mounted || seq != _seq) return;
+      // v1.0.23：服务端分页在增删文件后可能返回重复条目，按 name 去重，
+      // 否则列表里会出现两条相同文件（选择、批量操作都会跟着错）。
+      final merged = <String, FileItem>{for (final item in state.items) item.name: item};
+      for (final item in result.items) {
+        merged.putIfAbsent(item.name, () => item);
+      }
       state = state.copyWith(
-        items: [...state.items, ...result.items],
+        items: merged.values.toList(),
         total: result.total,
         page: nextPage,
         loadingMore: false,

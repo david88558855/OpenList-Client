@@ -204,8 +204,15 @@ Future<void> showDownloadDirDialog(BuildContext context, WidgetRef ref) async {
   }
 }
 
-Future<void> _pick(BuildContext context, WidgetRef ref, ServerProfile profile) async {
+Future<void> _pick(BuildContext context, WidgetRef ref, ServerProfile profile, {bool afterGrant = false}) async {
   if (Platform.isAndroid && !await StorageAccess.hasAllFiles()) {
+    // v1.0.23：授权返回后复查一次并继续选目录，不再让用户重复点两遍
+    if (afterGrant) {
+      if (context.mounted) {
+        olToast(context, '仍未获得「所有文件访问权限」，可稍后在系统设置里授予', error: true);
+      }
+      return;
+    }
     if (!context.mounted) return;
     final go = await olConfirm(
       context,
@@ -214,7 +221,16 @@ Future<void> _pick(BuildContext context, WidgetRef ref, ServerProfile profile) a
       confirm: '去授权',
       icon: 'shield',
     );
-    if (go) await StorageAccess.requestAllFiles();
+    if (!go) return;
+    await StorageAccess.requestAllFiles();
+    // 系统授权页返回后权限落盘有延迟，等一小会儿再复查
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!context.mounted) return;
+    if (await StorageAccess.hasAllFiles()) {
+      await _pick(context, ref, profile, afterGrant: true);
+    } else {
+      olToast(context, '未获得权限，可稍后在系统设置里授予', error: true);
+    }
     return;
   }
   // v1.0.22：选择器可能抛 PlatformException / MissingPluginException，

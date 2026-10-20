@@ -46,10 +46,36 @@ class OpenListApi {
     final status = res.statusCode ?? 0;
     if (status >= 400) {
       final body = res.data;
-      final msg = body is Map ? (body['message'] ?? '').toString() : '';
+      // v1.0.23：非 JSON 响应（反代返回的 HTML 错误页）之前会得到空 message，
+      // 界面上就是一条没有任何内容的错误条。这里退到状态文本并截断。
+      var msg = body is Map ? (body['message'] ?? '').toString().trim() : '';
+      if (msg.isEmpty && body is String) {
+        final text = body.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (text.isNotEmpty) msg = text.length > 120 ? '${text.substring(0, 120)}…' : text;
+      }
+      if (msg.isEmpty) msg = _statusText(status);
       throw ApiException(status, msg, httpStatus: status);
     }
     return _unwrap(res.data);
+  }
+
+  String _statusText(int status) {
+    switch (status) {
+      case 400:
+        return '请求参数有误';
+      case 401:
+        return '登录已失效，请重新连接';
+      case 403:
+        return '没有权限访问该资源';
+      case 404:
+        return '路径不存在或已被移动';
+      case 413:
+        return '文件超过服务端限制';
+      case 429:
+        return '请求过于频繁，请稍后再试';
+      default:
+        return status >= 500 ? '服务端错误（$status）' : '请求失败（$status）';
+    }
   }
 
   dynamic _unwrap(dynamic data) {

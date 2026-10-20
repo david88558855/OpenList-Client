@@ -106,7 +106,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       // 防抖期间可能有多个请求在飞，只接受最后一次的结果。
       if (!mounted || seq != _seq) return;
       setState(() {
-        _results = results;
+        // 文件夹排前面，与渲染分组保持一致（光标索引用同一份顺序）
+        _results = [
+          ...results.where((e) => e.isDir),
+          ...results.where((e) => !e.isDir),
+        ];
         _loading = false;
         _searched = true;
         _cursor = 0;
@@ -409,6 +413,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       );
     }
 
+    // v1.0.23：结果在写入时就按「文件夹 → 文件」排好，`_results` 与渲染顺序、
+    // 键盘光标三者一致。之前是渲染时临时分组、光标按原始顺序，导致 ↓ 跳到
+    // 视觉不相邻的行，Enter 打开的也不是高亮那条；同名文件还会同时高亮。
     final dirs = _results.where((e) => e.isDir).toList();
     final files = _results.where((e) => !e.isDir).toList();
 
@@ -416,9 +423,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 8, vertical: 8),
       children: [
         if (dirs.isNotEmpty) _GroupLabel('文件夹 · ${dirs.length}'),
-        for (final item in dirs) _ResultRow(item: item, selected: _results[_cursor].name == item.name, onTap: () => _open(item)),
+        for (var i = 0; i < dirs.length; i++)
+          _ResultRow(item: dirs[i], selected: _cursor == i, onTap: () => _open(dirs[i])),
         if (files.isNotEmpty) _GroupLabel('文件 · ${files.length}'),
-        for (final item in files) _ResultRow(item: item, selected: _results[_cursor].name == item.name, onTap: () => _open(item)),
+        for (var j = 0; j < files.length; j++)
+          _ResultRow(
+            item: files[j],
+            selected: _cursor == dirs.length + j,
+            onTap: () => _open(files[j]),
+          ),
       ],
     );
   }

@@ -63,6 +63,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   final Ref ref;
   final Map<String, CancelToken> _tokens = {};
   final Map<String, int> _previousDone = {};
+
+  /// 因「全部暂停」而暂停的任务 id；「全部继续」只恢复这些（v1.0.23）。
+  final Set<String> _pausedByGlobal = {};
   Timer? _ticker;
   DateTime _lastEmit = DateTime.fromMillisecondsSinceEpoch(0);
   bool _pumping = false;
@@ -228,6 +231,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   Future<void> resume(String id) async {
     final task = _find(id);
     if (task == null) return;
+    _pausedByGlobal.remove(id);
     task.status = TransferStatus.queued;
     task.error = null;
     _emit();
@@ -237,6 +241,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   Future<void> retry(String id) async {
     final task = _find(id);
     if (task == null) return;
+    _pausedByGlobal.remove(id);
     task.error = null;
     task.status = TransferStatus.queued;
     _emit();
@@ -247,6 +252,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     _tokens[id]?.cancel();
     _tokens.remove(id);
     _previousDone.remove(id);
+    _pausedByGlobal.remove(id);
     final task = _find(id);
     if (task != null && task.status != TransferStatus.done) {
       try {
@@ -271,11 +277,14 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     _persist();
   }
 
+  /// 全局暂停：只记录「被全局暂停」的任务，`resumeAll` 只恢复这些。
+  /// 用户自己点暂停的任务不在集合里，不会被「全部继续」误拉起（v1.0.23）。
   Future<void> pauseAll() async {
     state = state.copyWith(pausedGlobally: true);
     for (final task in state.tasks) {
       if (task.status == TransferStatus.running || task.status == TransferStatus.queued) {
         task.status = TransferStatus.paused;
+        _pausedByGlobal.add(task.id);
         _tokens[task.id]?.cancel();
       }
     }
@@ -285,8 +294,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   Future<void> resumeAll() async {
     state = state.copyWith(pausedGlobally: false);
+    final pending = {..._pausedByGlobal};
+    _pausedByGlobal.clear();
     for (final task in state.tasks) {
-      if (task.status == TransferStatus.paused) task.status = TransferStatus.queued;
+      if (task.status == TransferStatus.paused && pending.contains(task.id)) {
+        task.status = TransferStatus.queued;
+      }
     }
     _emit();
     await _pump();
