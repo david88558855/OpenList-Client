@@ -90,6 +90,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
   Widget _buildDesktop(BuildContext context) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
+    final tasks = _visible(state);
     return AppFrame(
       navIndex: 1,
       handleBack: true,
@@ -103,22 +104,29 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                 children: [
                   _TopBar(onNew: () => offlineDownload(context, ref)),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _SpeedCard(state: state),
-                          const SizedBox(height: 12),
-                          _StatTiles(state: state, visible: _visible(state).length),
-                          const SizedBox(height: 12),
-                          _TaskList(
-                            tasks: _visible(state),
+                    // v1.0.30：整页改 sliver 体系。原来任务列表是
+                    // SingleChildScrollView + Column + for 循环，会把所有任务行
+                    // 一次性 build（2000 个任务 = 2000 个进度监听），大目录下载时卡死。
+                    // 现在任务行走 SliverList，按需构建。
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                          sliver: SliverToBoxAdapter(child: _SpeedCard(state: state)),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverToBoxAdapter(child: _StatTiles(state: state, visible: tasks.length)),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          sliver: _TaskListSliver(
+                            tasks: tasks,
                             filter: _filter,
                             onFilter: (f) => setState(() => _filter = f),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -201,6 +209,12 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                 height: 240,
                 // v2.6：完成的任务落到「已完成」，进行中为空时提示去哪找。
                 child: _EmptyTransfers(
+                  icon: switch (_filter) {
+                    _Filter.failed => 'alert',
+                    _Filter.done => 'check',
+                    _ => 'arrow-down',
+                  },
+                  iconColor: _filter == _Filter.failed ? OlTokens.danger : null,
                   title: switch (_filter) {
                     _Filter.active => '没有进行中的任务',
                     _Filter.done => '还没有已完成的任务',
@@ -689,14 +703,67 @@ class _Tile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 任务列表
+// 任务列表（sliver 版：按需构建任务行，v1.0.30）
 // ---------------------------------------------------------------------------
-class _TaskList extends StatelessWidget {
+class _TaskListSliver extends StatelessWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
   final ValueChanged<_Filter> onFilter;
 
-  const _TaskList({required this.tasks, required this.filter, required this.onFilter});
+  const _TaskListSliver({required this.tasks, required this.filter, required this.onFilter});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return DecoratedSliver(
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.line2),
+      ),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(child: _TaskListHeader(tasks: tasks, filter: filter, onFilter: onFilter)),
+          if (tasks.isEmpty)
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 160,
+                child: _EmptyTransfers(
+                  icon: switch (filter) {
+                    _Filter.failed => 'alert',
+                    _Filter.done => 'check',
+                    _ => 'arrow-down',
+                  },
+                  iconColor: filter == _Filter.failed ? OlTokens.danger : null,
+                  title: switch (filter) {
+                    _Filter.failed => '没有失败的任务',
+                    _Filter.done => '还没有已完成的任务',
+                    _Filter.offline => '没有离线下载任务',
+                    _ => '没有进行中的任务',
+                  },
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _TaskRow(task: tasks[index]),
+                childCount: tasks.length,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 卡片头：标题 + 全部/下载/上传 分段。
+class _TaskListHeader extends StatelessWidget {
+  final List<TransferTask> tasks;
+  final _Filter filter;
+  final ValueChanged<_Filter> onFilter;
+
+  const _TaskListHeader({required this.tasks, required this.filter, required this.onFilter});
 
   @override
   Widget build(BuildContext context) {
@@ -711,38 +778,23 @@ class _TaskList extends StatelessWidget {
       _ => '进行中',
     };
     return Container(
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.line2),
-      ),
-      child: Column(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
+      child: Row(
         children: [
-          Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
-            child: Row(
-              children: [
-                Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
-                const Spacer(),
-                OlSeg<_Filter>(
-                  items: [
-                    OlSegItem(_Filter.all, '全部 ${tasks.length}'),
-                    OlSegItem(_Filter.download, '下载'),
-                    OlSegItem(_Filter.upload, '上传'),
-                  ],
-                  value: (filter == _Filter.upload || filter == _Filter.download) ? filter : _Filter.all,
-                  onChanged: onFilter,
-                  height: 21,
-                ),
-              ],
-            ),
+          Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
+          const Spacer(),
+          OlSeg<_Filter>(
+            items: [
+              OlSegItem(_Filter.all, '全部 ${tasks.length}'),
+              OlSegItem(_Filter.download, '下载'),
+              OlSegItem(_Filter.upload, '上传'),
+            ],
+            value: (filter == _Filter.upload || filter == _Filter.download) ? filter : _Filter.all,
+            onChanged: onFilter,
+            height: 21,
           ),
-          if (tasks.isEmpty)
-            const SizedBox(height: 160, child: _EmptyTransfers())
-          else
-            for (final task in tasks) _TaskRow(task: task),
         ],
       ),
     );
@@ -853,7 +905,17 @@ class _EmptyTransfers extends StatelessWidget {
   final String? title;
   final String? subtitle;
 
-  const _EmptyTransfers({this.title, this.subtitle});
+  /// v1.0.30：图标跟随筛选。之前固定用向下箭头，切到「失败」时
+  /// 也显示下载箭头，看起来像功能坏了（截图里「没有失败的任务」配了个 ↓）。
+  final String icon;
+  final Color? iconColor;
+
+  const _EmptyTransfers({
+    this.title,
+    this.subtitle,
+    this.icon = 'arrow-down',
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -862,7 +924,7 @@ class _EmptyTransfers extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          OlIcon('arrow-down', size: 24, color: p.ink4),
+          OlIcon(icon, size: 24, color: iconColor ?? p.ink4),
           const SizedBox(height: 8),
           Text(
             title ?? '没有传输任务',

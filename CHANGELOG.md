@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.30 · 2026-10-20
+
+### 电脑端任务列表改为懒加载
+- **根因**：桌面传输页用 `SingleChildScrollView` + `Column` + `for (final task in tasks) _TaskRow(...)`
+  一次性展开所有任务行，每个行都是独立 `ConsumerWidget` 监听进度。任务一多（例如后续批量下载
+  文件夹入队上千条）会同时 build 上千个组件，滚动卡顿。
+- 修复：整页改 `CustomScrollView`，任务列表用 `DecoratedSliver`（保留卡片圆角与边框）+
+  `SliverMainAxisGroup` + `SliverList(SliverChildBuilderDelegate)`，只构建可视区域内的行。
+  卡片表头拆成 `_TaskListHeader`，间距与原布局一致（14 / 12 / 12 / 16）。
+- 移动端本来就是 `SliverList` 懒加载，无需改动。
+
+### 修复：安卓传输页「失败」分组图标错误
+- 「没有失败的任务」原来配的是向下箭头（`arrow-down`），看起来像下载图标，容易误判功能异常。
+- 空状态图标改为跟随筛选：失败 → `alert` + 警示红；已完成 → `check`；其它 → `arrow-down`。
+  桌面与移动端共用同一套规则。
+
 ## v1.0.29 · 2026-10-20
 
 ### 配置来源唯一化（移除旧版迁移）
