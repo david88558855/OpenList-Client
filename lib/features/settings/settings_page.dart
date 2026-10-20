@@ -263,7 +263,7 @@ class _ServersSection extends ConsumerWidget {
         _SectionHead(
           title: '服务器管理',
           subtitle: '当前连接的 OpenList 实例与登录身份',
-          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.push('/servers')),
+          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.go('/servers')),
         ),
         Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -313,7 +313,8 @@ class _ServersSection extends ConsumerWidget {
                       [
                         profile?.username ?? '—',
                         session.user?.role == 3 ? '管理员' : '普通用户',
-                        AppInfo.shortVersion(profile?.version ?? session.site?.version),
+                        if (AppInfo.hasMeaningfulVersion(profile?.version ?? session.site?.version))
+                          AppInfo.shortVersion(profile?.version ?? session.site?.version),
                         if (session.latencyMs != null) '${session.latencyMs} ms',
                         '${servers.length} 个服务器',
                       ].join(' · '),
@@ -325,7 +326,7 @@ class _ServersSection extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.push('/servers')),
+              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.go('/servers')),
             ],
           ),
         ),
@@ -869,7 +870,9 @@ class _AboutSection extends ConsumerWidget {
                 title: '服务端',
                 subtitle: session.profile?.displayHost ?? '未连接',
                 trailing: Text(
-                  AppInfo.shortVersion(session.profile?.version ?? session.site?.version),
+                  AppInfo.hasMeaningfulVersion(session.profile?.version ?? session.site?.version)
+                      ? AppInfo.shortVersion(session.profile?.version ?? session.site?.version)
+                      : '—',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
@@ -1026,7 +1029,10 @@ class _MobileSettings extends ConsumerWidget {
                       Text(
                         profile == null
                             ? '未连接服务器'
-                            : '${profile.displayHost} · ${AppInfo.shortVersion(profile.version ?? session.site?.version)}',
+                            : AppInfo.hostWithVersion(
+                                profile.displayHost,
+                                profile.version ?? session.site?.version,
+                              ),
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,

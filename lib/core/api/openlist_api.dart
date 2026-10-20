@@ -332,6 +332,7 @@ class OpenListApi {
     required CancelToken cancelToken,
     required void Function(int received, int total) onProgress,
     int throttleBytesPerSecond = 0,
+    int Function()? throttleRate,
   }) async {
     final existing = await target.exists() ? await target.length() : 0;
     final headers = <String, String>{};
@@ -373,13 +374,15 @@ class OpenListApi {
         sink.add(chunk);
         received += chunk.length;
         windowBytes += chunk.length;
-        if (throttleBytesPerSecond > 0) {
+        // 每块都重新取限速值：设置页改完立刻作用于正在跑的下载。
+        final rate = throttleRate?.call() ?? throttleBytesPerSecond;
+        if (rate > 0) {
           final elapsed = DateTime.now().difference(windowStart).inMilliseconds;
-          final expectedMs = windowBytes * 1000 / throttleBytesPerSecond;
+          final expectedMs = windowBytes * 1000 / rate;
           if (elapsed < expectedMs) {
             await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsed).round()));
           }
-          if (windowBytes > throttleBytesPerSecond * 2) {
+          if (windowBytes > rate * 2) {
             windowBytes = 0;
             windowStart = DateTime.now();
           }
@@ -405,6 +408,7 @@ class OpenListApi {
     required CancelToken cancelToken,
     required void Function(int sent, int total) onProgress,
     int throttleBytesPerSecond = 0,
+    int Function()? throttleRate,
   }) async {
     final length = await source.length();
     final headers = <String, String>{
@@ -413,9 +417,8 @@ class OpenListApi {
       'Content-Length': '$length',
     };
     if (token != null && token!.isNotEmpty) headers['Authorization'] = token!;
-    final stream = throttleBytesPerSecond > 0
-        ? _throttle(source.openRead(), throttleBytesPerSecond, cancelToken)
-        : source.openRead();
+    final rateOf = throttleRate ?? () => throttleBytesPerSecond;
+    final stream = _throttle(source.openRead(), rateOf, cancelToken);
     try {
       final res = await _dio.put<dynamic>(
         '/api/fs/put',
@@ -437,19 +440,25 @@ class OpenListApi {
   }
 
   /// 累计配额节流：第 n 个字节应在 n / rate 秒之后才发出。
+  ///
+  /// [rateOf] 每个分块都会重新取值，因此运行中修改限速立即生效
+  /// （v2.6：之前只在任务开始时读一次，改限速要等下一个任务）。
   Stream<List<int>> _throttle(
     Stream<List<int>> input,
-    int bytesPerSecond,
+    int Function() rateOf,
     CancelToken cancelToken,
   ) async* {
     final watch = Stopwatch()..start();
     var sent = 0;
     await for (final chunk in input) {
       sent += chunk.length;
-      final expectedMs = sent * 1000 / bytesPerSecond;
-      final elapsedMs = watch.elapsedMilliseconds;
-      if (expectedMs > elapsedMs) {
-        await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsedMs).round()));
+      final rate = rateOf();
+      if (rate > 0) {
+        final expectedMs = sent * 1000 / rate;
+        final elapsedMs = watch.elapsedMilliseconds;
+        if (expectedMs > elapsedMs) {
+          await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsedMs).round()));
+        }
       }
       if (cancelToken.isCancelled) return;
       yield chunk;

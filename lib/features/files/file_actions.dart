@@ -425,20 +425,24 @@ Future<void> showItemMenu(
   final isFavorite = profile != null && ref.read(favoritesProvider).any((e) => e.serverId == profile.id && e.path == path);
   final targets = (selection != null && selection.length > 1) ? selection : [item];
 
+  OlMenuItem favoriteItem() => OlMenuItem(
+        isFavorite ? '取消收藏' : '收藏',
+        'star',
+        () async {
+          if (profile == null) return;
+          await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
+          if (context.mounted) olToast(context, isFavorite ? '已取消收藏' : '已加入收藏');
+        },
+      );
+
   final openAction = _openAction(context, ref, item);
+  // v2.6：菜单顺序固定为 打开 / 收藏 / 分享 / 下载 / 重命名 / 移动 / 复制 / 删除。
+  // 之前「收藏」排在分享、下载之后，右键菜单和底部面板的次序还不一致。
   final entries = <OlMenuItem>[
     if (openAction != null) openAction,
-    if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
+    favoriteItem(),
     OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
-    OlMenuItem(
-      isFavorite ? '取消收藏' : '收藏',
-      'star',
-      () async {
-        if (profile == null) return;
-        await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
-        if (context.mounted) olToast(context, isFavorite ? '已取消收藏' : '已加入收藏');
-      },
-    ),
+    if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
     OlMenuItem('重命名', 'edit', () => renameItem(context, ref, item)),
     OlMenuItem('移动到…', 'move', () => moveOrCopyItems(context, ref, targets, move: true)),
     OlMenuItem('复制到…', 'copy', () => moveOrCopyItems(context, ref, targets, move: false)),
@@ -447,21 +451,8 @@ Future<void> showItemMenu(
 
   // A7：Android 用底部操作面板；Windows 用右键浮层。动作集合完全一致。
   if (Platform.isAndroid || context.isNarrow) {
-    final quick = <OlMenuItem>[
-      if (openAction != null) openAction,
-      if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
-      OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
-      OlMenuItem(
-        isFavorite ? '取消收藏' : '收藏',
-        'star',
-        () async {
-          if (profile == null) return;
-          await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
-          if (context.mounted) olToast(context, isFavorite ? '已取消收藏' : '已加入收藏');
-        },
-      ),
-    ];
-    final quickLabels = quick.map((e) => e.label).toSet();
+    const quickLabels = {'播放', '预览', '收藏', '取消收藏', '分享', '下载'};
+    final quick = entries.where((e) => quickLabels.contains(e.label)).toList();
     await showOlActionSheet(
       context,
       count: targets.length,
@@ -469,7 +460,7 @@ Future<void> showItemMenu(
       subtitle: item.isDir ? '文件夹' : '${formatBytes(item.size)} · ${formatDate(item.modified)}',
       leading: FileGlyph(item: item, size: 38, radius: 10, iconSize: 18),
       quick: quick,
-      items: entries.where((e) => !quickLabels.contains(e.label)).toList(),
+      items: entries.where((e) => !quick.contains(e)).toList(),
     );
     return;
   }

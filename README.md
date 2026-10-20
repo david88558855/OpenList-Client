@@ -129,6 +129,16 @@ tool/             # Windows 平台引导与打包脚本（仅便携版）
    同时让任何按目录扫描仓库的脚本把 `design/` 视为非源码目录。
 3. **构建隔离**：Flutter 只编译 `lib/`、只打包 `pubspec.yaml` 中 `assets:` 白名单里的资源；
    分析器 exclude `design/**`；CI 再对产物做反查断言。
+4. **编译期物理剔除（硬规则）**：两个构建脚本在调用 `flutter build` 之前执行
+   `rm -rf design`（PowerShell 为 `Remove-Item -Recurse -Force design`），
+   构建结束后断言 `design/` 已不存在、且产物中不含设计稿，任一条不满足即构建失败。
+   克隆/归档层面另有 `.gitattributes` 的 `design/ export-ignore`，`git archive` 生成的源码包
+   不包含该目录。（GitHub 页面的 zipball/tarball 由 GitHub 自行打包、不读 `export-ignore`，
+   所以不把它当作保障，编译侧一律以脚本物理剔除为准。）
+
+> **永久规定**：不得以任何理由让 `design/` 参与编译、打包或进入资源清单。
+> 新增构建入口（新 job、新脚本、本地命令）必须复用 `tool/ci_build_android.sh` /
+> `tool/ci_build_windows.ps1`，或自行在编译前剔除 `design/` 并做同样的产物断言。
 
 ### .gitignore 中的具体配置
 

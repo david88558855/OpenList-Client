@@ -29,10 +29,10 @@ class TransfersPage extends ConsumerStatefulWidget {
   ConsumerState<TransfersPage> createState() => _TransfersPageState();
 }
 
-enum _Filter { all, download, upload, offline, done, failed }
+enum _Filter { active, all, download, upload, offline, done, failed }
 
 class _TransfersPageState extends ConsumerState<TransfersPage> {
-  _Filter _filter = _Filter.all;
+  _Filter _filter = _Filter.active;
 
   @override
   void initState() {
@@ -44,6 +44,12 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
 
   List<TransferTask> _visible(TransfersState state) {
     switch (_filter) {
+      case _Filter.active:
+        // v2.6：「进行中」只放真正的在途任务。已完成 / 失败的一律归到各自分组，
+        // 之前这里返回 state.tasks（全部），导致传输完成后仍赖在「进行中」列表里。
+        return state.tasks
+            .where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed)
+            .toList();
       case _Filter.all:
         return state.tasks;
       case _Filter.download:
@@ -154,11 +160,11 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                   Expanded(
                     child: OlSeg<_Filter>(
                       items: const [
-                        OlSegItem(_Filter.all, '进行中'),
+                        OlSegItem(_Filter.active, '进行中'),
                         OlSegItem(_Filter.done, '已完成'),
                         OlSegItem(_Filter.failed, '失败'),
                       ],
-                      value: (_filter == _Filter.done || _filter == _Filter.failed) ? _filter : _Filter.all,
+                      value: (_filter == _Filter.done || _filter == _Filter.failed) ? _filter : _Filter.active,
                       onChanged: (f) => setState(() => _filter = f),
                     ),
                   ),
@@ -182,7 +188,26 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
             ),
           ),
           if (visible.isEmpty)
-            const SliverToBoxAdapter(child: SizedBox(height: 240, child: _EmptyTransfers()))
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 240,
+                // v2.6：完成的任务落到「已完成」，进行中为空时提示去哪找。
+                child: _EmptyTransfers(
+                  title: switch (_filter) {
+                    _Filter.active => '没有进行中的任务',
+                    _Filter.done => '还没有已完成的任务',
+                    _Filter.failed => '没有失败的任务',
+                    _ => '没有传输任务',
+                  },
+                  subtitle: switch (_filter) {
+                    _Filter.active => '完成或失败的任务会移到对应分组',
+                    _Filter.done => '下载或上传成功后出现在这里',
+                    _Filter.failed => '传输失败时会出现在这里，可重试',
+                    _ => '下载或上传文件后，这里会显示实时进度',
+                  },
+                ),
+              ),
+            )
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -232,6 +257,13 @@ class _QueueSidebar extends ConsumerWidget {
                 _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
                 _NavRow(icon: 'star', label: '收藏', onTap: () => context.go('/favorites')),
                 const OlSectionLabel('队列'),
+                _NavRow(
+                  icon: 'layers',
+                  label: '进行中',
+                  badge: state.pendingCount,
+                  active: filter == _Filter.active,
+                  onTap: () => onFilter(_Filter.active),
+                ),
                 _NavRow(
                   icon: 'download',
                   label: '正在下载',
@@ -658,6 +690,15 @@ class _TaskList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    // v2.6：标题跟随筛选走。之前固定写「进行中」，切到已完成/失败仍是这个标题。
+    final title = switch (filter) {
+      _Filter.done => '已完成',
+      _Filter.failed => '失败',
+      _Filter.offline => '离线下载',
+      _Filter.download => '正在下载',
+      _Filter.upload => '正在上传',
+      _ => '进行中',
+    };
     return Container(
       decoration: BoxDecoration(
         color: p.card,
@@ -672,7 +713,7 @@ class _TaskList extends StatelessWidget {
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
             child: Row(
               children: [
-                Text('进行中', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
+                Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
                 const Spacer(),
                 OlSeg<_Filter>(
                   items: [
@@ -798,7 +839,10 @@ class _TaskRow extends ConsumerWidget {
 }
 
 class _EmptyTransfers extends StatelessWidget {
-  const _EmptyTransfers();
+  final String? title;
+  final String? subtitle;
+
+  const _EmptyTransfers({this.title, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -809,9 +853,15 @@ class _EmptyTransfers extends StatelessWidget {
         children: [
           OlIcon('arrow-down', size: 24, color: p.ink4),
           const SizedBox(height: 8),
-          Text('没有传输任务', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink3)),
+          Text(
+            title ?? '没有传输任务',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink3),
+          ),
           const SizedBox(height: 3),
-          Text('下载或上传文件后，这里会显示实时进度', style: TextStyle(fontSize: 9.5, color: p.ink4)),
+          Text(
+            subtitle ?? '下载或上传文件后，这里会显示实时进度',
+            style: TextStyle(fontSize: 9.5, color: p.ink4),
+          ),
         ],
       ),
     );

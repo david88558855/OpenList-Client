@@ -20,6 +20,16 @@ ThemeData olTheme(Brightness brightness) {
     canvasColor: p.card,
     splashFactory: InkRipple.splashFactory,
     dividerColor: p.line2,
+    // v2.6：桌面端不用 Material 3 默认的 Zoom 转场——切页面时整页「放大又缩小」
+    // 在 1440×900 的窗口里非常刺眼。桌面统一改成淡入，Android 保留系统手感。
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      },
+    ),
     textTheme: base.textTheme.apply(
       bodyColor: p.ink,
       displayColor: p.ink,

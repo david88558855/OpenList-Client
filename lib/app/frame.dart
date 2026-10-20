@@ -174,8 +174,10 @@ class OlTitleBar extends ConsumerWidget {
           const SizedBox(width: 7),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            // 已登录界面不再展开服务器列表，统一进服务器管理页。
-            onTap: () => context.push('/servers'),
+            // v2.6：服务器管理是独立页面，用 go 而不是 push。
+            // push 在 Windows 上会走 Material 的缩放转场（看起来像整页"放大又缩小"），
+            // 并且叠在标签页之上，返回路径容易断。
+            onTap: () => context.go('/servers'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(

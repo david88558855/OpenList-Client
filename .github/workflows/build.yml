@@ -1,5 +1,15 @@
 name: build
 
+# ⚠️ 永久规则（不可豁免）：构建 / 编译必须排除 design/ 及其下所有文件
+#   - design/ 仅作视觉参照文档随仓库分发，永不参与编译、打包、资源清单；
+#   - 落实点 1：tool/ci_build_android.sh、tool/ci_build_windows.ps1 在编译前物理剔除 design/，
+#              并在构建结束后断言 design/ 不存在、产物中不出现设计稿；
+#   - 落实点 2：.gitattributes 对 design/ 声明 export-ignore，git archive 生成的源码包不含它
+#              （GitHub 的 zipball/tarball 不读 export-ignore，故不以此为保障）；
+#   - 落实点 3：analysis_options.yaml 排除 design/**；pubspec assets 为白名单（仅 assets/tray/）；
+#   - 新增任何构建入口（job、脚本、本地命令）时必须复用上述脚本或自行剔除 design/，
+#     否则视为违规，PR/CI 一律不通过。
+
 on:
   push:
     branches: [main]

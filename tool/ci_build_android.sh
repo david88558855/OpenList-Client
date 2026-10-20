@@ -8,6 +8,15 @@ VERSION=$(sed -n 's/^version: *\([0-9][^+]*\).*/\1/p' pubspec.yaml | head -1)
 [ -n "$VERSION" ] || VERSION=0.0.0
 
 echo "== OpenList Client $VERSION · Android arm64 =="
+
+# 设计稿硬隔离（永久规则）：编译前物理剔除 design/ 及其下所有文件。
+# 不依赖 pubspec 白名单，也不依赖打包器"碰巧"不读它 —— 编译期该目录根本不存在。
+if [ -d design ]; then
+  echo "== 剔除 design/：$(find design -type f | wc -l | tr -d ' ') 个文件，"\
+"$(du -sk design | cut -f1) KB（仅视觉参照，永不参与编译）=="
+  rm -rf design
+fi
+
 "$FLUTTER" config --no-analytics
 "$FLUTTER" --version
 "$FLUTTER" pub get
@@ -23,10 +32,12 @@ fi
 ls -lh dist/
 
 echo "== 设计稿隔离校验 =="
-if [ -f design/OpenList-Client-Design.html ]; then
-  echo "设计稿已入库（仅文档用途），大小 $(wc -c < design/OpenList-Client-Design.html) 字节"
-fi
 leaked=0
+# design/ 在编译期必须已不存在（上一步剔除成功），否则视为规则失效
+if [ -e design ]; then
+  echo "FAIL: 编译结束后 design/ 仍存在，剔除步骤未生效"
+  leaked=1
+fi
 if find build/flutter_assets -iname '*design*' 2>/dev/null | grep -q .; then
   echo "FAIL: flutter_assets 中出现设计稿"
   leaked=1

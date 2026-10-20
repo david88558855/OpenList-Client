@@ -214,6 +214,13 @@ class SessionNotifier extends StateNotifier<SessionState> {
         signedIn: true,
         latencyMs: state.latencyMs,
       );
+      // v2.6：新建 / 重新登录后立刻把文件列表绑到该实例。
+      // 之前只有「切换服务器」会 attach，添加完新服务器后文件页还停在旧实例，
+      // 用户看到的现象就是「加完了但没切过去」。
+      // 列表拉取失败不算登录失败：文件页自己有错误态与离线缓存。
+      try {
+        await ref.read(filesProvider.notifier).attach();
+      } catch (_) {}
       return null;
     } on ApiException catch (e) {
       state = state.copyWith(connecting: false, error: e.friendly);
@@ -230,6 +237,10 @@ class SessionNotifier extends StateNotifier<SessionState> {
     await ref.read(serverListProvider.notifier).setActive(serverId);
     state = const SessionState();
     await boot();
+    // v2.6：切换与登录走同一条收尾路径，文件列表始终跟随当前实例。
+    try {
+      await ref.read(filesProvider.notifier).attach();
+    } catch (_) {}
   }
 
   Future<void> refreshUser() async {

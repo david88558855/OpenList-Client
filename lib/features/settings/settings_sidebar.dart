@@ -12,7 +12,9 @@ import '../../core/widgets/ol_icon.dart';
 
 /// W6 设置侧栏。
 ///
-/// 顺序按 v2.1 设计稿：服务器管理 / 存储挂载 / 传输 / 播放与预览 / 外观 / 关于与更新。
+/// 顺序按 v2.1 设计稿：下载目录 / 传输 / 播放与预览 / 外观 / 关于与更新。
+/// v2.6：移除了「服务器管理」——它是独立页面（标题栏 / 移动端「我的」进入），
+/// 挂在设置分区里会让用户以为设置被塞进了服务器管理，且 push 过去以后回不来。
 /// 「通知」与「隐私与安全」已移除（其能力并入传输与关于）；「退出登录」放在关于页底部。
 class SettingsSidebar extends ConsumerWidget {
   final String active;
@@ -20,7 +22,6 @@ class SettingsSidebar extends ConsumerWidget {
   const SettingsSidebar({super.key, required this.active, this.onSelect});
 
   static const items = <List<String>>[
-    ['servers', '服务器管理', 'server', '/servers'],
     // v2.3：下载目录排在传输之上，与移动端「我的」列表一致。
     ['download', '下载目录', 'download', '/settings/download'],
     ['transfer', '传输', 'arrow-down', '/settings/transfer'],
@@ -35,10 +36,6 @@ class SettingsSidebar extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
 
     void open(String key, String route) {
-      if (key == 'servers') {
-        context.push('/servers');
-        return;
-      }
       onSelect?.call(key);
       context.go(route);
     }

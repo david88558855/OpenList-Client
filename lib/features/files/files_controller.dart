@@ -267,7 +267,4 @@ class FilesNotifier extends StateNotifier<FilesState> {
     recent.insert(0, {'path': path, 'at': DateTime.now().toIso8601String()});
     await store.saveRecent(serverId, recent.take(30).toList());
   }
-
-  /// Sibling items of the current folder, used by the detail panel.
-  List<FileItem> siblingsOf(String name) => state.items.where((e) => e.name != name).take(4).toList();
 }

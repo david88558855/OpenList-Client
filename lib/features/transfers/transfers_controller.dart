@@ -66,17 +66,33 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   Timer? _ticker;
   DateTime _lastEmit = DateTime.fromMillisecondsSinceEpoch(0);
   bool _pumping = false;
+  ProviderSubscription<AppSettings>? _settingsSub;
 
   TransfersNotifier(this.ref) : super(const TransfersState()) {
     state = state.copyWith(concurrency: ref.read(appSettingsProvider).concurrency);
+    // v2.6：设置页改并发数后立即生效。之前只在构造时读一次，必须重启应用才生效。
+    _settingsSub = ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
+      if (previous?.concurrency == next.concurrency) return;
+      if (state.concurrency != next.concurrency) {
+        state = state.copyWith(concurrency: next.concurrency);
+      }
+      unawaited(_pump());
+    });
     _restore();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   static const _persistKey = 'ol_transfers';
 
+  /// 下载限速（字节/秒），每个数据块都重新读取，运行中改设置即时生效。
+  int _downRate() => ref.read(appSettingsProvider).downLimitKbps * 1024;
+
+  /// 上传限速（字节/秒），同上。
+  int _upRate() => ref.read(appSettingsProvider).upLimitKbps * 1024;
+
   @override
   void dispose() {
+    _settingsSub?.close();
     _ticker?.cancel();
     for (final token in _tokens.values) {
       token.cancel();
@@ -120,6 +136,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   void _tick() {
     if (!mounted) return;
+    // 没有任务时不要每秒重建一次状态（空列表也要触发全局重建，纯浪费）。
+    if (state.tasks.isEmpty) return;
     var down = 0.0;
     var up = 0.0;
     for (final task in state.tasks) {
@@ -274,8 +292,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     await _pump();
   }
 
+  /// 并发数统一由设置持有；这里只做转发，避免出现「两个真相」。
   Future<void> setConcurrency(int value) async {
-    state = state.copyWith(concurrency: value.clamp(1, 8).toInt());
+    ref.read(appSettingsProvider.notifier).setConcurrency(value);
+    if (state.concurrency != value.clamp(1, 8).toInt()) {
+      state = state.copyWith(concurrency: value.clamp(1, 8).toInt());
+    }
     await _pump();
   }
 
@@ -329,9 +351,6 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     task.status = TransferStatus.running;
     task.error = null;
     _emit();
-    final settings = ref.read(appSettingsProvider);
-    final downLimitKbps = settings.downLimitKbps;
-    final upLimitKbps = settings.upLimitKbps;
     try {
       if (task.kind == TransferKind.download) {
         var sign = task.sign;
@@ -347,7 +366,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
           sign: sign,
           target: target,
           cancelToken: token,
-          throttleBytesPerSecond: downLimitKbps * 1024,
+          throttleRate: _downRate,
           onProgress: (done, total) {
             task.done = done;
             if (total > 0) task.total = total;
@@ -362,8 +381,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
           remotePath: task.remotePath,
           source: File(task.localPath),
           cancelToken: token,
-          // v2.3：上传限速生效（此前只把下载限速传下去，上传设置是空转的）。
-          throttleBytesPerSecond: upLimitKbps * 1024,
+          // v2.6：上传限速同样每块重读，设置改动即时生效。
+          throttleRate: _upRate,
           onProgress: (sent, total) {
             task.done = sent;
             if (total > 0) task.total = total;

@@ -15,7 +15,6 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
-import '../settings/settings_sidebar.dart';
 import 'server_form.dart';
 
 class ServersPage extends ConsumerStatefulWidget {
@@ -64,11 +63,14 @@ class _ServersPageState extends ConsumerState<ServersPage> {
     if (settings.pauseOnSwitch) {
       await ref.read(transfersProvider.notifier).pauseAll();
     }
+    // v2.6：switchTo 内部已负责 setActive + boot + files.attach，
+    // 这里不再重复 attach（否则空目录会被连续请求两次）。
     await ref.read(sessionProvider.notifier).switchTo(profile.id);
-    await ref.read(filesProvider.notifier).attach();
     if (!context.mounted) return;
     if (!ref.read(sessionProvider).signedIn) {
+      // 该实例还没有可用凭据：直接带地址去登录页，而不是留在原地提示一句。
       olToast(context, '「${profile.name}」需要重新登录');
+      context.go('/login');
       return;
     }
     if (open) {
@@ -89,7 +91,14 @@ class _ServersPageState extends ConsumerState<ServersPage> {
 
     return Row(
       children: [
-        const SettingsSidebar(active: 'servers'),
+        // v2.6：服务器管理不再复用「设置」侧栏，自带返回入口。
+        // 之前它寄生在设置分区里，进去以后找不到回文件页的路，切分区还会整页缩放。
+        _ServersRail(
+          current: session.profile,
+          count: serversState.count,
+          onBack: () => context.go('/files'),
+          onSettings: () => context.go('/settings/appearance'),
+        ),
         Expanded(
           child: Container(
             color: p.card,
@@ -332,7 +341,7 @@ class _ServersPageState extends ConsumerState<ServersPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
-                if (current != null) _CurrentServerCard(profile: current, latencyMs: session.latencyMs, signedIn: session.signedIn),
+                if (current != null) _CurrentServerCard(profile: current, signedIn: session.signedIn),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -495,6 +504,108 @@ class _ServersPageState extends ConsumerState<ServersPage> {
     } catch (_) {
       if (mounted) olToast(context, '配置文件格式不正确', error: true);
     }
+  }
+}
+
+/// 服务器管理自己的左栏：只放导航（返回 / 设置）与当前实例摘要。
+/// 与「设置」侧栏解耦——设置分区里不再出现「服务器管理」。
+class _ServersRail extends StatelessWidget {
+  final ServerProfile? current;
+  final int count;
+  final VoidCallback onBack;
+  final VoidCallback onSettings;
+
+  const _ServersRail({
+    required this.current,
+    required this.count,
+    required this.onBack,
+    required this.onSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    Widget item(String icon, String label, VoidCallback onTap) => MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 31,
+              margin: const EdgeInsets.only(bottom: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: Row(
+                children: [
+                  OlIcon(icon, size: 15, color: p.navIcon),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p.nav),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+    return Container(
+      width: 204,
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border(right: BorderSide(color: p.line2)),
+      ),
+      padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const OlSectionLabel('导航'),
+          item('chev-l', '返回文件', onBack),
+          item('settings', '设置', onSettings),
+          const OlSectionLabel('当前实例'),
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.fromLTRB(9, 8, 9, 9),
+            decoration: BoxDecoration(
+              color: p.surfaceAlt,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: p.line2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  current?.name ?? '未连接',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: p.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  current?.displayHost ?? '—',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: p.ink4),
+                ),
+                const SizedBox(height: 4),
+                Text('共 $count 个服务器', style: TextStyle(fontSize: 9, color: p.ink4)),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            child: Text(
+              '凭据写入系统安全存储\n删除只移除本地配置',
+              style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -685,10 +796,9 @@ class _ConfigCard extends StatelessWidget {
 
 class _CurrentServerCard extends StatelessWidget {
   final ServerProfile profile;
-  final int? latencyMs;
   final bool signedIn;
 
-  const _CurrentServerCard({required this.profile, this.latencyMs, required this.signedIn});
+  const _CurrentServerCard({required this.profile, required this.signedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -721,17 +831,10 @@ class _CurrentServerCard extends StatelessWidget {
           Text(profile.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
           const SizedBox(height: 3),
           Text(profile.baseUrl, style: const TextStyle(fontSize: 9.5, fontFamily: 'monospace', color: Color(0xFF8FA8BD))),
-          const SizedBox(height: 6),
-          Text(
-            '${profile.username} · ${latencyMs ?? '—'} ms',
-            style: const TextStyle(fontSize: 9.5, color: Color(0xFF8FA8BD)),
-          ),
           const SizedBox(height: 10),
           Row(
             children: [
               _DarkChip(label: '编辑', icon: 'edit', onTap: () => context.push('/servers/edit/${profile.id}')),
-              const SizedBox(width: 6),
-              _DarkChip(label: '测试连接', icon: 'zap', onTap: () {}),
             ],
           ),
         ],

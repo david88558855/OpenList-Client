@@ -5,8 +5,8 @@
 class AppInfo {
   const AppInfo._();
 
-  static const version = '1.0.12';
-  static const build = 13;
+  static const version = '1.0.13';
+  static const build = 14;
 
   static const name = 'OpenList Client';
 
@@ -33,4 +33,23 @@ class AppInfo {
     if (head.length > 18) head = '${head.substring(0, 17)}…';
     return head;
   }
+
+  /// 服务端版本是否有信息量。
+  ///
+  /// 未发布实例会返回 `dev (Commit: unknown) …`，截短后只剩「dev」，
+  /// 拼在地址后面变成 `127.0.0.1:5244 · dev` —— 对用户没有意义（v2.6）。
+  static bool hasMeaningfulVersion(String? raw) {
+    final head = shortVersion(raw).trim().toLowerCase();
+    if (head.isEmpty || head == '—') return false;
+    if (head.length <= 1) return false;
+    const noise = {'dev', 'unknown', 'none', 'null', 'n/a', 'na', '-', '0'};
+    if (noise.contains(head)) return false;
+    // dev 分支带后缀的形态（dev+abc123 / dev.20260101）同样视为占位。
+    if (RegExp(r'^dev([\s.+-]|$)').hasMatch(head)) return false;
+    return true;
+  }
+
+  /// 地址 + 版本：版本无意义时只显示地址，不留下孤零零的分隔点。
+  static String hostWithVersion(String host, String? raw) =>
+      hasMeaningfulVersion(raw) ? '$host · ${shortVersion(raw)}' : host;
 }

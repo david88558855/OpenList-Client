@@ -55,7 +55,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/settings',
-        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'servers'),
+        // v2.6：设置默认落在「外观」。服务器管理已从设置分区移出，成为独立页面。
+        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'appearance'),
       ),
       // 设置分区用独立路径：只改 query 时同一条路由不会重建页面，
       // 表现为「点了没反应」（v1.0.5 的 bug）。

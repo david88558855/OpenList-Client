@@ -11,10 +11,10 @@ import '../../features/transfers/transfers_controller.dart';
 
 /// W9 — Windows 托盘。
 ///
-/// 交互约定：
+/// 交互约定（v2.6 修订）：
 ///   - 启动后常驻托盘图标（四态：空闲 / 传输中 / 失败 / 暂停）；
-///   - 左键双击显示主界面；
-///   - 右键菜单两项：显示主界面、退出；
+///   - 左键单击即唤出主界面（Windows 惯例；之前要求 450ms 双击，用户连点几次都以为没反应）；
+///   - 右键菜单两项：显示主界面、退出，动作由 [onTrayMenuItemClick] 按 key 统一分发；
 ///   - 关闭窗口、Alt+F4、任务栏关闭一律只收进托盘，只有菜单「退出」结束进程。
 ///
 /// 09 已知问题：
@@ -37,7 +37,6 @@ class TrayService with TrayListener {
   TrayIconState _state = TrayIconState.idle;
   ProviderSubscription<TransfersState>? _subscription;
   _OlWindowListener? _windowListener;
-  DateTime? _lastLeftClick;
   Timer? _watchdog;
 
   bool get isQuitting => _quitting;
@@ -54,8 +53,12 @@ class TrayService with TrayListener {
       final state = _deriveState(next);
       if (state != _state) {
         _applyIcon(state);
+      } else {
+        // 只更新提示文字。菜单内容固定（显示 / 退出），
+        // 之前这里每次都 setContextMenu，菜单弹出期间被替换掉，
+        // 点击就落空——表现为「右键菜单点了没反应」「退出要点好几次」。
+        unawaited(_applyTooltip(state));
       }
-      _rebuildMenu();
     });
     _ready = true;
     _startWatchdog();
@@ -112,8 +115,9 @@ class TrayService with TrayListener {
   }
 
   TrayIconState _deriveState(TransfersState state) {
-    if (state.failed.isNotEmpty) return TrayIconState.error;
+    // 运行中优先：否则一个历史失败任务会让图标永远停在「失败」态。
     if (state.active.isNotEmpty) return TrayIconState.transferring;
+    if (state.failed.isNotEmpty) return TrayIconState.error;
     if (state.paused.isNotEmpty) return TrayIconState.paused;
     return TrayIconState.idle;
   }
@@ -143,8 +147,15 @@ class TrayService with TrayListener {
     }
   }
 
-  String _tooltip(TrayIconState state) {
-    final transfers = _container?.read(transfersProvider);
+  Future<void> _applyTooltip(TrayIconState state) async {
+    try {
+      await trayManager.setToolTip(_tooltip(state));
+    } catch (_) {
+      // 托盘不可用时忽略
+    }
+  }
+
+  String _tooltip(TrayIconState state) {    final transfers = _container?.read(transfersProvider);
     switch (state) {
       case TrayIconState.transferring:
         return 'OpenList · 传输中 ${transfers?.active.length ?? 0}';
@@ -157,13 +168,18 @@ class TrayService with TrayListener {
     }
   }
 
-  /// 只有两项：显示主界面 / 退出。
+  /// 只有两项：显示主界面 / 退出。菜单只在 attach / 重建图标时设置一次。
+  ///
+  /// 动作不挂在 MenuItem.onClick 上：tray_manager 的 Windows 实现会在
+  /// `_methodCallHandler` 里调用一次 onClick，同时又回调 [onTrayMenuItemClick]，
+  /// 双通道容易互相打架（v2.1 就出现过「退出执行两遍」）。现在统一由
+  /// [onTrayMenuItemClick] 按 key 分发，MenuItem 只带 key。
   Future<void> _rebuildMenu() async {
     final menu = Menu(
       items: [
-        MenuItem(key: 'show', label: '显示主界面', onClick: (item) => showMainWindow()),
+        MenuItem(key: 'show', label: '显示主界面'),
         MenuItem.separator(),
-        MenuItem(key: 'quit', label: '退出', onClick: (item) => _quit()),
+        MenuItem(key: 'quit', label: '退出'),
       ],
     );
     try {
@@ -210,7 +226,10 @@ class TrayService with TrayListener {
     }
   }
 
-  /// 唯一退出入口：串行、幂等、单次执行（K-02）。
+  /// 唯一退出入口：幂等、单次执行（K-02）。
+  ///
+  /// v2.6：清理改为并行 + 总超时 1.2s。之前四步串行、每步各自超时，
+  /// 最坏要等近 3 秒才 exit，用户以为「点了没退出」于是反复点菜单。
   Future<void> _quit() async {
     if (_quitting) return;
     _quitting = true;
@@ -223,39 +242,39 @@ class TrayService with TrayListener {
       _subscription = null;
     } catch (_) {}
 
-    // 2. 偏好落盘（便携版 userdata/prefs.json），避免退出时丢最后一次写入
+    // 2~4 并行：偏好落盘 / 关闭窗口拦截 / 移除托盘图标（NIM_DELETE）
+    final cleanup = <Future<void>>[
+      _ignore(() {
+        final container = _container;
+        if (container == null) return Future<void>.value();
+        return container.read(prefsProvider).flush();
+      }),
+      _ignore(() => windowManager.setPreventClose(false)),
+      _ignore(() => trayManager.destroy()),
+    ];
     try {
-      await _container?.read(prefsProvider).flush().timeout(const Duration(milliseconds: 800));
-    } catch (_) {}
+      await Future.wait(cleanup).timeout(const Duration(milliseconds: 1200));
+    } catch (_) {
+      // 超时也继续：退出比清理完整更重要
+    }
 
-    // 3. 关闭窗口拦截必须先关掉，否则 close/destroy 会被 hide 吃掉
-    try {
-      await windowManager.setPreventClose(false).timeout(const Duration(milliseconds: 500));
-    } catch (_) {}
-
-    // 4. 移除托盘图标（NIM_DELETE），避免残留占位
-    try {
-      await trayManager.destroy().timeout(const Duration(milliseconds: 800));
-    } catch (_) {}
-
-    // 5. 释放窗口与单实例锁，最后进程退出
-    try {
-      await windowManager.destroy().timeout(const Duration(milliseconds: 800));
-    } catch (_) {}
-
+    // 5. 释放窗口，最后进程退出
+    await _ignore(() => windowManager.destroy());
     exit(0);
+  }
+
+  /// 清理步骤一律不抛异常、不阻塞退出。
+  Future<void> _ignore(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {}
   }
 
   @override
   void onTrayIconMouseDown() {
-    // 左键双击才显示主界面：450ms 内的第二次按下视为双击。
-    final now = DateTime.now();
-    final last = _lastLeftClick;
-    _lastLeftClick = now;
-    if (last != null && now.difference(last) <= const Duration(milliseconds: 450)) {
-      _lastLeftClick = null;
-      showMainWindow();
-    }
+    // v2.6：单击即唤出主界面（Windows 托盘惯例）。之前的「450ms 内双击」
+    // 让用户以为图标是死的，连点几次才碰巧命中。
+    showMainWindow();
   }
 
   @override
@@ -265,9 +284,18 @@ class TrayService with TrayListener {
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    // tray_manager 0.2.x 的 Windows 插件已经在 _methodCallHandler 里调用过
-    // menuItem.onClick，这里再调一次会让「退出」执行两遍（K-02 直接原因之一）。
-    // 保持空实现，动作统一由 MenuItem.onClick 驱动。
+    // 唯一的动作入口：按 key 分发，靠 _quitting / showMainWindow 的幂等性
+    // 保证即使插件同时触发 onClick 也只执行一次。
+    switch (menuItem.key) {
+      case 'show':
+        showMainWindow();
+        break;
+      case 'quit':
+        _quit();
+        break;
+      default:
+        break;
+    }
   }
 }
 
