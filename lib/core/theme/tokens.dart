@@ -252,6 +252,18 @@ class OlPalette {
   );
 }
 
+/// 主题与断点快捷访问：`context.ol` 取当前调色板，`context.isNarrow` 判断窄屏。
+///
+/// 注意：extension 的**名字不会出现在使用处**（写的是 `context.ol`），
+/// 静态扫描"符号引用次数"会把它误判成死代码——v1.0.21 第一次提交就踩了这个坑，
+/// 已恢复并在此说明，后续清理请勿按名字统计判断 extension。
+extension OlThemeContext on BuildContext {
+  OlPalette get ol => Theme.of(this).brightness == Brightness.dark
+      ? OlPalette.dark
+      : OlPalette.light;
+  bool get isNarrow => MediaQuery.sizeOf(this).width < 900;
+}
+
 /// Text styles — 02 · Type scale：DISPLAY 32 / TITLE 20 / BODY 13 / CAPTION 10 / MICRO 9。
 class OlText {
   const OlText._();
