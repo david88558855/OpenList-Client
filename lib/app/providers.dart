@@ -68,7 +68,7 @@ class AppSettings {
 
   const AppSettings({
     this.themeMode = ThemeMode.system,
-    this.concurrency = 2,
+    this.concurrency = 3,
     this.downLimitKbps = 0,
     this.upLimitKbps = 0,
     this.closeToTray = true,
@@ -143,7 +143,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
           'dark' => ThemeMode.dark,
           _ => ThemeMode.system,
         },
-        concurrency: (raw['concurrency'] as num?)?.toInt() ?? 2,
+        concurrency: (raw['concurrency'] as num?)?.toInt() ?? 3,
         downLimitKbps: (raw['down_limit_kbps'] as num?)?.toInt() ?? 0,
         upLimitKbps: (raw['up_limit_kbps'] as num?)?.toInt() ?? 0,
         closeToTray: raw['close_to_tray'] as bool? ?? true,
