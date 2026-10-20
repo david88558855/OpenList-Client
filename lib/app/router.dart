@@ -7,7 +7,6 @@ import '../features/auth/login_page.dart';
 import '../features/auth/session.dart';
 import '../features/files/favorites_page.dart';
 import '../features/files/files_page.dart';
-import '../features/files/shares_page.dart';
 import '../features/media/player_page.dart';
 import '../features/search/search_page.dart';
 import '../features/servers/server_edit_page.dart';
@@ -48,17 +47,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/transfers', builder: (context, state) => const TransfersPage()),
       GoRoute(
         path: '/favorites',
-        // v1.0.14：分享独立成 /shares，旧链接（?tab=share）跳过去。
-        // v1.0.18：「最近使用」已移除，旧链接（?tab=recent）回到收藏。
+        // v1.0.18：「最近使用」已移除；v1.0.26：分享功能整体移除。
+        // 旧链接（?tab=recent / ?tab=share）统一回到收藏。
         redirect: (context, state) {
           final tab = state.uri.queryParameters['tab'];
-          if (tab == 'share') return '/shares';
-          if (tab == 'recent') return '/favorites';
+          if (tab == 'recent' || tab == 'share') return '/favorites';
           return null;
         },
         builder: (context, state) => const FavoritesPage(),
       ),
-      GoRoute(path: '/shares', builder: (context, state) => const SharesPage()),
       GoRoute(
         path: '/search',
         builder: (context, state) => SearchPage(initialQuery: state.uri.queryParameters['q'] ?? ''),

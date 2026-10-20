@@ -51,17 +51,6 @@ final storagesProvider = FutureProvider<List<StorageMount>>((ref) async {
   }
 });
 
-final sharesProvider = FutureProvider<List<ShareInfo>>((ref) async {
-  final session = ref.watch(sessionProvider);
-  final api = session.api;
-  if (api == null || !session.signedIn) return const [];
-  try {
-    return await api.shares();
-  } on ApiException catch (_) {
-    return const [];
-  }
-});
-
 class AppSettings {
   final ThemeMode themeMode;
   final int concurrency;

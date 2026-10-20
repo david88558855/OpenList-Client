@@ -222,33 +222,3 @@ class ServerTask {
         error: j['error']?.toString(),
       );
 }
-
-class ShareInfo {
-  final String id;
-  final String? name;
-  final String? files;
-  final String? link;
-  final DateTime? created;
-  final String? creator;
-  final int? visits;
-
-  const ShareInfo({
-    required this.id,
-    this.name,
-    this.files,
-    this.link,
-    this.created,
-    this.creator,
-    this.visits,
-  });
-
-  factory ShareInfo.fromJson(Map<String, dynamic> j) => ShareInfo(
-        id: (j['id'] ?? '').toString(),
-        name: j['name']?.toString(),
-        files: j['files']?.toString(),
-        link: j['link']?.toString(),
-        created: DateTime.tryParse((j['created'] ?? '').toString())?.toLocal(),
-        creator: j['creator']?.toString(),
-        visits: (j['visits'] as num?)?.toInt(),
-      );
-}

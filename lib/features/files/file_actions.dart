@@ -168,34 +168,19 @@ Future<void> downloadItem(BuildContext context, WidgetRef ref, FileItem item) as
   }
 }
 
-Future<void> shareItem(BuildContext context, WidgetRef ref, FileItem item) async {
-  final session = ref.read(sessionProvider);
-  final api = session.api;
-  if (api == null) return;
-  final path = item.parent ?? joinPath(ref.read(filesProvider).path, item.name);
-  final result = await showDialog<ShareRequest>(
-    context: context,
-    barrierColor: const Color(0x59091424),
-    builder: (_) => _ShareDialog(name: item.name),
-  );
-  if (result == null) return;
-  try {
-    final share = await api.createShare(path: path, expireDays: result.expireDays, password: result.password);
-    if (!context.mounted) return;
-    if (share == null) {
-      olToast(context, '服务端未返回分享信息', error: true);
-      return;
-    }
-    final link = share.link != null && share.link!.startsWith('http')
-        ? share.link!
-        : '${session.profile?.baseUrl ?? ''}/s/${share.id}';
-    await showDialog<void>(
-      context: context,
-      barrierColor: const Color(0x59091424),
-      builder: (_) => _ShareResultDialog(link: link, password: result.password, expireDays: result.expireDays),
-    );
-  } on ApiException catch (e) {
-    if (context.mounted) olToast(context, e.friendly, error: true);
+/// 批量下载（v1.0.26）。
+///
+/// 桌面与移动端共用这一个入口：文件逐个入队，文件夹单独提示。
+/// 文件夹递归下载（含全部子文件）需要先列出目录树再逐层入队，
+/// 方案见 docs/FOLDER-DOWNLOAD.md，落地后只需改这里的 dirs 分支。
+Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> items) async {
+  final files = items.where((e) => !e.isDir).toList();
+  final dirs = items.where((e) => e.isDir).toList();
+  for (final item in files) {
+    await downloadItem(context, ref, item);
+  }
+  if (dirs.isNotEmpty && context.mounted) {
+    olToast(context, '文件夹暂不支持直接下载，已跳过 ${dirs.length} 个', error: true);
   }
 }
 
@@ -390,8 +375,7 @@ class _PreviewBodyState extends State<_PreviewBody> {
   }
 }
 
-
-/// Row “more” menu + right-click menu share the same entries.
+/// Row “more” menu and the right-click menu use the same entries.
 /// 媒体类文件的「打开」动作（v2.4）。
 ///
 /// 之前只有视频 / 音频有入口，图片只能靠双击预览；现在点击即弹菜单，
@@ -436,12 +420,11 @@ Future<void> showItemMenu(
       );
 
   final openAction = _openAction(context, ref, item);
-  // v2.6：菜单顺序固定为 打开 / 收藏 / 分享 / 下载 / 重命名 / 移动 / 复制 / 删除。
-  // 之前「收藏」排在分享、下载之后，右键菜单和底部面板的次序还不一致。
+  // v1.0.26：分享功能整体移除，菜单固定为
+  // 打开 / 收藏 / 下载 / 重命名 / 移动 / 复制 / 删除。
   final entries = <OlMenuItem>[
     if (openAction != null) openAction,
     favoriteItem(),
-    OlMenuItem('分享', 'share', () => shareItem(context, ref, item)),
     if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
     OlMenuItem('重命名', 'edit', () => renameItem(context, ref, item)),
     OlMenuItem('移动到…', 'move', () => moveOrCopyItems(context, ref, targets, move: true)),
@@ -451,7 +434,7 @@ Future<void> showItemMenu(
 
   // A7：Android 用底部操作面板；Windows 用右键浮层。动作集合完全一致。
   if (Platform.isAndroid || context.isNarrow) {
-    const quickLabels = {'播放', '预览', '收藏', '取消收藏', '分享', '下载'};
+    const quickLabels = {'播放', '预览', '收藏', '取消收藏', '下载'};
     final quick = entries.where((e) => quickLabels.contains(e.label)).toList();
     await showOlActionSheet(
       context,
@@ -466,163 +449,6 @@ Future<void> showItemMenu(
   }
 
   await showOlMenu(context, position: position, items: entries);
-}
-
-class ShareRequest {
-  final int expireDays;
-  final String? password;
-  const ShareRequest(this.expireDays, this.password);
-}
-
-class _ShareDialog extends StatefulWidget {
-  final String name;
-  const _ShareDialog({required this.name});
-
-  @override
-  State<_ShareDialog> createState() => _ShareDialogState();
-}
-
-class _ShareDialogState extends State<_ShareDialog> {
-  int _days = 0;
-  final _password = TextEditingController();
-
-  @override
-  void dispose() {
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 380,
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-        decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(18), border: Border.all(color: p.line)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(color: const Color(0xFFEAF8FE), borderRadius: BorderRadius.circular(9)),
-                  child: const Center(child: OlIcon('share', size: 14, color: OlTokens.sky700)),
-                ),
-                const SizedBox(width: 9),
-                Expanded(child: Text('创建分享 · ${widget.name}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink))),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text('有效期', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.ink3)),
-            const SizedBox(height: 7),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final option in const [0, 1, 7, 30])
-                  OlChip(
-                    label: option == 0 ? '永久' : '$option 天',
-                    selected: _days == option,
-                    onTap: () => setState(() => _days = option),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('提取码（可选）', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.ink3)),
-            const SizedBox(height: 7),
-            OlField(controller: _password, icon: 'key', hint: '留空则无需提取码'),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Text('取消', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink3)),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                OlPrimaryButton(
-                  label: '创建分享',
-                  onTap: () => Navigator.of(context).pop(ShareRequest(_days, _password.text.trim().isEmpty ? null : _password.text.trim())),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ShareResultDialog extends StatelessWidget {
-  final String link;
-  final String? password;
-  final int expireDays;
-
-  const _ShareResultDialog({required this.link, this.password, required this.expireDays});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 420,
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-        decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(18), border: Border.all(color: p.line)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const OlIcon('check', size: 15, color: OlTokens.ok),
-                const SizedBox(width: 8),
-                Text('分享已创建', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
-                const Spacer(),
-                Text(expireDays == 0 ? '永久有效' : '$expireDays 天后过期', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: p.surfaceAlt, borderRadius: BorderRadius.circular(10), border: Border.all(color: p.line2)),
-              child: SelectableText(link, style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink2)),
-            ),
-            if (password != null) ...[
-              const SizedBox(height: 8),
-              Text('提取码：$password', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2)),
-            ],
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OlGhostButton(label: '关闭', onTap: () => Navigator.of(context).pop()),
-                const SizedBox(width: 8),
-                OlPrimaryButton(
-                  label: '复制链接',
-                  icon: 'copy',
-                  onTap: () async {
-                    await copyToClipboard(link);
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                      olToast(context, '链接已复制');
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Server-side directory picker used by move / copy (POST /api/fs/dirs).

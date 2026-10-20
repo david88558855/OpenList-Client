@@ -24,12 +24,12 @@
 | 登录 | 地址探测（`/api/public/settings`）、密码登录、API Token、两步验证码、内联错误提示、HTTP 仅内网放行 |
 | 多服务器 | 数量不限；**显示名称唯一、地址可重复**（同一实例可存多条不同账号/备注）；逐实例隔离下载目录与浏览位置；切换时可暂停旧任务；删除只移除本地配置 |
 | 文件浏览 | 分页（100/页，滚动续载）、面包屑、刷新、按名称/大小/修改时间排序、类型筛选、列表/网格、批量选择、拖拽上传、右键与三点菜单 |
-| 文件操作 | 上传、新建文件夹、重命名、删除、移动/复制（目录选择器）、下载、分享（有效期 + 提取码）、离线下载、预览 |
+| 文件操作 | 上传、新建文件夹、重命名、删除、移动/复制（目录选择器）、下载、离线下载、预览 |
 | 四态 | 空目录、骨架屏（400ms 延迟出现）、连接失败（含重试）、离线（读本地缓存） |
 | 搜索 | `Ctrl K` 命令面板、300ms 防抖、当前目录 / 全部挂载、键盘 ↑↓ + Enter |
 | 传输 | 下载（Range 续传 + 完整性校验）、上传、暂停/继续/重试、并发数、上下行限速（改完即时生效）、任务持久化、服务端离线任务列表 |
 | 播放 | media_kit 流式播放、续播、倍速、音量、同目录播放列表、同目录字幕自动挂载、播放失败可重试 |
-| 收藏 / 分享 | 收藏按实例存在本地；分享列表只读，点击跳浏览器 |
+| 收藏 | 按实例存在本地，可批量下载；不写入服务端 |
 | 桌面集成 | 托盘四态图标、双击显示主界面、关闭收窗、单实例（文件锁 + UDP 唤醒）、自绘标题栏 |
 
 ## 3. 平台与运行环境
@@ -130,7 +130,7 @@ lib/
     format.dart                # 字节、时间、路径格式化
   features/
     auth/                      # 登录页、会话（SessionNotifier）
-    files/                     # 文件页、收藏、分享、文件操作、controller
+    files/                     # 文件页（含 parts/）、收藏、文件操作、controller
     transfers/                 # 传输页与队列 controller
     search/                    # 搜索页
     media/                     # 播放器
@@ -152,8 +152,7 @@ docs/                          # PROJECT.md（架构）、CODE-REVIEW.md（审�
 | `/login` | 登录 |
 | `/files` | 文件（根路由 `/` 重定向至此） |
 | `/transfers` | 传输 |
-| `/favorites` | 收藏（`?tab=recent` / `?tab=share` 会重定向到对应新位置） |
-| `/shares` | 我的分享 |
+| `/favorites` | 收藏（旧链接 `?tab=recent` / `?tab=share` 会重定向回收藏） |
 | `/search` | 搜索 |
 | `/settings` `/settings/:tab` | 设置（`tab=root` 在 Android 显示「我的」列表） |
 | `/servers` `/servers/edit/:id` | 服务器管理 / 编辑 |
@@ -229,7 +228,6 @@ POST /api/auth/login              POST /api/fs/list            POST /api/fs/sear
 GET  /api/me                      POST /api/fs/get             POST /api/fs/dirs
 PUT  /api/fs/put                  POST /api/fs/mkdir           POST /api/fs/rename
 POST /api/fs/move                 POST /api/fs/copy            POST /api/fs/remove
-POST /api/share/create            GET  /api/share/list         POST /api/share/delete
 POST /api/fs/add_offline_download GET  /api/task/list
 GET  /api/admin/storage/list      GET  /api/public/settings
 GET  /d/<path>?sign=<sign>        （Range 直读，下载与播放共用）
@@ -240,5 +238,7 @@ GET  /d/<path>?sign=<sign>        （Range 直读，下载与播放共用）
 - 管理后台写操作不在客户端内（创建/编辑存储、用户、索引一律跳浏览器）。
 - Android 未做画中画与前台服务通知，后台传输依赖系统是否回收进程。
 - 搜索一次最多返回 100 条，未做翻页。
+- 批量下载支持文件；**选中文件夹时当前会跳过并提示**，文件夹递归下载的方案见 `docs/FOLDER-DOWNLOAD.md`。
+- 分享功能已移除（v1.0.26），`/api/share/*` 不再调用。
 - 仅提供 Windows 与 Android；macOS / Linux / iOS 未构建。
 - 官方 Release 的 APK 使用 debug 签名，正式分发请替换 keystore。

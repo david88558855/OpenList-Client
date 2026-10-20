@@ -12,17 +12,18 @@ import 'ol_icon.dart';
 /// 文件 / 收藏 / 分享 / 传输四个页面**共用这一份**，条目、顺序、badge、
 /// 行高、间距完全固定：
 ///
-///   所有文件 → 收藏 → 我的分享 → 传输任务 →（分隔线）→ 设置
+///   所有文件 → 收藏 → 传输任务 →（分隔线）→ 设置
 ///
 /// 之前每个页面各自硬编码列表：文件页是「最近使用 → 收藏」、收藏页是
 /// 「收藏 → 最近使用」，badge 也不一致（文件页给最近使用和分享计数、
 /// 传输页没有）。切页时整列会重排并上下跳一下，观感就是「导航栏错乱」。
 ///
 /// v1.0.18：按需求移除「最近使用」入口。
+/// v1.0.26：分享功能整体移除，「我的分享」入口一并删除。
 ///
 /// 页面独有的内容（挂载点 / 队列 / 存储）由调用方接在本组件后面。
 class WorkspaceNav extends ConsumerWidget {
-  /// 当前高亮的条目：files / favorites / shares / transfers / settings。
+  /// 当前高亮的条目：files / favorites / transfers / settings。
   final String active;
 
   const WorkspaceNav({super.key, required this.active});
@@ -32,7 +33,6 @@ class WorkspaceNav extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
     final serverId = profile?.id;
     final favorites = ref.watch(favoritesProvider).where((e) => e.serverId == serverId).length;
-    final shares = ref.watch(sharesProvider).valueOrNull?.length ?? 0;
     final transfers = ref.watch(transfersProvider).pendingCount;
 
     return Column(
@@ -48,13 +48,6 @@ class WorkspaceNav extends ConsumerWidget {
           badge: favorites,
           active: active == 'favorites',
           onTap: () => context.go('/favorites'),
-        ),
-        _NavRow(
-          icon: 'share',
-          label: '我的分享',
-          badge: shares,
-          active: active == 'shares',
-          onTap: () => context.go('/shares'),
         ),
         _NavRow(
           icon: 'arrow-down',

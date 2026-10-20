@@ -14,8 +14,7 @@ import '../../core/widgets/workspace_nav.dart';
 
 /// 收藏。
 ///
-/// v1.0.14：「我的分享」拆成独立页面 `/shares`。
-/// v1.0.18：按需求移除「最近使用」，这里只剩收藏一个列表（不再有标签切换）。
+/// v1.0.18：移除「最近使用」；v1.0.26：分享功能整体移除，这里只剩收藏列表。
 /// 左侧工作区导航 204 + 列表（Windows 行高 56 / Android 58）。
 class FavoritesPage extends ConsumerWidget {
   const FavoritesPage({super.key});

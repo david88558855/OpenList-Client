@@ -271,38 +271,6 @@ class OpenListApi {
         'delete_policy': deletePolicy,
       });
 
-  // ----------------------------------------------------------------- share
-
-  Future<List<ShareInfo>> shares({int page = 1, int perPage = 100}) async {
-    final data = await _get('/api/share/list', query: {'page': page, 'per_page': perPage});
-    if (data is Map && data['content'] is List) {
-      return (data['content'] as List)
-          .whereType<Map>()
-          .map((e) => ShareInfo.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    }
-    if (data is List) {
-      return data.whereType<Map>().map((e) => ShareInfo.fromJson(Map<String, dynamic>.from(e))).toList();
-    }
-    return const [];
-  }
-
-  Future<ShareInfo?> createShare({
-    required String path,
-    int expireDays = 0,
-    String? password,
-  }) async {
-    final data = await _post('/api/share/create', {
-      'path': path,
-      'expire_days': expireDays,
-      if (password != null && password.isNotEmpty) 'pwd': password,
-    });
-    if (data is Map) return ShareInfo.fromJson(Map<String, dynamic>.from(data));
-    return null;
-  }
-
-  Future<void> deleteShare(String id) => _post('/api/share/delete', {'id': id});
-
   // ------------------------------------------------------------- admin (A)
 
   Future<List<StorageMount>> storages() async {

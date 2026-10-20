@@ -170,6 +170,16 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                         ],
                       ),
                       if (_dragging) const _DropOverlay(),
+                      // v1.0.26：桌面批量模式之前只有复选框、没有任何操作条，
+                      // 等于「能选不能动」。这里补上与移动端同一套 _BatchBar。
+                      // bottom 42 是为了让开 30 高的状态栏。
+                      if (_batch)
+                        Positioned(
+                          left: 12,
+                          right: 12,
+                          bottom: 42,
+                          child: _batchBar(state, _filtered(state.items)),
+                        ),
                     ],
                   ),
                 ),
@@ -178,6 +188,30 @@ class _FilesPageState extends ConsumerState<FilesPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 批量操作条：桌面与移动端共用，动作集合完全一致。
+  Widget _batchBar(FilesState state, List<FileItem> items) {
+    return _BatchBar(
+      count: state.selected.length,
+      onSelectAll: () {
+        final notifier = ref.read(filesProvider.notifier);
+        final allSelected = items.isNotEmpty && items.every((e) => state.selected.contains(e.name));
+        if (allSelected) {
+          notifier.clearSelection();
+        } else {
+          notifier.selectOnly(items.map((e) => e.name));
+        }
+      },
+      onDownload: () => downloadItems(context, ref, state.selectedItems),
+      onMove: () => moveOrCopyItems(context, ref, state.selectedItems, move: true),
+      onCopy: () => moveOrCopyItems(context, ref, state.selectedItems, move: false),
+      onDelete: () => deleteItems(context, ref, state.selectedItems),
+      onExit: () => setState(() {
+        _batch = false;
+        ref.read(filesProvider.notifier).clearSelection();
+      }),
     );
   }
 
@@ -323,35 +357,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
               ),
             ),
           if (_batch)
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: _BatchBar(
-                count: state.selected.length,
-                onSelectAll: () {
-                  final notifier = ref.read(filesProvider.notifier);
-                  final allSelected = items.isNotEmpty && items.every((e) => state.selected.contains(e.name));
-                  if (allSelected) {
-                    notifier.clearSelection();
-                  } else {
-                    notifier.selectOnly(items.map((e) => e.name));
-                  }
-                },
-                onDownload: () async {
-                  for (final item in state.selectedItems) {
-                    await downloadItem(context, ref, item);
-                  }
-                },
-                onMove: () => moveOrCopyItems(context, ref, state.selectedItems, move: true),
-                onCopy: () => moveOrCopyItems(context, ref, state.selectedItems, move: false),
-                onDelete: () => deleteItems(context, ref, state.selectedItems),
-                onExit: () => setState(() {
-                  _batch = false;
-                  ref.read(filesProvider.notifier).clearSelection();
-                }),
-              ),
-            ),
+            Positioned(left: 12, right: 12, bottom: 12, child: _batchBar(state, items)),
           if (state.offline)
             Positioned(
               left: 0,
