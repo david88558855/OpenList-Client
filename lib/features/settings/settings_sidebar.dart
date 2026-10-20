@@ -4,25 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
 
-/// W6 设置侧栏。
+/// W6 设置侧栏（v1.0.14：设置与服务器管理都是独立的一级页面）。
 ///
-/// 顺序按 v2.1 设计稿：下载目录 / 传输 / 播放与预览 / 外观 / 关于与更新。
-/// v2.6：移除了「服务器管理」——它是独立页面（标题栏 / 移动端「我的」进入），
-/// 挂在设置分区里会让用户以为设置被塞进了服务器管理，且 push 过去以后回不来。
-/// 「通知」与「隐私与安全」已移除（其能力并入传输与关于）；「退出登录」放在关于页底部。
+/// 结构：返回 → 设置分区（下载目录 / 传输 / 播放与预览 / 外观 / 关于与更新）
+/// → 服务器管理（跳到独立页面，不是设置分区）。
+/// 两端都有自己的返回，互不嵌套：设置不再"挂在服务器管理下面"，
+/// 服务器管理页也不再带设置导航。
 class SettingsSidebar extends ConsumerWidget {
   final String active;
   final ValueChanged<String>? onSelect;
   const SettingsSidebar({super.key, required this.active, this.onSelect});
 
   static const items = <List<String>>[
-    // v2.3：下载目录排在传输之上，与移动端「我的」列表一致。
     ['download', '下载目录', 'download', '/settings/download'],
     ['transfer', '传输', 'arrow-down', '/settings/transfer'],
     ['playback', '播放与预览', 'play', '/settings/playback'],
@@ -35,7 +35,7 @@ class SettingsSidebar extends ConsumerWidget {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
 
-    void open(String key, String route) {
+    void openSection(String key, String route) {
       onSelect?.call(key);
       context.go(route);
     }
@@ -50,38 +50,22 @@ class SettingsSidebar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 独立页面必备的出口
+          _SideRow(icon: 'chev-l', label: '返回', onTap: () => goBackOrFiles(context)),
           const OlSectionLabel('设置'),
           for (final item in items)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () => open(item[0], item[3]),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: 31,
-                  margin: const EdgeInsets.only(bottom: 1),
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  decoration: BoxDecoration(
-                    color: active == item[0] ? p.navOnBg : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      OlIcon(item[2], size: 15, color: active == item[0] ? OlTokens.sky600 : p.navIcon),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item[1],
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active == item[0] ? p.navOn : p.nav),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _SideRow(
+              icon: item[2],
+              label: item[1],
+              active: active == item[0],
+              onTap: () => openSection(item[0], item[3]),
             ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            child: Divider(height: 1),
+          ),
+          // 服务器管理是独立页面，这里只负责跳转（用 push，返回能回到设置）
+          _SideRow(icon: 'server', label: '服务器管理', onTap: () => context.push('/servers')),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
@@ -101,5 +85,49 @@ class SettingsSidebar extends ConsumerWidget {
     if (Platform.isMacOS) return 'macOS';
     if (Platform.isLinux) return 'Linux';
     return Platform.operatingSystem;
+  }
+}
+
+class _SideRow extends StatelessWidget {
+  final String icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _SideRow({required this.icon, required this.label, required this.onTap, this.active = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 31,
+          margin: const EdgeInsets.only(bottom: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          decoration: BoxDecoration(
+            color: active ? p.navOnBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

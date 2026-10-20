@@ -33,14 +33,6 @@ if (Test-Path $iconSrc) {
 
 Write-Host "== OpenList Client $Version · Windows x64 portable =="
 
-# 设计稿硬隔离（永久规则）：编译前物理剔除 design/ 及其下所有文件。
-# 不依赖 pubspec 白名单，也不依赖打包器"碰巧"不读它 —— 编译期该目录根本不存在。
-if (Test-Path "design") {
-    $cnt = (Get-ChildItem -Recurse -File "design" -ErrorAction SilentlyContinue | Measure-Object).Count
-    Write-Host "==> 剔除 design/（$cnt 个文件）：仅视觉参照，永不参与编译" -ForegroundColor Cyan
-    Remove-Item -Recurse -Force "design"
-}
-
 & $Flutter config --no-analytics | Out-Null
 & $Flutter --version
 if ($LASTEXITCODE -ne 0) { throw "flutter --version 失败" }
@@ -51,12 +43,6 @@ if ($LASTEXITCODE -ne 0) { throw "flutter build windows 失败" }
 
 $bundle = "build\windows\x64\runner\Release"
 if (-not (Test-Path $bundle)) { throw "构建产物不存在：$bundle" }
-
-# 设计稿隔离断言：design/ 编译期必须不存在，且不应出现在资源里
-if (Test-Path "design") { throw "FAIL: 编译结束后 design/ 仍存在，剔除步骤未生效" }
-if (Test-Path (Join-Path $bundle "data\flutter_assets\design")) {
-    throw "FAIL: 设计稿进入了 flutter_assets"
-}
 
 New-Item -ItemType Directory -Force -Path dist | Out-Null
 $name = "OpenList-Client-$Version-windows-x64-portable"

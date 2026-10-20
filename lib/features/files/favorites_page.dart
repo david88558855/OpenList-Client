@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
@@ -12,9 +11,9 @@ import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 
-/// 收藏 / 最近使用 / 我的分享。
+/// 收藏 / 最近使用。
 ///
-/// 设计稿把这三项放在文件页工作区的二级入口，这里沿用同一套视觉语言：
+/// v1.0.14：「我的分享」已拆成独立页面 `/shares`，这里只保留收藏与最近使用。
 /// 左侧工作区导航 204 + 列表（Windows 行高 56 / Android 58）。
 class FavoritesPage extends ConsumerStatefulWidget {
   final String initialTab;
@@ -28,7 +27,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   late String _tab = _normalize(widget.initialTab);
 
   static String _normalize(String tab) {
-    if (tab == 'recent' || tab == 'share') return tab;
+    if (tab == 'recent') return tab;
     return 'star';
   }
 
@@ -94,7 +93,13 @@ class _Sidebar extends ConsumerWidget {
                 _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
                 _NavRow(icon: 'star', label: '收藏', badge: entries, active: tab == 'star', onTap: () => onTab('star')),
                 _NavRow(icon: 'clock', label: '最近使用', badge: recent, active: tab == 'recent', onTap: () => onTab('recent')),
-                _NavRow(icon: 'share', label: '我的分享', badge: shares, active: tab == 'share', onTap: () => onTab('share')),
+                _NavRow(icon: 'share', label: '我的分享', badge: shares, onTap: () => context.go('/shares')),
+                _NavRow(icon: 'arrow-down', label: '传输任务', onTap: () => context.go('/transfers')),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  child: Divider(height: 1),
+                ),
+                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
                 const OlSectionLabel('存储'),
                 if (profile != null)
                   Padding(
@@ -193,30 +198,31 @@ class _DesktopBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    final title = tab == 'recent' ? '最近使用' : (tab == 'share' ? '我的分享' : '收藏');
+    final title = tab == 'recent' ? '最近使用' : '收藏';
     return ColoredBox(
       color: p.card,
       child: Column(
         children: [
           Container(
             height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
             child: Row(
               children: [
+                OlIconButton(icon: 'chev-l', size: 30, iconSize: 17, tooltip: '返回', onTap: () => goBackOrFiles(context)),
+                const SizedBox(width: 8),
                 Text(title, style: TextStyle(fontSize: 18, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: p.ink)),
                 const SizedBox(width: 14),
                 OlSeg<String>(
                   items: const [
                     OlSegItem('star', '收藏', icon: 'star'),
                     OlSegItem('recent', '最近', icon: 'clock'),
-                    OlSegItem('share', '分享', icon: 'share'),
                   ],
                   value: tab,
                   onChanged: onTab,
                 ),
                 const Spacer(),
-                OlGhostButton(label: '返回文件', icon: 'folder', height: 30, onTap: () => context.go('/files')),
+                OlGhostButton(label: '刷新', icon: 'refresh', height: 30, onTap: () => context.go('/favorites?tab=$tab')),
               ],
             ),
           ),
@@ -239,14 +245,17 @@ class _MobileBody extends StatelessWidget {
       color: p.card,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 14, OlGap.pageMobile, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                tab == 'recent' ? '最近使用' : (tab == 'share' ? '我的分享' : '收藏'),
-                style: TextStyle(fontSize: 23, letterSpacing: -0.8, fontWeight: FontWeight.w800, color: p.ink),
-              ),
+          SizedBox(
+            height: 54,
+            child: Row(
+              children: [
+                OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => goBackOrFiles(context)),
+                const SizedBox(width: 2),
+                Text(
+                  tab == 'recent' ? '最近使用' : '收藏',
+                  style: TextStyle(fontSize: 17, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -256,8 +265,6 @@ class _MobileBody extends StatelessWidget {
                 OlChip(label: '收藏', selected: tab == 'star', onTap: () => onTab('star')),
                 const SizedBox(width: 7),
                 OlChip(label: '最近', selected: tab == 'recent', onTap: () => onTab('recent')),
-                const SizedBox(width: 7),
-                OlChip(label: '分享', selected: tab == 'share', onTap: () => onTab('share')),
               ],
             ),
           ),
@@ -276,7 +283,6 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tab == 'recent') return const _RecentList();
-    if (tab == 'share') return const _ShareList();
     return const _FavoriteList();
   }
 }
@@ -369,73 +375,8 @@ class _RecentList extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // 我的分享（只读 + 浏览器打开）
 // ---------------------------------------------------------------------------
-class _ShareList extends ConsumerWidget {
-  const _ShareList();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final shares = ref.watch(sharesProvider);
-    return shares.when(
-      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      error: (error, stack) => OlEmptyState(
-        icon: 'alert',
-        title: '无法读取分享列表',
-        subtitle: '$error',
-        action: OlGhostButton(label: '重试', icon: 'refresh', onTap: () => ref.invalidate(sharesProvider)),
-      ),
-      data: (items) {
-        if (items.isEmpty) {
-          return const OlEmptyState(
-            icon: 'share',
-            title: '还没有分享',
-            subtitle: '在文件上右键选「分享」，创建带提取码的链接',
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-          itemCount: items.length,
-          separatorBuilder: (context, index) => Divider(height: 1, color: context.ol.divider),
-          itemBuilder: (context, index) {
-            final share = items[index];
-            return _EntryRow(
-              leading: const IconTile(icon: 'link'),
-              name: share.name ?? share.files ?? '分享 ${share.id}',
-              subtitle: share.link ?? '/s/${share.id}',
-              trailing: share.visits == null ? '' : '${share.visits} 次访问',
-              onOpen: () async {
-                final link = share.link;
-                if (link == null || link.isEmpty) {
-                  olToast(context, '该分享没有可用链接', error: true);
-                  return;
-                }
-                final uri = Uri.tryParse(link);
-                if (uri == null) return;
-                final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-                if (!ok && context.mounted) olToast(context, '无法打开浏览器', error: true);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-}
 
 /// 分享行使用图标底（非文件图标）。
-class IconTile extends StatelessWidget {
-  final String icon;
-  const IconTile({super.key, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(color: const Color(0xFFE6F7FE), borderRadius: BorderRadius.circular(9)),
-      child: Center(child: OlIcon(icon, size: 16, color: const Color(0xFF0A93C4))),
-    );
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 通用行

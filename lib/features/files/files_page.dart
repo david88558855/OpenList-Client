@@ -397,13 +397,20 @@ class _Sidebar extends ConsumerWidget {
                   badge: favorites.where((e) => e.serverId == serverId).length,
                   onTap: () => context.go('/favorites'),
                 ),
-                _NavRow(icon: 'share', label: '我的分享', onTap: () => context.go('/favorites?tab=share')),
+                _NavRow(icon: 'share', label: '我的分享', onTap: () => context.go('/shares')),
                 _NavRow(
                   icon: 'arrow-down',
                   label: '传输任务',
                   badge: transfers.pendingCount,
                   onTap: () => context.go('/transfers'),
                 ),
+                // v1.0.14：「设置」从服务器管理里挪到工作区，排在传输任务之下。
+                // 之前桌面只能从服务器管理页进设置，看起来像设置被塞进了服务器管理。
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  child: Divider(height: 1),
+                ),
+                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
                 const OlSectionLabel('挂载点'),
                 if (storages.isEmpty)
                   Padding(

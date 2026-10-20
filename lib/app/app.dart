@@ -95,7 +95,7 @@ class OlDarkScaffold extends StatelessWidget {
   }
 }
 
-/// 1px hairline that collapses in dark mode exactly like the design.
+/// 1px hairline; follows the palette so it fades out in dark mode.
 class OlHairline extends StatelessWidget {
   final bool horizontal;
   const OlHairline({super.key, this.horizontal = true});

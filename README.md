@@ -58,26 +58,26 @@ git push origin v1.0.2
 工作流权限用仓库自带的 `GITHUB_TOKEN`（`permissions: contents: write`），无需额外 Secret。
 也可以在 Actions 页面用 `workflow_dispatch` 手动跑一次。
 
-## 画板对照
+## 模块对照
 
 | 画板 | 实现文件 | 说明 |
 | --- | --- | --- |
 | W1 连接服务器 | `lib/features/auth/login_page.dart` | 左侧艺术面板 + 右侧表单，地址探测、密码 / Token / 两步验证、最近服务器 |
-| W2 文件管理 | `lib/features/files/files_page.dart` | 三栏：挂载点 / 列表 / 详情；面包屑、多选、排序、筛选、拖拽上传、右键菜单 |
+| W2 文件管理 | `lib/features/files/files_page.dart` | 两栏：挂载点 / 列表（详情面板已于 v1.0.14 移除）；面包屑、多选、排序、筛选、拖拽上传、右键菜单 |
 | W3 传输中心 | `lib/features/transfers/transfers_page.dart` | 速度卡 + 曲线、四宫格、任务队列、限速与并发 |
 | W4 跨盘搜索 | `lib/features/search/search_page.dart` | 命令面板（Ctrl K）、300ms 防抖、范围 0/1、键盘上下选择 |
 | W5 播放器 | `lib/features/media/player_page.dart` | 强制深色、Range seek、倍速、音量、同目录播放列表、字幕自动匹配 |
-| W6 设置 | `lib/features/settings/settings_page.dart` | 账户、存储只读、传输、播放、外观、通知、隐私、关于 |
+| W6 设置 | `lib/features/settings/settings_page.dart` | 独立一级页面（带返回）：下载目录、传输、播放与预览、外观、关于与更新；侧栏可跳服务器管理 |
 | W7 深色文件页 | 同一套布局 + `OlPalette.dark` | 跟随系统 / 手动切换，播放器始终深色 |
-| W8 服务器管理 | `lib/features/servers/servers_page.dart` + `server_form.dart` | 左侧列表点选、右侧同屏编辑、搜索与状态筛选、导入导出 |
-| W9 托盘 | `lib/platform/windows/tray.dart` | 四态图标、左键双击显示、右键两项菜单（显示主界面 / 退出）、关闭只收起、单实例 |
+| W8 服务器管理 | `lib/features/servers/servers_page.dart` + `server_form.dart` | 独立一级页面（带返回）：左侧列表点选、右侧同屏编辑、搜索与状态筛选、导入导出 |
+| W9 托盘 | `lib/platform/windows/tray.dart` | 四态图标、左键单击显示、右键两项菜单（显示主界面 / 退出）、关闭只收起、单实例 |
 | A1 登录 | 同上登录页（窄屏分支） | 深色沉浸、玻璃表单、最近服务器 |
 | A2 文件 | `files_page.dart` 移动分支 | 存储卡横滑、类型 chips、长按操作面板、下拉刷新、FAB |
 | A3 传输 | `transfers_page.dart` 移动分支 | 速率卡 + 分组 chips + 任务卡 |
 | A4 搜索 | `search_page.dart` 移动分支 | 搜索条、范围切换、分组结果 |
 | A5 播放 | `player_page.dart` | 全屏媒体 + 自定义控制条 |
 | A6 我的 | `settings_page.dart` 移动分支 | 头像 / 实例 / 统计 + 设置列表 |
-| A7 文件操作面板 | `files_page.dart` → `_showMobileSheet` | 播放 / 下载 / 分享 / 收藏 + 重命名 / 移动 / 复制 / 删除 |
+| A7 文件操作面板 | `files_page.dart` → 行尾三点菜单 | 打开 / 收藏 / 分享 / 下载 + 重命名 / 移动 / 复制 / 删除 |
 | A8 服务器 | `servers_page.dart` 移动分支 + `server_edit_page.dart` | 当前实例卡、其余实例卡、切换行为、导入导出 |
 
 ## 已实现
@@ -108,128 +108,9 @@ lib/
 android/          # 完整可构建的 Android 工程（minSdk 26 / compileSdk 35）
 assets/tray/      # 托盘四态图标（运行时资源白名单内）
 assets/windows/   # app_icon.ico（exe 图标，与 Android 启动图标同源，构建时注入）
-design/           # 设计稿原件（只作视觉依据，不参与构建，见下节）
 tool/             # Windows 平台引导与打包脚本（仅便携版）
 .github/workflows/build.yml  # GitHub Actions：Android arm64 APK + Windows x64 便携包
 ```
-
-## 设计稿隔离（design/）
-
-单文件设计稿已随仓库提交：`design/OpenList-Client-Design.html`（v1.3，W1–W9 / A1–A8）。
-它只作为视觉与交互依据，**构建、分析、打包全流程都不会读取或处理它**。
-
-### 为什么不能只靠 .gitignore
-
-`.gitignore` 只过滤**未跟踪**文件，它既不决定构建行为，也无法把已入库文件“排除出构建”。
-所以这里用「强制入库 + 忽略规则 + 三层构建隔离」组合：
-
-1. **强制入库一次**：`git add -f design/OpenList-Client-Design.html`。
-   之后该文件仍被 Git 正常跟踪（可 diff / 检出 / 归档），`.gitignore` 不会让它从仓库消失。
-2. **忽略规则**：挡住 `design/` 下后续产生的导出图、截图、临时副本，避免被顺手提交；
-   同时让任何按目录扫描仓库的脚本把 `design/` 视为非源码目录。
-3. **构建隔离**：Flutter 只编译 `lib/`、只打包 `pubspec.yaml` 中 `assets:` 白名单里的资源；
-   分析器 exclude `design/**`；CI 再对产物做反查断言。
-4. **编译期物理剔除（硬规则）**：两个构建脚本在调用 `flutter build` 之前执行
-   `rm -rf design`（PowerShell 为 `Remove-Item -Recurse -Force design`），
-   构建结束后断言 `design/` 已不存在、且产物中不含设计稿，任一条不满足即构建失败。
-   克隆/归档层面另有 `.gitattributes` 的 `design/ export-ignore`，`git archive` 生成的源码包
-   不包含该目录。（GitHub 页面的 zipball/tarball 由 GitHub 自行打包、不读 `export-ignore`，
-   所以不把它当作保障，编译侧一律以脚本物理剔除为准。）
-
-> **永久规定**：不得以任何理由让 `design/` 参与编译、打包或进入资源清单。
-> 新增构建入口（新 job、新脚本、本地命令）必须复用 `tool/ci_build_android.sh` /
-> `tool/ci_build_windows.ps1`，或自行在编译前剔除 `design/` 并做同样的产物断言。
-
-### .gitignore 中的具体配置
-
-```gitignore
-# 设计稿（随仓库分发，但永不参与构建 / 打包）
-# 语义：.gitignore 只作用于未跟踪文件；本文件已用 git add -f 强制入库。
-design/
-design/**/*.html
-design/**/*.htm
-
-# 生成物与平台临时文件（与设计稿无关，节选）
-build/
-.dart_tool/
-android/.gradle/
-windows/flutter/ephemeral/
-```
-
-配合的两处声明：
-
-```yaml
-# analysis_options.yaml —— 分析器不读设计稿
-analyzer:
-  exclude:
-    - "**/*.g.dart"
-    - design/**
-```
-
-```yaml
-# pubspec.yaml —— 资源是白名单，只有托盘图标会进包
-flutter:
-  uses-material-design: false
-  assets:
-    - assets/tray/
-```
-
-`.github/workflows/build.yml` 的两个 job 都会执行「设计稿隔离校验」：在 `build/flutter_assets`、
-`AssetManifest.json` 与最终 APK / zip 里反查 `design` / `OpenList-Client-Design`，命中即让 job 失败。
-
-### 如何验证构建确实忽略了设计稿
-
-本地（验证 git 侧规则）：
-
-```bash
-# 1) 规则命中：--no-index 表示“忽略索引状态，只查 ignore 规则”
-git check-ignore -v --no-index design/OpenList-Client-Design.html
-# 预期输出：.gitignore:43:design/	design/OpenList-Client-Design.html
-
-# 2) 仍被跟踪：证明它是入库文件，不是被 gitignore 挡在仓库外
-git ls-files design/
-# 预期输出：design/OpenList-Client-Design.html
-
-# 3) 不带 --no-index 时 check-ignore 退出码为 1、无输出 —— 这正是“已跟踪文件
-#    不受 ignore 影响”的证据（ignore 只挡未跟踪文件）
-git check-ignore -v design/OpenList-Client-Design.html; echo "exit=$?"
-# 预期：exit=1
-
-# 4) design/ 下新增的临时副本会被规则挡住
-touch design/tmp-export.png
-git check-ignore -v design/tmp-export.png
-# 预期：.gitignore:43:design/	design/tmp-export.png
-rm design/tmp-export.png
-```
-
-本地（验证构建侧隔离，任选其一）：
-
-```bash
-flutter pub get
-flutter build apk --release --target-platform android-arm64
-
-# 1) 资源目录里不应出现设计稿
-find build/flutter_assets -iname '*design*'
-# 预期：无输出
-
-# 2) 资源清单不应声明设计稿
-grep -i "OpenList-Client-Design" build/flutter_assets/AssetManifest.json
-# 预期：无输出（退出码 1）
-
-# 3) APK 包内不应包含设计稿
-unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -i "OpenList-Client-Design"
-# 预期：无输出
-```
-
-CI 侧：打开 GitHub Actions 该次 run 的 `构建 APK（含设计稿隔离断言）` 步骤日志，末尾应出现
-
-```
-== 设计稿隔离校验 ==
-设计稿已入库（仅文档用途），大小 278376 字节
-OK: 设计稿未进入任何构建产物
-```
-
-若出现 `FAIL: APK 中出现设计稿`，job 会直接失败——这就是“构建确实忽略设计稿”的可执行证据。
 
 ## 构建
 
@@ -307,5 +188,5 @@ GET  /d/<path>?sign=<sign>          （Range 直读，下载与播放共用）
 | 传输 | 暂停/继续/重试、重启续传、限速、并发、托盘速率状态 |
 | 播放 | Range seek、字幕、断点续播、倍速，非阻塞 UI |
 | 主题 | 默认跟随系统，播放器强制深色 |
-| 托盘 | 四态图标、左键打开、右键菜单、关闭收进托盘、单实例、仅「退出」结束进程 |
+| 托盘 | 四态图标、左键单击打开、右键菜单可用、关闭收进托盘、单实例、仅「退出」结束进程 |
 | 安全 | 凭据仅入系统安全存储，日志与 prefs 无明文，HTTP 仅内网 |

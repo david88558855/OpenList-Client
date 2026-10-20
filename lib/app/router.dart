@@ -7,6 +7,7 @@ import '../features/auth/login_page.dart';
 import '../features/auth/session.dart';
 import '../features/files/favorites_page.dart';
 import '../features/files/files_page.dart';
+import '../features/files/shares_page.dart';
 import '../features/media/player_page.dart';
 import '../features/search/search_page.dart';
 import '../features/servers/server_edit_page.dart';
@@ -47,16 +48,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/transfers', builder: (context, state) => const TransfersPage()),
       GoRoute(
         path: '/favorites',
+        // v1.0.14：分享已独立成 /shares，旧链接（?tab=share）直接跳过去。
+        redirect: (context, state) =>
+            state.uri.queryParameters['tab'] == 'share' ? '/shares' : null,
         builder: (context, state) => FavoritesPage(initialTab: state.uri.queryParameters['tab'] ?? 'star'),
       ),
+      GoRoute(path: '/shares', builder: (context, state) => const SharesPage()),
       GoRoute(
         path: '/search',
         builder: (context, state) => SearchPage(initialQuery: state.uri.queryParameters['q'] ?? ''),
       ),
       GoRoute(
         path: '/settings',
-        // v2.6：设置默认落在「外观」。服务器管理已从设置分区移出，成为独立页面。
-        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'appearance'),
+        // v1.0.14：'root' 是显式哨兵——Android 用它判定「显示我的列表」，
+        // 桌面用它归一化成外观分区。之前这里传 'appearance'，移动端把根列表整个跳过了。
+        builder: (context, state) => SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'root'),
       ),
       // 设置分区用独立路径：只改 query 时同一条路由不会重建页面，
       // 表现为「点了没反应」（v1.0.5 的 bug）。

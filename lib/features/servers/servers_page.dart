@@ -96,8 +96,7 @@ class _ServersPageState extends ConsumerState<ServersPage> {
         _ServersRail(
           current: session.profile,
           count: serversState.count,
-          onBack: () => context.go('/files'),
-          onSettings: () => context.go('/settings/appearance'),
+          onBack: () => goBackOrFiles(context),
         ),
         Expanded(
           child: Container(
@@ -507,19 +506,17 @@ class _ServersPageState extends ConsumerState<ServersPage> {
   }
 }
 
-/// 服务器管理自己的左栏：只放导航（返回 / 设置）与当前实例摘要。
-/// 与「设置」侧栏解耦——设置分区里不再出现「服务器管理」。
+/// 服务器管理自己的左栏：只有「返回」与当前实例摘要。
+/// 它是独立一级页面，不再带任何设置导航（v1.0.14：设置已挪到工作区）。
 class _ServersRail extends StatelessWidget {
   final ServerProfile? current;
   final int count;
   final VoidCallback onBack;
-  final VoidCallback onSettings;
 
   const _ServersRail({
     required this.current,
     required this.count,
     required this.onBack,
-    required this.onSettings,
   });
 
   @override
@@ -563,8 +560,7 @@ class _ServersRail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const OlSectionLabel('导航'),
-          item('chev-l', '返回文件', onBack),
-          item('settings', '设置', onSettings),
+          item('chev-l', '返回', onBack),
           const OlSectionLabel('当前实例'),
           Container(
             margin: const EdgeInsets.only(top: 2),

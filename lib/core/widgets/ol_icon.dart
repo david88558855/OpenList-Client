@@ -3,8 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/tokens.dart';
 
-/// All icons are stroke-only vector glyphs transcribed from the design file's
-/// inline sprite. No raster assets, no icon fonts.
+/// All icons are stroke-only vector glyphs drawn on a 24×24 grid to match the
+/// app's line style. No raster assets, no icon fonts.
 class _Glyph {
   final String body;
   final bool fillable;

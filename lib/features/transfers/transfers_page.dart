@@ -142,8 +142,15 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 12, OlGap.pageMobile, 8),
-              child: Text('传输', style: TextStyle(fontSize: 23, letterSpacing: -0.8, fontWeight: FontWeight.w800, color: p.ink)),
+              // v1.0.14：Android 也给显式返回（之前只能靠底部 tab 或系统返回）。
+              padding: const EdgeInsets.fromLTRB(10, 8, OlGap.pageMobile, 8),
+              child: Row(
+                children: [
+                  OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => goBackOrFiles(context)),
+                  const SizedBox(width: 2),
+                  Text('传输', style: TextStyle(fontSize: 18, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink)),
+                ],
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -256,6 +263,12 @@ class _QueueSidebar extends ConsumerWidget {
                 const OlSectionLabel('工作区'),
                 _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
                 _NavRow(icon: 'star', label: '收藏', onTap: () => context.go('/favorites')),
+                _NavRow(icon: 'share', label: '我的分享', onTap: () => context.go('/shares')),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  child: Divider(height: 1),
+                ),
+                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
                 const OlSectionLabel('队列'),
                 _NavRow(
                   icon: 'layers',
@@ -424,6 +437,9 @@ class _TopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          // v1.0.14：传输是独立页面，顶部给显式返回。
+          OlIconButton(icon: 'chev-l', size: 30, iconSize: 17, tooltip: '返回', onTap: () => goBackOrFiles(context)),
+          const SizedBox(width: 6),
           Text('传输中心', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
           const SizedBox(width: 4),
           OlIcon('chev-r', size: 12, color: p.ink4),

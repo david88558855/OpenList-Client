@@ -5,8 +5,6 @@ analyzer:
     invalid_annotation_target: ignore
   exclude:
     - "**/*.g.dart"
-    # 设计稿只作视觉依据，不参与分析
-    - design/**
     - build/**
     - android/**
 

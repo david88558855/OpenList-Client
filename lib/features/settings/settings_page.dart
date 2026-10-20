@@ -25,7 +25,7 @@ import 'settings_sidebar.dart';
 /// 是 v1.0.5「设置分区点不开」的根因。
 class SettingsPage extends ConsumerStatefulWidget {
   final String tab;
-  const SettingsPage({super.key, this.tab = 'appearance'});
+  const SettingsPage({super.key, this.tab = 'root'});
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -35,6 +35,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late String _tab = widget.tab;
 
   static const _known = {'servers', 'transfer', 'download', 'playback', 'appearance', 'about'};
+
+  /// 桌面内容区实际渲染的分区：`root` 归一化为外观。
+  String get _section => _tab == 'root' ? 'appearance' : _tab;
 
   @override
   void didUpdateWidget(covariant SettingsPage oldWidget) {
@@ -51,8 +54,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (context.isNarrow) {
-      // A6：/settings 是「我的」列表；/settings/<tab> 是分区页（带返回）。
-      final showList = _tab == 'servers' || _tab == 'profile' || !_known.contains(_tab);
+      // A6：/settings 是「我的」列表（tab == 'root'）；分区页带返回。
+      // v1.0.14：判定从「tab 名是否等于 servers」改成显式哨兵 root，
+      // 否则把默认 tab 换成 appearance 时根列表会被整段跳过（选项全部消失）。
+      final showList = _tab == 'root' || _tab == 'servers' || _tab == 'profile' || !_known.contains(_tab);
       if (showList) return const AppFrame(navIndex: 3, handleBack: true, child: _MobileSettings());
       return _MobileSectionPage(tab: _tab);
     }
@@ -61,7 +66,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       handleBack: true,
       child: Row(
         children: [
-          SettingsSidebar(active: _tab, onSelect: _select),
+          SettingsSidebar(active: _section, onSelect: _select),
           Expanded(
             child: ColoredBox(
               color: context.ol.card,
@@ -69,7 +74,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 760),
-                  child: _SectionBody(section: _tab),
+                  child: _SectionBody(section: _section),
                 ),
               ),
             ),

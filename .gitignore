@@ -33,11 +33,6 @@ android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 # Flutter 官方模板生成的 Windows runner（构建时现场生成，不入库；只忽略根目录）
 /windows/
 
-# 设计稿必须随仓库提交：显式反向声明，防止被上面更宽的模式吞掉。
-# 构建侧靠 analysis_options / pubspec / packagingOptions / 打包脚本把它排除在产物之外。
-!design/
-!design/**
-
 # 本地临时文件
 run.json
 jobs.json

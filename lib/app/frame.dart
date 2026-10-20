@@ -144,6 +144,18 @@ double _systemBottomInset(MediaQueryData mq) {
   return mq.viewPadding.bottom;
 }
 
+/// 返回上一页：能从路由栈里退就退，否则回文件页。
+///
+/// 桌面主页面（传输 / 收藏 / 分享 / 设置 / 服务器管理）都是平级 `go` 出来的，
+/// 没有可 pop 的栈，所以统一兜底到 `/files`；从其它页面 push 进来时正常出栈。
+void goBackOrFiles(BuildContext context) {
+  if (GoRouter.of(context).canPop()) {
+    context.pop();
+  } else {
+    context.go('/files');
+  }
+}
+
 class OlTitleBar extends ConsumerWidget {
   const OlTitleBar({super.key});
 
