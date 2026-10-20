@@ -137,6 +137,8 @@ class AppSettings {
         'wifi_only': wifiOnly,
         'background_transfer': backgroundTransfer,
         'playback_speed': playbackSpeed,
+        // v1.0.22：读取侧一直在读 last_latency，写入侧之前漏了，导致值永远拿不到
+        if (lastLatency != null) 'last_latency': lastLatency,
       };
 }
 

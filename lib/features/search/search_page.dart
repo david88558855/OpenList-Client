@@ -96,10 +96,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final parent = currentOnly ? ref.read(filesProvider).path : '/';
     final seq = ++_seq;
     try {
+      // v1.0.22：默认 50 条会把结果静默截断，提到 100（分页仍未做，页面会提示）
       final results = await api.search(
         parent: parent,
         keywords: keyword,
         scope: currentOnly ? 1 : 0,
+        perPage: 100,
       );
       // 防抖期间可能有多个请求在飞，只接受最后一次的结果。
       if (!mounted || seq != _seq) return;

@@ -217,8 +217,26 @@ Future<void> _pick(BuildContext context, WidgetRef ref, ServerProfile profile) a
     if (go) await StorageAccess.requestAllFiles();
     return;
   }
-  final picked = await FilePicker.platform.getDirectoryPath(dialogTitle: '选择下载目录');
+  // v1.0.22：选择器可能抛 PlatformException / MissingPluginException，
+  // 以前会直接冒到未处理异步区，界面上什么都不发生。
+  String? picked;
+  try {
+    picked = await FilePicker.platform.getDirectoryPath(dialogTitle: '选择下载目录');
+  } catch (error) {
+    if (context.mounted) olToast(context, '打开目录选择器失败：$error', error: true);
+    return;
+  }
   if (picked == null || picked.isEmpty) return;
+  // 选完立刻验证可写，避免把不可写路径存下来（之后每次下载都静默回退）
+  try {
+    await Directory(picked).create(recursive: true);
+    final probe = File('$picked${Platform.pathSeparator}.ol_write_test');
+    await probe.writeAsString('ok', flush: true);
+    await probe.delete();
+  } catch (error) {
+    if (context.mounted) olToast(context, '该目录不可写，请换一个：$error', error: true);
+    return;
+  }
   await ref.read(serverStoreProvider).saveDownloadDir(profile.id, picked);
   if (context.mounted) olToast(context, '下载目录已更新');
 }

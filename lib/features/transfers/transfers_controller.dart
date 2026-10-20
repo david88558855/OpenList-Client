@@ -440,10 +440,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     return ensureDownloadDirFor(ref.read(serverStoreProvider), profile);
   }
 
-  String _safeName(String value) {
-    final sanitized = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
-    return sanitized.isEmpty ? 'item' : sanitized;
-  }
+  /// v1.0.22：文件名清洗统一走 `safePathSegment`（含 `..`、结尾点/空格、
+  /// Windows 保留设备名与超长截断），不再维护第二套规则。
+  String _safeName(String value) => safePathSegment(value);
 
   Future<void> loadServerTasks() async {
     final api = ref.read(sessionProvider).api;

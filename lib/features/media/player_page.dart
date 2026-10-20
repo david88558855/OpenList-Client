@@ -43,6 +43,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   final List<FileItem> _playlist = [];
   bool _subtitleAttached = false;
 
+  /// 每次 `_boot()` 递增，用来丢弃过期的异步结果（快速切换视频时）。
+  int _bootSeq = 0;
+
+  /// 播放器错误流：解码失败 / 链接失效只会从这里出来，`await open()` 不抛。
+  StreamSubscription<String>? _errorSub;
+
   // dispose() 里不能再用 ref（Riverpod 会抛「used after dispose」），
   // 所以把保存续播所需的对象提前缓存下来。
   ServerStore? _store;
@@ -59,10 +65,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     _store = ref.read(serverStoreProvider);
     _serverId = ref.read(sessionProvider).profile?.id;
     _resumeEnabled = ref.read(appSettingsProvider).resumePlayback;
+    // 解码错误 / 404 / 流中断都走这个流，不订阅的话界面上看不到任何原因。
+    _errorSub = _player.stream.error.listen((message) {
+      if (!mounted) return;
+      final text = message.trim();
+      setState(() {
+        _loading = false;
+        _error = text.isEmpty ? '播放失败，请检查链接或媒体格式' : '播放失败：$text';
+      });
+    });
     _boot();
   }
 
   Future<void> _boot() async {
+    // v1.0.22：每次 bootstrap 带一个序号。连续切换两个视频时，
+    // 后完成的 open 不能覆盖前一次的状态（否则画面与标题会错位）。
+    final seq = ++_bootSeq;
     final api = ref.read(sessionProvider).api;
     if (api == null) {
       setState(() {
@@ -75,37 +93,43 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       final files = ref.read(filesProvider);
       String? sign;
       for (final item in files.items) {
-        if (joinPath(files.path, item.name) == _currentPath || item.name == _currentName) {
+        // 只按完整路径匹配。之前还有 `item.name == _currentName` 兜底，
+        // 从搜索/收藏打开其它目录的同名文件时会取到那份文件的 sign。
+        if (joinPath(files.path, item.name) == _currentPath) {
           sign = item.sign;
           break;
         }
       }
       if (sign == null || sign.isEmpty) {
         final info = await api.get(_currentPath);
+        if (seq != _bootSeq) return;
         sign = info.sign;
       }
       _buildPlaylist(files);
       final url = api.downloadUrl(_currentPath, sign: sign);
       await _player.open(Media(url), play: true);
+      if (seq != _bootSeq) return;
       await _player.setRate(_rate);
       await _player.setVolume(_volume);
-      if (!mounted) return;
+      if (!mounted || seq != _bootSeq) return;
       setState(() => _loading = false);
       final resumeAt = ref.read(appSettingsProvider).resumePlayback
           ? ref.read(serverStoreProvider).readResume(ref.read(sessionProvider).profile?.id ?? '', _currentPath)
           : 0;
-      if (resumeAt > 5) {
+      final duration = _player.state.duration.inSeconds;
+      // 上次是在片尾退出的（存的就是结尾位置）就不要 seek，否则一打开就播完。
+      if (resumeAt > 5 && (duration <= 0 || resumeAt < duration - 10)) {
         await _player.seek(Duration(seconds: resumeAt));
       }
-      _attachSubtitle(api);
+      if (mounted && seq == _bootSeq) await _attachSubtitle(api, seq);
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _bootSeq) return;
       setState(() {
         _loading = false;
         _error = e.friendly;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || seq != _bootSeq) return;
       setState(() {
         _loading = false;
         _error = '播放器初始化失败，检查网络或媒体格式';
@@ -119,16 +143,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       ..addAll(files.items.where((e) => !e.isDir && kindOf(e.name, false) == FileKind.video).take(30));
   }
 
-  Future<void> _attachSubtitle(dynamic api) async {
+  Future<void> _attachSubtitle(dynamic api, int seq) async {
     if (_subtitleAttached) return;
-    final subtitles = ref
-        .read(filesProvider)
-        .items
+    if (!mounted || seq != _bootSeq) return;
+    final files = ref.read(filesProvider);
+    final subtitles = files.items
         .where((e) => !e.isDir && const ['ass', 'srt', 'vtt', 'ssa'].contains(extensionOf(e.name)))
         .toList();
     if (subtitles.isEmpty) return;
     final item = subtitles.first;
-    final path = joinPath(ref.read(filesProvider).path, item.name);
+    final path = joinPath(files.path, item.name);
     String? sign = item.sign;
     if (sign == null || sign.isEmpty) {
       try {
@@ -137,6 +161,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         return;
       }
     }
+    if (!mounted || seq != _bootSeq) return;
     final url = api.downloadUrl(path, sign: sign) as String;
     try {
       await _player.setSubtitleTrack(SubtitleTrack.uri(url, title: item.name));
@@ -147,6 +172,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Future<void> _playAnother(FileItem item) async {
+    // 先存正在播的这一条的进度，再切（原来的实现只有 dispose 才存，
+    // 切完 _currentPath 已经变了，上一个视频的续播点就丢了）。
+    _saveProgress();
     setState(() {
       _loading = true;
       _error = null;
@@ -171,6 +199,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   void dispose() {
     _saveProgress();
+    _errorSub?.cancel();
+    // 退出播放页要把窗口的全屏状态还回去，否则回到文件页整个窗口仍是全屏
+    if (_fullscreen) {
+      _fullscreen = false;
+      windowManager.setFullScreen(false).catchError((_) {});
+    }
     _player.dispose();
     super.dispose();
   }
@@ -298,6 +332,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       setState(() {
                         _loading = true;
                         _error = null;
+                        // 重试会重新 open，轨道被清空，字幕标记必须一起复位
+                        _subtitleAttached = false;
                       });
                       _boot();
                     },

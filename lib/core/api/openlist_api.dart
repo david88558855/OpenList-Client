@@ -352,21 +352,42 @@ class OpenListApi {
         cancelToken: cancelToken,
       );
     } on DioException catch (e) {
+      // 本地长度 ≥ 远端大小时服务端回 416。之前会被当成普通错误，
+      // retry() 永远失败；这里给出可操作的提示。
+      if (e.response?.statusCode == 416) {
+        throw const ApiException(-1, '本地文件已完整或与服务器不一致，请删除后重新下载');
+      }
       throw ApiException.fromDio(e);
     }
 
     final partial = res.statusCode == 206 && existing > 0;
     final totalHeader = res.headers.value('content-length');
     final contentLength = int.tryParse(totalHeader ?? '') ?? 0;
-    final total = partial ? existing + contentLength : contentLength;
+    var total = partial ? existing + contentLength : contentLength;
     var received = partial ? existing : 0;
 
-    final sink = target.openWrite(mode: partial ? FileMode.append : FileMode.write);
+    // v1.0.22：续传校验。只凭「本地有字节 + 返回 206」就往下追加，
+    // 会在远端文件被替换时把新内容接到旧字节后面，产出静默损坏的文件。
+    if (partial) {
+      final contentRange = res.headers.value('content-range');
+      final match = RegExp(r'bytes\s+(\d+)-(\d+)/(\d+|\*)').firstMatch(contentRange ?? '');
+      final start = match == null ? null : int.tryParse(match.group(1)!);
+      if (start != existing) {
+        throw const ApiException(-1, '续传位置不匹配（文件可能已变化），请删除后重新下载');
+      }
+      final remoteTotal = match!.group(3);
+      if (remoteTotal != null && remoteTotal != '*') {
+        total = int.tryParse(remoteTotal) ?? total;
+      }
+    }
+
+    // v1.0.22：先判空再打开 sink。之前顺序反了，`FileMode.write` 已经把
+    // 本地同名文件截成 0 字节，然后才发现没有数据流。
     final body = res.data;
     if (body == null) {
-      await sink.close();
       throw const ApiException(-13, '服务器未返回数据流');
     }
+    final sink = target.openWrite(mode: partial ? FileMode.append : FileMode.write);
     var windowBytes = 0;
     var windowStart = DateTime.now();
     try {
@@ -397,6 +418,11 @@ class OpenListApi {
     } finally {
       await sink.flush();
       await sink.close();
+    }
+    // v1.0.22：完整性断言。服务端提前关流 / 网络抖动时 `await for` 会正常结束，
+    // 之前直接把「收了多少字节」当成功，半截文件就被标记为已完成。
+    if (total > 0 && received < total) {
+      throw ApiException(-1, '下载不完整（$received/$total 字节），可重试续传');
     }
     return received;
   }
