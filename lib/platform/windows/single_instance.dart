@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 /// 单实例保护（无原生代码，跨平台可用）。
 ///
 /// 判定主实例用**文件独占锁**，不再靠「端口能不能绑定」：
@@ -33,6 +35,13 @@ class SingleInstance {
 
   /// 成为主实例。返回 false 表示已有实例在运行。
   static Future<bool> becomePrimary({void Function()? onActivate}) async {
+    // 0) 先问一声：已有实例在应答吗？
+    //    这一步是文件锁的兜底——即使锁因为任何平台差异失效，也不会出现第二个实例。
+    //    代价是正常启动多等最多 150ms（远小于 Flutter 引擎初始化）。
+    if (Platform.isWindows && await _pingOnce(const Duration(milliseconds: 150))) {
+      return false;
+    }
+
     // 1) 抢锁：抢不到就说明已有实例，立刻返回
     if (!await _acquireLock()) return false;
 
@@ -61,29 +70,49 @@ class SingleInstance {
     return true;
   }
 
-  /// 尝试独占锁。返回 false 只代表「锁被别人持有」。
+  /// 尝试独占锁。返回 false 只代表「已有实例」。
+  ///
+  /// v1.0.19 修复（托盘图标重复的根因）：
+  ///   之前用 `FileMode.write` 打开锁文件，这个模式会**截断文件**。锁文件已被前一个
+  ///   实例 LockFileEx 锁住时，截断操作在 Windows 上会失败 → `open` 抛异常 →
+  ///   被当成「该路径不可用」而 continue 到下一个候选路径（临时目录），那里没人锁，
+  ///   于是第二个进程拿到了锁、认为自己是主实例 → 又建了一个托盘图标。
+  ///
+  ///   现在改成：
+  ///     - `FileMode.append`（只定位到末尾，不截断，不会碰到被锁的区域）；
+  ///     - 文件**已存在却打不开**一律判定「已有实例」，不再换路径；
+  ///     - 加锁失败同样直接判定「已有实例」。
   static Future<bool> _acquireLock() async {
     for (final path in _lockCandidates()) {
+      final file = File(path);
+      final existed = file.existsSync();
       RandomAccessFile? raf;
       try {
-        final file = File(path);
         await file.parent.create(recursive: true);
-        raf = await file.open(mode: FileMode.write);
-      } catch (_) {
-        // 目录不可写 / 文件打不开：换下一个候选路径
+        raf = await file.open(mode: FileMode.append);
+      } catch (error) {
+        if (existed) {
+          // 锁文件在，但打不开 = 被前一个实例占着（或权限被拒）。
+          // 不能再换路径，否则就会出现两个"主实例"。
+          debugPrint('single-instance: lock file exists but unopenable ($error)');
+          return false;
+        }
+        // 文件不存在且创建失败：目录不可写，换下一个候选路径
         continue;
       }
       try {
         await raf.lock(FileLock.exclusive);
-      } catch (_) {
-        // 加锁失败 = 已有实例持锁，直接判定非主实例（不要再去试别的路径）
+      } catch (error) {
+        debugPrint('single-instance: lock busy ($error)');
         await raf.close();
         return false;
       }
       _lockHandle = raf;
+      debugPrint('single-instance: primary, lock=$path');
       return true;
     }
-    // 所有候选路径都不可用：宁可放行也不让应用完全打不开
+    // 所有候选路径都建不出来（极端情况）：放行一次，避免应用完全打不开
+    debugPrint('single-instance: no usable lock path, running as primary');
     return true;
   }
 
