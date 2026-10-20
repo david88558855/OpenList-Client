@@ -14,6 +14,7 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../../core/widgets/workspace_nav.dart';
 import '../files/file_actions.dart';
 import '../settings/download_dir.dart';
 import 'transfers_controller.dart';
@@ -260,15 +261,9 @@ class _QueueSidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(9, 4, 9, 0),
               children: [
-                const OlSectionLabel('工作区'),
-                _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
-                _NavRow(icon: 'star', label: '收藏', onTap: () => context.go('/favorites')),
-                _NavRow(icon: 'share', label: '我的分享', onTap: () => context.go('/shares')),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  child: Divider(height: 1),
-                ),
-                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
+                // v1.0.17：工作区导航共用同一份组件（条目/顺序/badge 与其它页一致），
+                // 下面是传输页独有的队列筛选。
+                const WorkspaceNav(active: 'transfers'),
                 const OlSectionLabel('队列'),
                 _NavRow(
                   icon: 'layers',

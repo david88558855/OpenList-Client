@@ -9,6 +9,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../../core/widgets/workspace_nav.dart';
 
 /// 「我的分享」独立页面（v1.0.14）。
 ///
@@ -53,10 +54,6 @@ class _Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final profile = ref.watch(sessionProvider).profile;
-    final favorites = ref.watch(favoritesProvider).where((e) => e.serverId == profile?.id).length;
-    final recent = profile == null ? 0 : ref.read(serverStoreProvider).readRecent(profile.id).length;
-    final shares = ref.watch(sharesProvider).valueOrNull?.length ?? 0;
 
     return Container(
       width: 204,
@@ -69,18 +66,9 @@ class _Sidebar extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(9, 4, 9, 0),
-              children: [
-                const OlSectionLabel('工作区'),
-                _NavRow(icon: 'folder', label: '所有文件', onTap: () => context.go('/files')),
-                _NavRow(icon: 'star', label: '收藏', badge: favorites, onTap: () => context.go('/favorites')),
-                _NavRow(icon: 'clock', label: '最近使用', badge: recent, onTap: () => context.go('/favorites?tab=recent')),
-                _NavRow(icon: 'share', label: '我的分享', badge: shares, active: true, onTap: () {}),
-                _NavRow(icon: 'arrow-down', label: '传输任务', onTap: () => context.go('/transfers')),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  child: Divider(height: 1),
-                ),
-                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
+              children: const [
+                // 与文件 / 收藏 / 传输页共用同一份工作区导航
+                WorkspaceNav(active: 'shares'),
               ],
             ),
           ),
@@ -89,61 +77,6 @@ class _Sidebar extends ConsumerWidget {
             child: Text('分享由服务端创建，这里只读并跳转浏览器。', style: TextStyle(fontSize: 8.5, height: 1.6, color: p.ink4)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NavRow extends StatelessWidget {
-  final String icon;
-  final String label;
-  final int badge;
-  final bool active;
-  final VoidCallback onTap;
-  const _NavRow({required this.icon, required this.label, required this.onTap, this.badge = 0, this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 1),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            height: 31,
-            padding: const EdgeInsets.symmetric(horizontal: 9),
-            decoration: BoxDecoration(
-              color: active ? p.navOnBg : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
-                  ),
-                ),
-                if (badge > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: active ? p.card : p.navBadgeBg,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text('$badge', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink4)),
-                  ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

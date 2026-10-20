@@ -16,6 +16,7 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../../core/widgets/workspace_nav.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
 
@@ -371,10 +372,7 @@ class _Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final transfers = ref.watch(transfersProvider);
-    final favorites = ref.watch(favoritesProvider);
     final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
-    final serverId = ref.watch(sessionProvider).profile?.id;
 
     return Container(
       width: 204,
@@ -382,105 +380,19 @@ class _Sidebar extends ConsumerWidget {
         color: p.surface,
         border: Border(right: BorderSide(color: p.line2)),
       ),
-      child: Column(
+      // v1.0.17：工作区导航抽成公共组件（四个页面同一份，顺序固定不跳动）。
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
         children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(9, 4, 9, 0),
-              children: [
-                const OlSectionLabel('工作区'),
-                const _NavRow(icon: 'folder', label: '所有文件', badge: 0, active: true),
-                _NavRow(icon: 'clock', label: '最近使用', onTap: () => context.go('/favorites?tab=recent')),
-                _NavRow(
-                  icon: 'star',
-                  label: '收藏',
-                  badge: favorites.where((e) => e.serverId == serverId).length,
-                  onTap: () => context.go('/favorites'),
-                ),
-                _NavRow(icon: 'share', label: '我的分享', onTap: () => context.go('/shares')),
-                _NavRow(
-                  icon: 'arrow-down',
-                  label: '传输任务',
-                  badge: transfers.pendingCount,
-                  onTap: () => context.go('/transfers'),
-                ),
-                // v1.0.14：「设置」从服务器管理里挪到工作区，排在传输任务之下。
-                // 之前桌面只能从服务器管理页进设置，看起来像设置被塞进了服务器管理。
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  child: Divider(height: 1),
-                ),
-                _NavRow(icon: 'settings', label: '设置', onTap: () => context.go('/settings')),
-                const OlSectionLabel('挂载点'),
-                if (storages.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                    child: Text('暂无挂载点', style: TextStyle(fontSize: 10.5, color: p.ink4)),
-                  ),
-                for (final mount in storages) _MountRow(mount: mount),
-              ],
+          const WorkspaceNav(active: 'files'),
+          const OlSectionLabel('挂载点'),
+          if (storages.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              child: Text('暂无挂载点', style: TextStyle(fontSize: 10.5, color: p.ink4)),
             ),
-          ),
+          for (final mount in storages) _MountRow(mount: mount),
         ],
-      ),
-    );
-  }
-}
-
-class _NavRow extends StatelessWidget {
-  final String icon;
-  final String label;
-  final int badge;
-  final bool active;
-  final VoidCallback? onTap;
-
-  const _NavRow({required this.icon, required this.label, this.badge = 0, this.active = false, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 1),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            height: 31,
-            padding: const EdgeInsets.symmetric(horizontal: 9),
-            decoration: BoxDecoration(
-              color: active ? p.navOnBg : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
-                  ),
-                ),
-                if (badge > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: active ? p.card : p.navBadgeBg,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      badge > 999 ? '999+' : '$badge',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: active ? const Color(0xFF0B7A9E) : p.ink4),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
