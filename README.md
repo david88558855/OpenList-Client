@@ -62,7 +62,7 @@ git push origin v1.0.2
 
 | 画板 | 实现文件 | 说明 |
 | --- | --- | --- |
-| W1 连接服务器 | `lib/features/auth/login_page.dart` | 左侧艺术面板 + 右侧表单，地址探测、密码 / Token / 两步验证、最近服务器 |
+| W1 连接服务器 | `lib/features/auth/login_page.dart` | 左侧艺术面板 + 右侧表单，地址探测、密码 / Token / 两步验证、已存服务器 |
 | W2 文件管理 | `lib/features/files/files_page.dart` | 两栏：挂载点 / 列表（详情面板已于 v1.0.14 移除）；面包屑、多选、排序、筛选、拖拽上传、右键菜单 |
 | W3 传输中心 | `lib/features/transfers/transfers_page.dart` | 速度卡 + 曲线、四宫格、任务队列、限速与并发 |
 | W4 跨盘搜索 | `lib/features/search/search_page.dart` | 命令面板（Ctrl K）、300ms 防抖、范围 0/1、键盘上下选择 |
@@ -71,7 +71,7 @@ git push origin v1.0.2
 | W7 深色文件页 | 同一套布局 + `OlPalette.dark` | 跟随系统 / 手动切换，播放器始终深色 |
 | W8 服务器管理 | `lib/features/servers/servers_page.dart` + `server_form.dart` | 独立一级页面（带返回）：左侧列表点选、右侧同屏编辑、搜索与状态筛选、导入导出 |
 | W9 托盘 | `lib/platform/windows/tray.dart` | 四态图标、左键单击显示、右键两项菜单（显示主界面 / 退出）、关闭只收起、单实例 |
-| A1 登录 | 同上登录页（窄屏分支） | 深色沉浸、玻璃表单、最近服务器 |
+| A1 登录 | 同上登录页（窄屏分支） | 深色沉浸、玻璃表单、已存服务器 |
 | A2 文件 | `files_page.dart` 移动分支 | 存储卡横滑、类型 chips、长按操作面板、下拉刷新、FAB |
 | A3 传输 | `transfers_page.dart` 移动分支 | 速率卡 + 分组 chips + 任务卡 |
 | A4 搜索 | `search_page.dart` 移动分支 | 搜索条、范围切换、分组结果 |
@@ -154,7 +154,6 @@ exe 图标由构建脚本注入 `windows/runner/resources/app_icon.ico`，无需
 | `ol_srv_<id>_download` | 独立下载目录 |
 | `ol_srv_<id>_browse` | 浏览位置与排序 |
 | `ol_srv_<id>_favorites` | 收藏 |
-| `ol_srv_<id>_recent` | 最近访问目录 |
 | `ol_srv_<id>_resume` | 播放进度 |
 | `ol_srv_<id>_cache\|<path>` | 目录离线缓存 |
 | `ol_prefs` | 主题、并发、限速、托盘偏好 |
@@ -182,7 +181,7 @@ GET  /d/<path>?sign=<sign>          （Range 直读，下载与播放共用）
 | 模块 | 结果 |
 | --- | --- |
 | 连接 | 地址可达 / TLS / 版本 / 2FA 全路径，失败内联提示；Token 可续签（401 自动清凭据回登录） |
-| 服务器 | 添加 / 编辑 / 删除 / 切换，数量不限，隔离目录生效，删除当前自动切到最近实例 |
+| 服务器 | 添加 / 编辑 / 删除 / 切换，数量不限；**显示名称唯一（重名阻止添加），地址允许重复**；隔离目录生效，删除当前自动切到最近实例 |
 | 文件 | 分页、面包屑、刷新、排序、多选、批量移动/复制/删除、拖拽上传、四态齐全 |
 | 搜索 | 300ms 防抖、scope 0/1、结果可定位、无索引降级提示 |
 | 传输 | 暂停/继续/重试、重启续传、限速、并发、托盘速率状态 |

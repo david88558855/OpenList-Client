@@ -48,10 +48,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/transfers', builder: (context, state) => const TransfersPage()),
       GoRoute(
         path: '/favorites',
-        // v1.0.14：分享已独立成 /shares，旧链接（?tab=share）直接跳过去。
-        redirect: (context, state) =>
-            state.uri.queryParameters['tab'] == 'share' ? '/shares' : null,
-        builder: (context, state) => FavoritesPage(initialTab: state.uri.queryParameters['tab'] ?? 'star'),
+        // v1.0.14：分享独立成 /shares，旧链接（?tab=share）跳过去。
+        // v1.0.18：「最近使用」已移除，旧链接（?tab=recent）回到收藏。
+        redirect: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          if (tab == 'share') return '/shares';
+          if (tab == 'recent') return '/favorites';
+          return null;
+        },
+        builder: (context, state) => const FavoritesPage(),
       ),
       GoRoute(path: '/shares', builder: (context, state) => const SharesPage()),
       GoRoute(

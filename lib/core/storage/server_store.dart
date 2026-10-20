@@ -79,14 +79,6 @@ class ServerStore {
     return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  Future<void> saveRecent(String id, List<Map<String, dynamic>> items) =>
-      prefs.setJsonList('ol_srv_${id}_recent', items);
-
-  List<Map<String, dynamic>> readRecent(String id) {
-    final raw = prefs.getJsonList('ol_srv_${id}_recent');
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-  }
-
   Future<void> saveResume(String id, String path, int seconds) async {
     final all = prefs.getJsonMap('ol_srv_${id}_resume');
     all[path] = seconds;

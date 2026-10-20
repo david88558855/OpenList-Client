@@ -12,50 +12,25 @@ import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../../core/widgets/workspace_nav.dart';
 
-/// 收藏 / 最近使用。
+/// 收藏。
 ///
-/// v1.0.14：「我的分享」已拆成独立页面 `/shares`，这里只保留收藏与最近使用。
+/// v1.0.14：「我的分享」拆成独立页面 `/shares`。
+/// v1.0.18：按需求移除「最近使用」，这里只剩收藏一个列表（不再有标签切换）。
 /// 左侧工作区导航 204 + 列表（Windows 行高 56 / Android 58）。
-class FavoritesPage extends ConsumerStatefulWidget {
-  final String initialTab;
-  const FavoritesPage({super.key, this.initialTab = 'star'});
+class FavoritesPage extends ConsumerWidget {
+  const FavoritesPage({super.key});
 
   @override
-  ConsumerState<FavoritesPage> createState() => _FavoritesPageState();
-}
-
-class _FavoritesPageState extends ConsumerState<FavoritesPage> {
-  late String _tab = _normalize(widget.initialTab);
-
-  static String _normalize(String tab) {
-    if (tab == 'recent') return tab;
-    return 'star';
-  }
-
-  @override
-  void didUpdateWidget(covariant FavoritesPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.initialTab != oldWidget.initialTab) {
-      setState(() => _tab = _normalize(widget.initialTab));
-    }
-  }
-
-  void _select(String tab) {
-    setState(() => _tab = tab);
-    context.go('/favorites?tab=$tab');
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppFrame(
       navIndex: 2,
       handleBack: true,
       child: context.isNarrow
-          ? _MobileBody(tab: _tab, onTab: _select)
-          : Row(
+          ? const _MobileBody()
+          : const Row(
               children: [
-                _Sidebar(tab: _tab),
-                Expanded(child: _DesktopBody(tab: _tab, onTab: _select)),
+                _Sidebar(),
+                Expanded(child: _DesktopBody()),
               ],
             ),
     );
@@ -66,8 +41,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 // 左侧工作区导航
 // ---------------------------------------------------------------------------
 class _Sidebar extends ConsumerWidget {
-  final String tab;
-  const _Sidebar({required this.tab});
+  const _Sidebar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,7 +62,7 @@ class _Sidebar extends ConsumerWidget {
               children: [
                 // v1.0.17：与文件 / 分享 / 传输页共用同一份工作区导航，
                 // 条目顺序与 badge 完全一致，切页不会重排。
-                WorkspaceNav(active: tab == 'recent' ? 'recent' : 'favorites'),
+                const WorkspaceNav(active: 'favorites'),
                 const OlSectionLabel('存储'),
                 if (profile != null)
                   Padding(
@@ -113,7 +87,7 @@ class _Sidebar extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: Text('收藏与最近使用只存在本机，不写入服务端。', style: TextStyle(fontSize: 8.5, height: 1.6, color: p.ink4)),
+            child: Text('收藏只存在本机，不写入服务端。', style: TextStyle(fontSize: 8.5, height: 1.6, color: p.ink4)),
           ),
         ],
       ),
@@ -124,15 +98,12 @@ class _Sidebar extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // 主区（Windows / Android）
 // ---------------------------------------------------------------------------
-class _DesktopBody extends StatelessWidget {
-  final String tab;
-  final ValueChanged<String> onTab;
-  const _DesktopBody({required this.tab, required this.onTab});
+class _DesktopBody extends ConsumerWidget {
+  const _DesktopBody();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final title = tab == 'recent' ? '最近使用' : '收藏';
     return ColoredBox(
       color: p.card,
       child: Column(
@@ -145,22 +116,18 @@ class _DesktopBody extends StatelessWidget {
               children: [
                 OlIconButton(icon: 'chev-l', size: 30, iconSize: 17, tooltip: '返回', onTap: () => goBackOrFiles(context)),
                 const SizedBox(width: 8),
-                Text(title, style: TextStyle(fontSize: 18, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: p.ink)),
-                const SizedBox(width: 14),
-                OlSeg<String>(
-                  items: const [
-                    OlSegItem('star', '收藏', icon: 'star'),
-                    OlSegItem('recent', '最近', icon: 'clock'),
-                  ],
-                  value: tab,
-                  onChanged: onTab,
-                ),
+                Text('收藏', style: TextStyle(fontSize: 18, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: p.ink)),
                 const Spacer(),
-                OlGhostButton(label: '刷新', icon: 'refresh', height: 30, onTap: () => context.go('/favorites?tab=$tab')),
+                OlGhostButton(
+                  label: '刷新',
+                  icon: 'refresh',
+                  height: 30,
+                  onTap: () => ref.invalidate(favoritesProvider),
+                ),
               ],
             ),
           ),
-          Expanded(child: _Body(tab: tab)),
+          const Expanded(child: _FavoriteList()),
         ],
       ),
     );
@@ -168,9 +135,7 @@ class _DesktopBody extends StatelessWidget {
 }
 
 class _MobileBody extends StatelessWidget {
-  final String tab;
-  final ValueChanged<String> onTab;
-  const _MobileBody({required this.tab, required this.onTab});
+  const _MobileBody();
 
   @override
   Widget build(BuildContext context) {
@@ -186,38 +151,16 @@ class _MobileBody extends StatelessWidget {
                 OlIconButton(icon: 'chev-l', size: 34, iconSize: 18, onTap: () => goBackOrFiles(context)),
                 const SizedBox(width: 2),
                 Text(
-                  tab == 'recent' ? '最近使用' : '收藏',
+                  '收藏',
                   style: TextStyle(fontSize: 17, letterSpacing: -0.4, fontWeight: FontWeight.w800, color: p.ink),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
-            child: Row(
-              children: [
-                OlChip(label: '收藏', selected: tab == 'star', onTap: () => onTab('star')),
-                const SizedBox(width: 7),
-                OlChip(label: '最近', selected: tab == 'recent', onTap: () => onTab('recent')),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(child: _Body(tab: tab)),
+          const Expanded(child: _FavoriteList()),
         ],
       ),
     );
-  }
-}
-
-class _Body extends StatelessWidget {
-  final String tab;
-  const _Body({required this.tab});
-
-  @override
-  Widget build(BuildContext context) {
-    if (tab == 'recent') return const _RecentList();
-    return const _FavoriteList();
   }
 }
 
@@ -260,45 +203,6 @@ class _FavoriteList extends ConsumerWidget {
           onRemove: () async {
             await ref.read(favoritesProvider.notifier).removeEntry(entry);
             if (context.mounted) olToast(context, '已取消收藏');
-          },
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 最近使用
-// ---------------------------------------------------------------------------
-class _RecentList extends ConsumerWidget {
-  const _RecentList();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(sessionProvider).profile;
-    if (profile == null) {
-      return const OlEmptyState(icon: 'clock', title: '尚未连接服务器', subtitle: '登录后这里会记录最近访问的目录');
-    }
-    final raw = ref.read(serverStoreProvider).readRecent(profile.id);
-    if (raw.isEmpty) {
-      return const OlEmptyState(icon: 'clock', title: '还没有访问记录', subtitle: '浏览过的目录会按时间列在这里');
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-      itemCount: raw.length,
-      separatorBuilder: (context, index) => Divider(height: 1, color: context.ol.divider),
-      itemBuilder: (context, index) {
-        final item = raw[index];
-        final path = (item['path'] ?? '/').toString();
-        final at = DateTime.tryParse((item['at'] ?? '').toString());
-        return _EntryRow(
-          leading: FileGlyph(name: baseName(path), isDir: true, size: 32, radius: 9, iconSize: 16),
-          name: path == '/' ? '全部文件' : baseName(path),
-          subtitle: path,
-          trailing: relativeTime(at),
-          onOpen: () async {
-            await ref.read(filesProvider.notifier).open(path);
-            if (context.mounted) context.go('/files?path=${Uri.encodeComponent(path)}');
           },
         );
       },

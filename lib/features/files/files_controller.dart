@@ -166,7 +166,6 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
       await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
       await store.cacheListing(profile.id, normalized, result.items.map((e) => e.toJson()).toList());
-      await _pushRecent(profile.id, normalized);
     } on ApiException catch (e) {
       if (seq != _seq || !mounted) return;
       if (e.needsReauth) {
@@ -261,10 +260,4 @@ class FilesNotifier extends StateNotifier<FilesState> {
     }
   }
 
-  Future<void> _pushRecent(String serverId, String path) async {
-    final store = ref.read(serverStoreProvider);
-    final recent = store.readRecent(serverId).where((e) => e['path'] != path).toList();
-    recent.insert(0, {'path': path, 'at': DateTime.now().toIso8601String()});
-    await store.saveRecent(serverId, recent.take(30).toList());
-  }
 }

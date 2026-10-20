@@ -186,9 +186,20 @@ class SessionNotifier extends StateNotifier<SessionState> {
         token = await api.login(username: username.trim(), password: secret, otpCode: otp);
       }
       final user = await api.me();
+      // v1.0.18：显示名称唯一，地址允许重复（同一实例可存多条不同账号/备注）。
+      // 名称留空时最终会用站点标题，所以这里用「最终名称」再判一次，
+      // 避免绕过表单层的校验。
+      final finalName = displayName.trim().isEmpty ? site.title : displayName.trim();
+      final duplicated = ref.read(serverListProvider).servers.any(
+            (s) => s.id != existingId && s.name.trim() == finalName.trim(),
+          );
+      if (duplicated) {
+        state = state.copyWith(connecting: false, error: '该显示名称已存在');
+        return '该显示名称已存在';
+      }
       final profile = ServerProfile(
         id: existingId ?? newServerId(),
-        name: displayName.trim().isEmpty ? site.title : displayName.trim(),
+        name: finalName,
         baseUrl: base,
         username: username.trim().isEmpty ? user.username : username.trim(),
         mode: mode,

@@ -38,6 +38,17 @@ class _ServerFormState extends ConsumerState<ServerForm> {
 
   bool get _isNew => widget.profile == null;
 
+  /// 显示名称是否已被其它条目占用（v1.0.18）。
+  ///
+  /// 唯一的约束落在**显示名称**上：地址允许重复（同一个实例可以用不同账号 /
+  /// 不同备注各存一条），但列表里不能出现两个同名条目，否则切换与删除时分不清。
+  /// 编辑时排除自身。
+  bool _nameTaken(String name, {String? exceptId}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+    return ref.read(serverListProvider).servers.any((s) => s.id != exceptId && s.name.trim() == trimmed);
+  }
+
   @override
   void didUpdateWidget(covariant ServerForm oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -88,6 +99,15 @@ class _ServerFormState extends ConsumerState<ServerForm> {
     }
     final base = normalizeBaseUrl(_url.text);
     final existing = widget.profile;
+    final desiredName = _name.text.trim();
+
+    // v1.0.18：提交时先校验显示名称唯一（地址不做限制）。
+    // 名称留空时最终会用服务端站点标题，那种情况交给 session.connect 里再判一次。
+    if (_nameTaken(desiredName, exceptId: existing?.id)) {
+      setState(() => _error = '该显示名称已存在');
+      return;
+    }
+
     final urlChanged = existing != null && base != existing.baseUrl;
     final needsAuth = existing == null ||
         urlChanged ||
@@ -204,7 +224,16 @@ class _ServerFormState extends ConsumerState<ServerForm> {
           ),
           const SizedBox(height: 10),
           _label('显示名称'),
-          OlField(controller: _name, icon: 'edit', hint: '家庭主服务器', dense: true),
+          OlField(
+            controller: _name,
+            icon: 'edit',
+            hint: '家庭主服务器',
+            dense: true,
+            // 改名即清掉上一次的重名提示，避免「改好了还挂着红字」
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
           const SizedBox(height: 8),
           _label('服务器地址'),
           OlField(controller: _url, icon: 'globe', hint: 'https://pan.mydomain.com', dense: true, keyboardType: TextInputType.url),
