@@ -605,48 +605,15 @@ class _AboutSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final session = ref.watch(sessionProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHead(title: '关于与更新', subtitle: '版本信息与项目链接'),
+        const _SectionHead(title: '关于与更新', subtitle: '项目链接'),
         _Card(
           child: Column(
             children: [
-              _Row(
-                icon: 'layers',
-                title: 'OpenList Client',
-                subtitle: 'Windows 便携版 · Android · 单代码库',
-                trailing: Text(
-                  AppInfo.versionLabel,
-                  maxLines: 1,
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
-                ),
-              ),
-              _Row(
-                icon: 'server',
-                title: '服务端',
-                subtitle: session.profile?.displayHost ?? '未连接',
-                trailing: Text(
-                  AppInfo.hasMeaningfulVersion(session.profile?.version ?? session.site?.version)
-                      ? AppInfo.shortVersion(session.profile?.version ?? session.site?.version)
-                      : '—',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
-                ),
-              ),
-              _Row(
-                icon: 'hard-drive',
-                title: '数据目录',
-                // v1.0.20：配置随主程序目录走，这里显示实际落盘位置
-                subtitle: ref.read(prefsProvider).storagePath,
-                trailing: Text(
-                  ref.read(prefsProvider).isPortable ? '便携' : '系统',
-                  maxLines: 1,
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
-                ),
-              ),
+              // v1.0.28：关于页只保留「项目主页」，其余（客户端版本 / 服务端 /
+              // 数据目录 / 检查更新 / 退出登录）已移除。
               _Row(
                 icon: 'external',
                 title: '项目主页',
@@ -657,12 +624,6 @@ class _AboutSection extends ConsumerWidget {
                   mode: LaunchMode.externalApplication,
                 ),
               ),
-              _Row(
-                icon: 'refresh',
-                title: '检查更新',
-                subtitle: '便携版 zip 解压即用',
-                trailing: Text('已是最新', maxLines: 1, style: TextStyle(fontSize: 10, color: p.ink4)),
-              ),
             ],
           ),
         ),
@@ -670,20 +631,6 @@ class _AboutSection extends ConsumerWidget {
         Text(
           '第三方程式库版权归各自作者所有；OpenList 品牌素材归 OpenList Team。',
           style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4),
-        ),
-        const SizedBox(height: 16),
-        // v2.1：退出登录从「隐私与安全」移到「关于」下方，作为最后一项。
-        SizedBox(
-          width: double.infinity,
-          child: OlDangerButton(
-            label: '退出登录',
-            icon: 'logout',
-            height: 34,
-            onTap: () async {
-              await ref.read(sessionProvider.notifier).signOut();
-              if (context.mounted) context.go('/login');
-            },
-          ),
         ),
       ],
     );
