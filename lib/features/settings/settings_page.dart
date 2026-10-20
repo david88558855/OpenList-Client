@@ -884,6 +884,17 @@ class _AboutSection extends ConsumerWidget {
                 ),
               ),
               _Row(
+                icon: 'hard-drive',
+                title: '数据目录',
+                // v1.0.20：配置随主程序目录走，这里显示实际落盘位置
+                subtitle: ref.read(prefsProvider).storagePath,
+                trailing: Text(
+                  ref.read(prefsProvider).isPortable ? '便携' : '系统',
+                  maxLines: 1,
+                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink3),
+                ),
+              ),
+              _Row(
                 icon: 'external',
                 title: '项目主页',
                 subtitle: 'github.com/david88558855/OpenList-Client',

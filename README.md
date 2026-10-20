@@ -144,6 +144,23 @@ CI 侧对应 `tool/ci_build_windows.ps1`（`windows-latest` 自带 Visual Studio
 单实例、托盘（双击显示 / 两项菜单 / 仅「退出」结束）、窗口尺寸限制均在 Dart 层完成；
 exe 图标由构建脚本注入 `windows/runner/resources/app_icon.ico`，无需手改 runner 源码。
 
+## 便携存储（Windows）
+
+- **权威文件**：`<主程序目录>/userdata/prefs.json`。路径用 `Platform.resolvedExecutable`
+  的父目录解析（不依赖当前工作目录），从快捷方式 / 任务栏 / 命令行启动都指向同一处；
+  整个目录拷到别处（或别的机器）配置跟着走。
+- **兜底**：程序目录不可写（例如解压到 `Program Files`）时退到
+  `%LOCALAPPDATA%\OpenListClient\userdata\prefs.json`，设置页「关于」里会标出实际位置与「便携 / 系统」。
+- **写入方式**：读写走内存 Map，写操作合并后 250ms 落盘，`tmp → rename` 原子替换；
+  托盘「退出」前调用 `flush()`，保证最后一次改动不丢。
+- **升级迁移**：首次以新版本启动时，把旧版本留在系统用户目录（SharedPreferences）的数据
+  一次性并入并写 `ol_portable_migrated` 标记，之后只认便携文件；文件损坏会改名成
+  `prefs.json.bak` 再重新迁移，不会静默清空。
+- **不随目录迁移的内容**：密码 / API Token 只在系统安全存储（Credential Manager / Keystore），
+  换机器或换目录后需要重新登录一次（服务器列表仍在，点一下即可带出地址）；
+  下载目录与媒体缓存按用户目录存放，不塞进程序目录。
+- Android 仍使用应用私有目录的 SharedPreferences，不受影响。
+
 ## 本地存储键
 
 | 键 | 内容 |

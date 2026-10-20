@@ -70,7 +70,11 @@ class SettingsSidebar extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
             child: Text(
-              '${AppInfo.shortLabel}\n${AppInfo.shortVersion(session.profile?.version ?? session.site?.version)} · ${_platformLabel()}\n便携数据 · userdata/',
+              // v1.0.20：Windows 的配置写在 <主程序目录>/userdata/prefs.json，
+              // 目录搬走配置跟着走；目录不可写时才是系统存储。
+              '${AppInfo.shortLabel}\n'
+              '${AppInfo.shortVersion(session.profile?.version ?? session.site?.version)} · ${_platformLabel()}\n'
+              '${ref.watch(prefsProvider).isPortable ? '便携数据 · userdata/' : '系统存储（程序目录不可写）'}',
               style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
             ),
           ),

@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.20 · 2026-10-20
+
+### 服务器配置改为便携存储（真正随程序目录迁移）
+- **存储位置**：Windows 下配置的权威文件从「系统用户目录的 SharedPreferences」
+  改为 `<主程序目录>/userdata/prefs.json`。服务器列表（`ol_servers_index`）、当前实例
+  （`ol_active_server_id`）、逐实例偏好（`ol_srv_<id>_*`）、收藏、传输队列、外观与限速设置
+  全部在这个文件里，整个目录拷走即带走配置。
+- **路径解析**：用 `Platform.resolvedExecutable` 取 exe 真实路径，再取父目录拼
+  `userdata/prefs.json`——不依赖当前工作目录，快捷方式 / 任务栏 / 命令行启动结果一致；
+  目录不存在自动创建。
+- **兜底**：程序目录不可写（如解压到 `Program Files`）时退到
+  `%LOCALAPPDATA%\OpenListClient\userdata\prefs.json`；两处都不可写才回退到 SharedPreferences。
+  设置页「关于 → 数据目录」会显示实际路径与「便携 / 系统」标记，侧栏页脚同步。
+- **写入方式**：内存 Map + 250ms 合并落盘，`tmp → rename` 原子替换；托盘「退出」前 `flush()`。
+- **迁移兼容**：首次以新版本启动时，把旧版本留在系统用户目录的数据一次性并入并写入
+  `ol_portable_migrated` 标记，之后只认便携文件（避免每次启动被旧数据覆盖）；
+  便携文件损坏会改名成 `prefs.json.bak` 后重新迁移，不会静默清空。
+- 密码 / API Token 不写入该文件，仍在系统安全存储，换机器后需重新登录一次
+  （服务器列表仍在，登录页会带出地址）。
+- Android 行为不变（应用私有目录的 SharedPreferences）。
+
 ## v1.0.19 · 2026-10-20
 
 ### 重复启动时出现第二个托盘图标
