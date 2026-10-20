@@ -23,14 +23,15 @@ Future<void> main() async {
       ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
 
   if (Platform.isWindows) {
-    // 单实例：已有实例在跑时只把它的窗口唤到前台，本进程立即退出。
+    // 单实例：锁文件已被占用就说明已有实例（哪怕它缩在托盘里、或者唤醒包没送达），
+    // 本进程一律退出，绝不创建第二个窗口。v1.0.16 之前只有「ping 有应答」才退出，
+    // 端口被占用或冷启动竞态时会重复拉起新实例。
     final primary = await SingleInstance.becomePrimary(
       onActivate: TrayService.instance.requestShow,
     );
     if (!primary) {
-      final handedOver = await SingleInstance.activateExisting();
-      if (handedOver) exit(0);
-      // 端口被其他程序占用且无应答：继续启动，避免应用完全打不开。
+      await SingleInstance.activateExisting();
+      exit(0);
     }
   }
 

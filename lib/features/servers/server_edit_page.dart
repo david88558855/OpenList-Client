@@ -19,11 +19,10 @@ class ServerEditPage extends ConsumerWidget {
     final narrow = MediaQuery.sizeOf(context).width < 900;
     final form = ServerForm(
       profile: profile.isEmpty ? null : profile.first,
-      // v2.6：保存 / 删除后直接进文件页。
-      // 首次运行从登入页进来的场景没有返回栈，pop 会停在服务器列表；
-      // 而用户要的是「创建完就切过去、直接能用」。
-      onSaved: () => context.go('/files'),
-      onDeleted: () => context.go('/files'),
+      // v1.0.16：从服务器管理 push 进来 → 回列表；从登录页 / 标题栏直接进来（无栈）
+      // → 进文件页。之前无条件 go('/files')，从列表点「编辑」保存后会莫名跳到文件页。
+      onSaved: () => _back(context),
+      onDeleted: () => _back(context),
     );
 
     if (!narrow) {

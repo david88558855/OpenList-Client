@@ -11,10 +11,11 @@ import '../../features/transfers/transfers_controller.dart';
 
 /// W9 — Windows 托盘。
 ///
-/// 交互约定（v2.6 修订）：
+/// 交互约定（v1.0.16 按用户反馈修订）：
 ///   - 启动后常驻托盘图标（四态：空闲 / 传输中 / 失败 / 暂停）；
-///   - 左键单击即唤出主界面（Windows 惯例；之前要求 450ms 双击，用户连点几次都以为没反应）；
-///   - 右键菜单两项：显示主界面、退出，动作由 [onTrayMenuItemClick] 按 key 统一分发；
+///   - 左键**单击不做任何响应**，左键**双击**才显示主界面；
+///   - 右键菜单两项：显示主界面、退出；
+///   - 双击与右键菜单「显示主界面」走同一个入口 [TrayService.revealFromTray]；
 ///   - 关闭窗口、Alt+F4、任务栏关闭一律只收进托盘，只有菜单「退出」结束进程。
 ///
 /// 09 已知问题：
@@ -38,6 +39,12 @@ class TrayService with TrayListener {
   ProviderSubscription<TransfersState>? _subscription;
   _OlWindowListener? _windowListener;
   Timer? _watchdog;
+
+  /// 托盘左键最近一次按下的时间，用来识别双击。
+  DateTime? _lastTrayDownAt;
+
+  /// 双击判定窗口（Windows 默认双击间隔 500ms，取 450ms 略保守）。
+  static const _doubleClickWindow = Duration(milliseconds: 450);
 
   bool get isQuitting => _quitting;
 
@@ -189,20 +196,26 @@ class TrayService with TrayListener {
     }
   }
 
+  /// 托盘唤出主界面的**唯一入口**。
+  ///
+  /// 左键双击、右键菜单「显示主界面」、第二个进程的激活请求，全部走这里，
+  /// 保证三者的恢复顺序（show → restore → 置顶 → 聚焦）完全一致。
+  Future<void> revealFromTray() => showMainWindow();
+
   /// 主实例就绪前收到的「显示」请求先暂存，等托盘/窗口 ready 后再执行。
   void requestShow() {
     if (!_windowReady) {
       _pendingShow = true;
       return;
     }
-    showMainWindow();
+    revealFromTray();
   }
 
   void markWindowReady() {
     _windowReady = true;
     if (_pendingShow) {
       _pendingShow = false;
-      showMainWindow();
+      revealFromTray();
     }
   }
 
@@ -272,9 +285,17 @@ class TrayService with TrayListener {
 
   @override
   void onTrayIconMouseDown() {
-    // v2.6：单击即唤出主界面（Windows 托盘惯例）。之前的「450ms 内双击」
-    // 让用户以为图标是死的，连点几次才碰巧命中。
-    showMainWindow();
+    // v1.0.16：左键单击不做任何响应，只有双击才唤出主界面。
+    // tray_manager 在 Windows 上把单击与双击都送成 mouseDown，
+    // 所以这里用时间差自行识别双击，并「消费」掉第二次按下避免三击重复触发。
+    final now = DateTime.now();
+    final last = _lastTrayDownAt;
+    if (last != null && now.difference(last) <= _doubleClickWindow) {
+      _lastTrayDownAt = null;
+      revealFromTray();
+      return;
+    }
+    _lastTrayDownAt = now;
   }
 
   @override
@@ -288,7 +309,8 @@ class TrayService with TrayListener {
     // 保证即使插件同时触发 onClick 也只执行一次。
     switch (menuItem.key) {
       case 'show':
-        showMainWindow();
+        // 与左键双击同一入口
+        revealFromTray();
         break;
       case 'quit':
         _quit();

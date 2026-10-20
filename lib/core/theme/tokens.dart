@@ -119,6 +119,17 @@ class OlMobile {
   static const iconButton = 40.0;
 }
 
+/// 桌面端尺寸修正（v1.0.16）。
+///
+/// 早期按设计稿的 8.5–13px 原样落地，在 1440×900 的窗口里整屏偏小；
+/// 这里统一放大 12%，与 Android 一样用 clamp，不覆盖系统更大的无障碍字号。
+class OlDesktop {
+  const OlDesktop._();
+
+  /// Windows / macOS / Linux 字号放大比例。
+  static const textScale = 1.12;
+}
+
 /// Theme-aware palette. Every surface used by a screen comes from here so the
 /// W7 dark variant is a palette swap, not a second layout.
 ///

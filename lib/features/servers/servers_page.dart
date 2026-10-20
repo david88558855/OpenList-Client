@@ -178,7 +178,9 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                                       selected: server.id == editing?.id,
                                       onSelect: () => setState(() => _selectedId = server.id),
                                       onSwitch: () => _switchTo(server),
-                                      onEdit: () => setState(() => _selectedId = server.id),
+                                      // v1.0.16：「编辑」打开独立编辑页（带返回），
+                                      // 之前只是把右侧表单切到该服务器，若它已选中就完全没反馈。
+                                      onEdit: () => context.push('/servers/edit/${server.id}'),
                                       onDelete: () async {
                                         final confirmed = await olConfirm(
                                           context,
@@ -743,7 +745,10 @@ class _TinyButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     return GestureDetector(
-      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      // v1.0.16：改用 onTapDown 立即响应。行本身带 onDoubleTap（双击切换服务器），
+      // 内层 onTap 会被双击判定拖住约 300ms，用户感知就是「点了编辑没反应」。
+      onTapDown: (_) => onTap(),
       child: Container(
         height: 23,
         padding: const EdgeInsets.symmetric(horizontal: 7),

@@ -33,11 +33,14 @@ class OpenListApp extends ConsumerWidget {
         // 状态栏/导航栏的系统底色带（浅色主题下的“白条”就是它）。
         final dark = Theme.of(context).brightness == Brightness.dark;
         final media = MediaQuery.of(context);
-        // v2.2：Android 上设计稿的 9–11px 小字在真机上偏小，统一放大 12%。
-        // 桌面（宽度 ≥ 900）保持原尺寸，避免破坏 Windows 的紧凑密度。
-        final scaled = media.size.width < 900
-            ? media.copyWith(textScaler: media.textScaler.clamp(minScaleFactor: OlMobile.textScale))
-            : media;
+        // 字号统一放大：Android 1.30（v2.3 真机反馈），桌面 1.12（v1.0.16：
+        // 按设计稿的 8.5–13px 原样渲染在大屏上偏小）。都用 clamp，
+        // 系统无障碍字号更大时不会被压回去。
+        final scaled = media.copyWith(
+          textScaler: media.textScaler.clamp(
+            minScaleFactor: media.size.width < 900 ? OlMobile.textScale : OlDesktop.textScale,
+          ),
+        );
         return MediaQuery(
           data: scaled,
           child: AnnotatedRegion<SystemUiOverlayStyle>(
