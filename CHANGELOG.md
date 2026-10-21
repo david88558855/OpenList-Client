@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.50 · 2026-10-20
+
+### 修复：从服务器管理返回仍慢（真正原因：出栈有 300ms 空转）
+- **现象差异**：设置 → 主页很快，服务器管理 → 设置/主页明显卡一下。
+- **根因**：两条路径的返回实现不同。
+  - 设置页是用 `go` 进入的，栈里只有一层 → `goBackOrFiles()` 里 `canPop()` 为 false
+    → 走 `context.go('/files')`，**不经过出栈动画**，瞬时完成；
+  - 服务器管理是用 `push` 进入的，`canPop()` 为 true → 走 `context.pop()`，
+    而 v1.0.15 只把 `PageTransitionsTheme.transitionsBuilder` 改成直出（画面不变），
+    **`MaterialPageRoute.transitionDuration` 仍是默认 300ms** —— Navigator 要空转满
+    这 300ms 才真正出栈。
+- **修复**：`router.dart` 里 10 条路由全部改用 `CustomTransitionPage`，
+  把 `transitionDuration` 与 `reverseTransitionDuration` 都设为 `Duration.zero`。
+  pop 立即完成，不再有空转窗口。
+- `PageTransitionsTheme` 的 `_NoTransitionBuilder` 保留（对话层等其它路由兜底）。
+
 ## v1.0.49 · 2026-10-20
 
 ### 结构整理：服务器页壳再瘦身（审查报告 P2-4.4）
