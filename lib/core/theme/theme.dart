@@ -18,7 +18,12 @@ ThemeData olTheme(Brightness brightness) {
     colorScheme: scheme,
     scaffoldBackgroundColor: p.card,
     canvasColor: p.card,
-    splashFactory: InkRipple.splashFactory,
+    // v1.0.52：点击涟漪也属于动画（约 200ms 扩散）。
+    // 全项目不要任何动画，这里换成 NoSplash 并把高亮色设为透明，
+    // 点击即刻响应、没有任何过渡。
+    splashFactory: NoSplash.splashFactory,
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
     dividerColor: p.line2,
     // v1.0.15：切换版块 / 导航栏一律硬切换，不要任何转场动作。
     // 之前桌面是 FadeUpwards（淡入 + 上滑 1/12 屏高），Android 是 Material 3 的 Zoom

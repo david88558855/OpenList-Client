@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.52 · 2026-10-20
+
+### 交互过渡动画全部清零
+本轮把剩下四类「看不见但存在」的过渡动画一并移除，交互改为纯即时应答：
+
+| 类别 | 原来 | 现在 | 涉及 |
+|---|---|---|---|
+| 页面转场 | `MaterialPageRoute` 300ms 空转 | `CustomTransitionPage` 时长 0 | v1.0.50 已完成 |
+| 弹出菜单 | `showMenu` 300ms fade+scale | 自绘 + 0 时长 | v1.0.51 已完成 |
+| **对话框** | `showDialog` 150ms 淡入淡出 | `showOlDialog`（`showGeneralDialog` 时长 0） | **8 处** |
+| **底部面板** | `showModalBottomSheet` 250ms 滑入 | `sheetAnimationStyle: AnimationStyle.noAnimation` | **3 处** |
+| **点击涟漪** | `InkRipple` 约 200ms 扩散 | `NoSplash` + `splashColor`/`highlightColor` 透明 | 全局（8 个 InkWell） |
+| **轻提示** | `SnackBar` 250ms 上滑 + 250ms 淡出 | 自绘 `OverlayEntry`，出现/消失瞬时 | 全部 `olToast` 调用点 |
+
+- 新增 `showOlDialog` 统一入口，替代 8 处 `showDialog`；
+- `olToast` 重写为零动画 Overlay（同一条消息连发只保留最新一条，计时到点直接移除）；
+- **有意保留**两类非过渡动画：
+  - `RefreshIndicator`（移动端下拉刷新，由手势驱动，去掉就没有刷新入口）；
+  - `CircularProgressIndicator` / `LinearProgressIndicator`（加载状态指示，去掉无法表达「正在读取」）。
+
 ## v1.0.51 · 2026-10-20
 
 ### 修复：「⋮」菜单有动画且显示很慢

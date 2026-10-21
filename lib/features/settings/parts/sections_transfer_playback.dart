@@ -96,7 +96,7 @@ class _TransferSection extends ConsumerWidget {
     int max = 1024 * 1024,
   }) async {
     final controller = TextEditingController(text: '$current');
-    final value = await showDialog<int>(
+    final value = await showOlDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
@@ -183,6 +183,7 @@ class _PlaybackSection extends ConsumerWidget {
 
   Future<void> _pickSpeed(BuildContext context, AppSettingsNotifier notifier, double current) async {
     final value = await showModalBottomSheet<double>(
+      sheetAnimationStyle: AnimationStyle.noAnimation,
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(

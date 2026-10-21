@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -31,6 +33,7 @@ Future<void> showOlActionSheet(
   final p = context.ol;
   await showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: AnimationStyle.noAnimation,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x5707111D),
     isScrollControlled: true,
@@ -283,28 +286,89 @@ Future<void> showOlMenu(BuildContext context, {required Offset position, require
   if (selected != null) items[selected].onTap?.call();
 }
 
+/// 零时长对话框（v1.0.52）。
+///
+/// `showDialog` 走 `DialogRoute`，固定 150ms 淡入淡出，关闭还要再等一次。
+/// 全项目不使用任何过渡动画，所有对话框统一走这里：`transitionDuration` 为 0，
+/// 立即出现、立即消失。视觉（遮罩色、内容组件）由调用方决定。
+Future<T?> showOlDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  Color barrierColor = const Color(0x59091424),
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: 'dialog',
+    barrierColor: barrierColor,
+    transitionDuration: Duration.zero,
+    pageBuilder: (dialogContext, _, __) => builder(dialogContext),
+  );
+}
+
+OverlayEntry? _toastEntry;
+Timer? _toastTimer;
+
+/// 轻提示（v1.0.52 重写）。
+///
+/// 原来用 `SnackBar`：进入 250ms 上滑 + 退出 250ms 淡出，操作后要等动画才看到结果。
+/// 现在直接往 Overlay 里塞一条静态提示，出现与消失都是瞬时的，计时到点即移除。
 void olToast(BuildContext context, String message, {bool error = false}) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
-    SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: error ? const Color(0xFF3A1520) : const Color(0xFF0D1B2A),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      duration: Duration(seconds: error ? 4 : 2),
-      content: Row(
-        children: [
-          OlIcon(error ? 'alert' : 'check', size: 14, color: error ? const Color(0xFFFDA4AF) : const Color(0xFF5EEAD4)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(message, style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w600)),
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+
+  // 连续调用时只保留最新一条
+  _toastTimer?.cancel();
+  final previous = _toastEntry;
+  if (previous != null) {
+    try {
+      previous.remove();
+    } catch (_) {}
+    _toastEntry = null;
+  }
+
+  final entry = OverlayEntry(
+    builder: (_) => Positioned(
+      left: 16,
+      right: 16,
+      bottom: 24,
+      child: IgnorePointer(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: error ? const Color(0xFF3A1520) : const Color(0xFF0D1B2A),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OlIcon(error ? 'alert' : 'check', size: 14, color: error ? const Color(0xFFFDA4AF) : const Color(0xFF5EEAD4)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    message,
+                    style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     ),
   );
+  overlay.insert(entry);
+  _toastEntry = entry;
+  _toastTimer = Timer(Duration(seconds: error ? 4 : 2), () {
+    if (!identical(_toastEntry, entry)) return;
+    try {
+      entry.remove();
+    } catch (_) {}
+    _toastEntry = null;
+  });
 }
 
 class _OlDialogShell extends StatelessWidget {
@@ -382,7 +446,7 @@ Future<String?> olPrompt(
   int maxLines = 1,
 }) async {
   final controller = TextEditingController(text: initial);
-  final result = await showDialog<String>(
+  final result = await showOlDialog<String>(
     context: context,
     barrierColor: const Color(0x59091424),
     builder: (dialogContext) {
@@ -435,7 +499,7 @@ Future<bool> olConfirm(
   bool danger = false,
   String icon = 'alert',
 }) async {
-  final result = await showDialog<bool>(
+  final result = await showOlDialog<bool>(
     context: context,
     barrierColor: const Color(0x59091424),
     builder: (dialogContext) {
@@ -480,6 +544,7 @@ Future<T?> olSheet<T>(
 }) {
   return showModalBottomSheet<T>(
     context: context,
+    sheetAnimationStyle: AnimationStyle.noAnimation,
     isScrollControlled: isScrollControlled,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x57071117),

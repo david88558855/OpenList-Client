@@ -169,7 +169,7 @@ class _TransferSettings extends ConsumerWidget {
     int max = 1024 * 1024,
   }) async {
     final controller = TextEditingController(text: '$current');
-    final value = await showDialog<int>(
+    final value = await showOlDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),

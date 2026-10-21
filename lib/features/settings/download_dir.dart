@@ -66,7 +66,7 @@ Future<void> showDownloadDirDialog(BuildContext context, WidgetRef ref) async {
   final authorized = await StorageAccess.hasAllFiles();
   if (!context.mounted) return;
 
-  final action = await showDialog<String>(
+  final action = await showOlDialog<String>(
     context: context,
     barrierColor: const Color(0x59091424),
     builder: (dialogContext) {

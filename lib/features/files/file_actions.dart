@@ -115,7 +115,7 @@ Future<void> deleteItems(BuildContext context, WidgetRef ref, List<FileItem> ite
 Future<void> moveOrCopyItems(BuildContext context, WidgetRef ref, List<FileItem> items, {required bool move}) async {
   if (items.isEmpty) return;
   final dir = ref.read(filesProvider).path;
-  final target = await showDialog<String>(
+  final target = await showOlDialog<String>(
     context: context,
     barrierColor: const Color(0x59091424),
     builder: (_) => _DirPickerDialog(title: move ? '移动到…' : '复制到…', initialPath: dir),
@@ -331,7 +331,7 @@ Future<void> _downloadFolders(
   // 表现为「批量下载文件夹 → 界面崩掉 / 跳回登录」。
   final navigator = Navigator.of(context, rootNavigator: true);
 
-  unawaited(showDialog<void>(
+  unawaited(showOlDialog<void>(
     context: context,
     barrierDismissible: false,
     barrierColor: const Color(0x59091424),
@@ -541,7 +541,7 @@ Future<void> previewItem(BuildContext context, WidgetRef ref, FileItem item) asy
     olToast(context, '无法获取预览直链', error: true);
     return;
   }
-  await showDialog<void>(
+  await showOlDialog<void>(
     context: context,
     barrierColor: const Color(0x8C07111D),
     builder: (dialogContext) {
