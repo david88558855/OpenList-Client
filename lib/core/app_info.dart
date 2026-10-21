@@ -5,8 +5,8 @@
 class AppInfo {
   const AppInfo._();
 
-  static const version = '1.0.44';
-  static const build = 45;
+  static const version = '1.0.45';
+  static const build = 46;
 
   static const name = 'OpenList Client';
 

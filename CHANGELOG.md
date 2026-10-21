@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.45 · 2026-10-20
+
+### 结构整理：传输页拆分（审查报告 P1-3.1 第一块）
+- `transfers_page.dart` 从 **1227 行拆到 254 行**，其余进 `lib/features/transfers/parts/`：
+
+  | 文件 | 行数 | 内容 |
+  |---|---|---|
+  | `transfers_page.dart` | 254 | 页面壳、`_Filter` 枚举、加载/筛选状态 |
+  | `parts/transfers_sidebar.dart` | 181 | 左侧队列导航（6 个筛选项） |
+  | `parts/transfers_cards.dart` | 537 | 顶部条 / 速度卡 / 指标卡 / 任务列表 sliver / 任务行 / 空态 |
+  | `parts/transfers_settings.dart` | 265 | 右侧传输设置（限速 / 并发 / 时段 / 开关） |
+
+- 同前两次一样用 `part` / `part of`：类名与逻辑零改动，`flutter analyze` 与两端构建通过。
+
 ## v1.0.44 · 2026-10-20
 
 ### 修复：从服务器管理返回设置页仍卡顿
