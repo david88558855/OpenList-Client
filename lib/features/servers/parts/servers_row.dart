@@ -166,6 +166,7 @@ class _TinyButton extends StatelessWidget {
 
 class _ConfigCard extends StatelessWidget {
   /// 传 null 时由外部的 OlSectionLabel 承担标题（左侧窄栏就是这种用法）。
+  // ignore: unused_field
   final String? title;
   final Widget child;
   final String footer;

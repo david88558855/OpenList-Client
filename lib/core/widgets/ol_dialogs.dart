@@ -201,8 +201,8 @@ Future<void> showOlActionSheet(
 /// （打开是 fade + scale，关闭同样 300ms），点上「⋮」要等近三分之一秒才看到菜单，
 /// 关掉时又要等一次 —— 这就是「有动画而且显示很慢」的原因。
 ///
-/// 现在用 `showGeneralDialog` 自绘：transitionDuration / reverseTransitionDuration
-/// 都是 0，菜单立即出现、立即消失；位置自己算，超出屏幕右下时自动翻转/夹紧。
+/// 现在用 `showGeneralDialog` 自绘：transitionDuration 为 0（关闭沿用同一时长），
+/// 菜单立即出现、立即消失；位置自己算，超出屏幕右下时自动翻转/夹紧。
 Future<void> showOlMenu(BuildContext context, {required Offset position, required List<OlMenuItem> items}) async {
   if (items.isEmpty) return;
   final p = context.ol;
@@ -226,7 +226,6 @@ Future<void> showOlMenu(BuildContext context, {required Offset position, require
     // 透明遮罩：靠 hit-test 关闭，不压暗背景
     barrierColor: Colors.transparent,
     transitionDuration: Duration.zero,
-    reverseTransitionDuration: Duration.zero,
     pageBuilder: (dialogContext, _, __) => Stack(
       children: [
         Positioned(
