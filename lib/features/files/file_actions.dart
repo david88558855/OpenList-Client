@@ -206,15 +206,26 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
 const _maxFolderFiles = 2000;
 const _maxFolderDepth = 24;
 
+/// 扫描得到的一个待入队文件：远端完整路径在扫描时就已经确定。
+class _FolderEntry {
+  final FileItem item;
+  final String remotePath;
+  final String subdir;
+  const _FolderEntry(this.item, this.remotePath, this.subdir);
+}
+
 class _ScanOutcome {
-  final List<FileItem> files;
-  final List<String> subdirs; // 与 files 一一对应
+  /// v1.0.37：同时保存 item 与**完整远端路径**。
+  /// 之前只存 item + 子目录，入队时用 `item.parent ?? joinPath(basePath, name)` 反推路径，
+  /// 而 `item.parent` 在部分服务端为空串/null，回退用的 basePath 又是「浏览目录」而非
+  /// 文件所在的子目录 —— 拼出来的 remotePath 少了层级，下载必然 404。
+  final List<_FolderEntry> entries = [];
   int skippedDirs = 0;
   int failedDirs = 0;
   bool truncated = false;
   bool cancelled = false;
 
-  _ScanOutcome(this.files, this.subdirs);
+  int get fileCount => entries.length;
 }
 
 /// 扫描若干文件夹，返回所有文件及其相对子目录。
@@ -228,10 +239,12 @@ Future<_ScanOutcome> _scanFolders(
   void Function(int found, int dirs)? onProgress,
   bool Function()? isCancelled,
 }) async {
-  final outcome = _ScanOutcome([], []);
+  final outcome = _ScanOutcome();
   final queue = <MapEntry<String, String>>[]; // remotePath → 相对子目录
   for (final dir in roots) {
-    final remote = dir.parent ?? joinPath(basePath, dir.name);
+    // v1.0.37：parent 可能是空串（不是 null），`??` 不会回退，会拼出空的远端路径。
+    final parent = dir.parent?.trim();
+    final remote = (parent == null || parent.isEmpty) ? joinPath(basePath, dir.name) : parent;
     queue.add(MapEntry(remote, safePathSegment(dir.name)));
   }
   final visited = <String>{};
@@ -242,7 +255,7 @@ Future<_ScanOutcome> _scanFolders(
       outcome.cancelled = true;
       break;
     }
-    if (outcome.files.length >= _maxFolderFiles) {
+    if (outcome.fileCount >= _maxFolderFiles) {
       outcome.truncated = true;
       break;
     }
@@ -273,7 +286,7 @@ Future<_ScanOutcome> _scanFolders(
           final childRemote = joinPath(entry.key, item.name);
           queue.add(MapEntry(childRemote, '${entry.value}/${safePathSegment(item.name)}'));
         } else {
-          if (outcome.files.length >= _maxFolderFiles) {
+          if (outcome.fileCount >= _maxFolderFiles) {
             outcome.truncated = true;
             break;
           }
@@ -281,7 +294,7 @@ Future<_ScanOutcome> _scanFolders(
           outcome.subdirs.add(entry.value);
         }
       }
-      onProgress?.call(outcome.files.length, scannedDirs);
+      onProgress?.call(outcome.fileCount, scannedDirs);
       if (pageItems.length < 100) break;
       page++;
       // 服务端限流的兜底间隔
@@ -357,13 +370,11 @@ Future<void> _downloadFolders(
   final notifier = ref.read(transfersProvider.notifier);
   var queued = 0;
   var failed = 0;
-  for (var i = 0; i < outcome.files.length; i++) {
-    final item = outcome.files[i];
-    final remote = item.parent ?? joinPath(basePath, item.name);
+  for (final entry in outcome.entries) {
     final error = await notifier.enqueueDownloadInto(
-      item: item,
-      remotePath: remote,
-      localSubdir: outcome.subdirs[i],
+      item: entry.item,
+      remotePath: entry.remotePath,
+      localSubdir: entry.subdir,
       schedule: false,
     );
     if (error == null) {

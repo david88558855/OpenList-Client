@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.37 · 2026-10-20
+
+### 修复：文件夹下载全部失败（单文件正常）
+- **根因**：扫描结果只保存了 `FileItem` + 本地子目录，入队时用
+  `item.parent ?? joinPath(basePath, item.name)` **反推**远端路径：
+  - `item.parent` 在部分服务端返回**空串**（不是 null），`??` 不会回退 → 远端路径为空 → 请求 `/d/?sign=`；
+  - 即使回退，`basePath` 是「当前浏览目录」而不是文件所在的**子目录** → 路径少层级 → 404。
+  单文件下载从当前列表直接拿 `item`、目录层级只有一层，所以侥幸没暴露。
+- **修复**：扫描时就用 `joinPath(当前遍历目录, 文件名)` 定下完整远端路径，
+  `_ScanOutcome` 改为携带 `_FolderEntry{item, remotePath, subdir}`，入队直接使用，不再反推。
+- 顺带修 `enqueueDownload`（单文件路径）的同类隐患：`parent` 为空串时正确回退到当前目录。
+- 根目录入队也修了「`parent` 为空串 → 远端路径为空」的问题。
+
 ## v1.0.36 · 2026-10-20
 
 - **下载请求补连接超时**：`downloadToFile` 原来只设了 `receive/send` 超时（1 天），

@@ -165,7 +165,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   Future<String?> enqueueDownload(FileItem item, String currentDir, {bool schedule = true}) async {
     if (item.isDir) return '暂不支持整目录下载';
-    final remotePath = item.parent ?? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}');
+    // v1.0.37：`item.parent` 可能是空串（不是 null），`??` 不会回退，
+    // 会拼出空的远端路径；统一按「空则用当前目录 + 文件名」处理。
+    final parent = item.parent?.trim();
+    final remotePath = (parent == null || parent.isEmpty)
+        ? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}')
+        : parent;
     return enqueueDownloadInto(item: item, remotePath: remotePath, localSubdir: '', schedule: schedule);
   }
 
