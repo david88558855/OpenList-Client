@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.48 · 2026-10-20
+
+### 结构整理：设置分区再拆（审查报告 P2-4.3）
+- `parts/settings_sections.dart`（639 行、6 个分区挤在一起）拆成 4 个独立 part：
+
+  | 文件 | 行数 | 内容 |
+  |---|---|---|
+  | `sections_servers.dart` | 148 | 服务器分区 + 容量/健康信息条 |
+  | `sections_download.dart` | 141 | 下载目录（按实例选路径、公共目录授权） |
+  | `sections_transfer_playback.dart` | 204 | 传输 / 播放（并发、限速、续播、倍速） |
+  | `sections_appearance_about.dart` | 155 | 外观 / 关于（主题、项目主页） |
+
+- `settings_page.dart` 保持 93 行；`part` 指令改为直接指向这 4 个文件
+  （Dart 的 `part` 文件不能再 `part` 别人，所以不能保留中间层）。
+
 ## v1.0.47 · 2026-10-20
 
 ### 颜色 token 化（审查报告 P2-4.1）

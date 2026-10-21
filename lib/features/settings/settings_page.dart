@@ -16,7 +16,10 @@ import 'download_dir.dart';
 import 'settings_sidebar.dart';
 
 part 'parts/settings_common.dart';
-part 'parts/settings_sections.dart';
+part 'parts/sections_servers.dart';
+part 'parts/sections_download.dart';
+part 'parts/sections_transfer_playback.dart';
+part 'parts/sections_appearance_about.dart';
 part 'parts/settings_mobile.dart';
 
 /// W6（Windows 设置）/ A6（Android 我的）。
