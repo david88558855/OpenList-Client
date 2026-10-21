@@ -1,7 +1,12 @@
 # 方案：文件夹递归下载（含子目录全部文件）
 
-> 状态：**仅方案，未实现**。当前版本（1.0.26）批量下载会跳过文件夹并提示
-> 「文件夹暂不支持直接下载，已跳过 N 个」。本文说明后续落地方式。
+> 状态：**已实现**（v1.0.31，方案 A）。实现位置：
+> - `TransferTask.localSubdir` 保存相对子目录（旧数据缺该字段时按空串处理）；
+> - `TransfersController.enqueueDownloadInto()` 负责建目录 + 入队；
+> - `file_actions.dart` 的 `_scanFolders()` BFS 遍历 + `_FolderScanDialog` 进度弹窗，
+>   `downloadItems()` 对「含文件夹」的批量下载走扫描分支。
+>
+> 下方保留原始方案与验收标准，作为实现依据与回归清单。
 
 ## 1. 目标与非目标
 

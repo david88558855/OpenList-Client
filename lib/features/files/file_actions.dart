@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,8 +10,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/api/openlist_api.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/storage/download_paths.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
@@ -168,19 +171,238 @@ Future<void> downloadItem(BuildContext context, WidgetRef ref, FileItem item) as
   }
 }
 
-/// 批量下载（v1.0.26）。
+/// 批量下载（v1.0.26 起，v1.0.31 支持文件夹递归）。
 ///
-/// 桌面与移动端共用这一个入口：文件逐个入队，文件夹单独提示。
-/// 文件夹递归下载（含全部子文件）需要先列出目录树再逐层入队，
-/// 方案见 docs/FOLDER-DOWNLOAD.md，落地后只需改这里的 dirs 分支。
+/// 桌面与移动端共用这一个入口：
+///   - 全是文件 → 逐个入队，不弹窗；
+///   - 含文件夹 → 先扫描目录树（带进度、可取消），再按相对子目录逐个入队，
+///     落盘结构与远端一致。
 Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> items) async {
   final files = items.where((e) => !e.isDir).toList();
   final dirs = items.where((e) => e.isDir).toList();
+
   for (final item in files) {
     await downloadItem(context, ref, item);
   }
-  if (dirs.isNotEmpty && context.mounted) {
-    olToast(context, '文件夹暂不支持直接下载，已跳过 ${dirs.length} 个', error: true);
+  if (dirs.isEmpty) return;
+
+  final api = ref.read(sessionProvider).api;
+  if (api == null) {
+    if (context.mounted) olToast(context, '尚未连接服务器', error: true);
+    return;
+  }
+  final basePath = ref.read(filesProvider).path;
+  await _downloadFolders(context, ref, api, dirs, basePath);
+}
+
+/// 单次批量下载的上限，防止误选超大目录把队列撑爆、把服务端打满。
+const _maxFolderFiles = 2000;
+const _maxFolderDepth = 24;
+
+class _ScanOutcome {
+  final List<FileItem> files;
+  final List<String> subdirs; // 与 files 一一对应
+  int skippedDirs = 0;
+  int failedDirs = 0;
+  bool truncated = false;
+  bool cancelled = false;
+
+  _ScanOutcome(this.files, this.subdirs);
+}
+
+/// 扫描若干文件夹，返回所有文件及其相对子目录。
+///
+/// 用 BFS 逐层 `list`，串行 + 80ms 间隔，避免把服务端打满；
+/// 单个目录失败只记数继续，最后汇总。
+Future<_ScanOutcome> _scanFolders(
+  OpenListApi api,
+  List<FileItem> roots,
+  String basePath, {
+  void Function(int found, int dirs)? onProgress,
+  bool Function()? isCancelled,
+}) async {
+  final outcome = _ScanOutcome([], []);
+  final queue = <MapEntry<String, String>>[]; // remotePath → 相对子目录
+  for (final dir in roots) {
+    final remote = dir.parent ?? joinPath(basePath, dir.name);
+    queue.add(MapEntry(remote, safePathSegment(dir.name)));
+  }
+  final visited = <String>{};
+  var scannedDirs = 0;
+
+  while (queue.isNotEmpty) {
+    if (isCancelled?.call() == true) {
+      outcome.cancelled = true;
+      break;
+    }
+    if (outcome.files.length >= _maxFolderFiles) {
+      outcome.truncated = true;
+      break;
+    }
+    final entry = queue.removeAt(0);
+    if (!visited.add(entry.key)) continue;
+    if (entry.value.split('/').length > _maxFolderDepth) {
+      outcome.skippedDirs++;
+      continue;
+    }
+    scannedDirs++;
+
+    var page = 1;
+    while (true) {
+      if (isCancelled?.call() == true) {
+        outcome.cancelled = true;
+        break;
+      }
+      List<FileItem> pageItems;
+      try {
+        final result = await api.list(path: entry.key, page: page, perPage: 100);
+        pageItems = result.items;
+      } catch (_) {
+        outcome.failedDirs++;
+        break;
+      }
+      for (final item in pageItems) {
+        if (item.isDir) {
+          final childRemote = joinPath(entry.key, item.name);
+          queue.add(MapEntry(childRemote, '${entry.value}/${safePathSegment(item.name)}'));
+        } else {
+          if (outcome.files.length >= _maxFolderFiles) {
+            outcome.truncated = true;
+            break;
+          }
+          outcome.files.add(item);
+          outcome.subdirs.add(entry.value);
+        }
+      }
+      onProgress?.call(outcome.files.length, scannedDirs);
+      if (pageItems.length < 100) break;
+      page++;
+      // 服务端限流的兜底间隔
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    if (outcome.cancelled || outcome.truncated) break;
+  }
+  return outcome;
+}
+
+/// 扫描 → 入队，带可取消的进度弹窗。
+Future<void> _downloadFolders(
+  BuildContext context,
+  WidgetRef ref,
+  OpenListApi api,
+  List<FileItem> dirs,
+  String basePath,
+) async {
+  var cancelled = false;
+  final progress = ValueNotifier<(int, int)>((0, 0));
+
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: const Color(0x59091424),
+    builder: (_) => _FolderScanDialog(
+      progress: progress,
+      onCancel: () => cancelled = true,
+    ),
+  ));
+
+  _ScanOutcome outcome;
+  try {
+    outcome = await _scanFolders(
+      api,
+      dirs,
+      basePath,
+      isCancelled: () => cancelled,
+      onProgress: (found, scannedDirs) => progress.value = (found, scannedDirs),
+    );
+  } finally {
+    progress.value = (-1, -1); // 通知弹窗自行关闭
+  }
+  if (!context.mounted) return;
+
+  var queued = 0;
+  var failed = 0;
+  for (var i = 0; i < outcome.files.length; i++) {
+    final item = outcome.files[i];
+    final remote = item.parent ?? joinPath(basePath, item.name);
+    final error = await ref.read(transfersProvider.notifier).enqueueDownloadInto(
+          item: item,
+          remotePath: remote,
+          localSubdir: outcome.subdirs[i],
+        );
+    if (error == null) {
+      queued++;
+    } else {
+      failed++;
+    }
+  }
+  if (!context.mounted) return;
+
+  final parts = <String>['已加入 $queued 个文件'];
+  if (outcome.skippedDirs > 0) parts.add('跳过 ${outcome.skippedDirs} 个目录（层级过深）');
+  if (outcome.failedDirs > 0) parts.add('${outcome.failedDirs} 个目录读取失败');
+  if (failed > 0) parts.add('$failed 个文件入队失败');
+  if (outcome.truncated) parts.add('已达 $_maxFolderFiles 个上限，请分批下载');
+  if (outcome.cancelled) parts.add('已取消（剩余未处理）');
+  olToast(context, parts.join('，'), error: failed > 0 || outcome.failedDirs > 0);
+}
+
+/// 「正在扫描目录」弹窗：显示已发现文件数与已扫描目录数，可取消。
+class _FolderScanDialog extends StatelessWidget {
+  final ValueNotifier<(int, int)> progress;
+  final VoidCallback onCancel;
+  const _FolderScanDialog({required this.progress, required this.onCancel});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: ValueListenableBuilder<(int, int)>(
+        valueListenable: progress,
+        builder: (context, value, _) {
+          if (value == (-1, -1) && Navigator.of(context).canPop()) {
+            // 扫描结束，由调用方控制关闭
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+            });
+          }
+          return Container(
+            width: 360,
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: p.line)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const OlIcon('folder', size: 14, color: OlTokens.sky600),
+                    const SizedBox(width: 8),
+                    Text('正在扫描文件夹', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '已发现 ${value.$1} 个文件 · 已扫描 ${value.$2} 个目录',
+                  style: TextStyle(fontSize: 11, color: p.ink3),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '上限 $_maxFolderFiles 个文件、$_maxFolderDepth 层目录',
+                  style: TextStyle(fontSize: 9.5, color: p.ink4),
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OlGhostButton(label: '取消', onTap: onCancel),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

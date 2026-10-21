@@ -10,6 +10,10 @@ class TransferTask {
   final String name;
   final String remotePath;
   final String localPath;
+
+  /// 相对下载根的子目录（v1.0.31 文件夹递归下载用）。
+  /// 空串表示直接落在下载根；多级用 `/` 分隔，每级都已在入队前清洗过。
+  final String localSubdir;
   int total;
   int done;
   TransferStatus status;
@@ -27,6 +31,7 @@ class TransferTask {
     required this.name,
     required this.remotePath,
     required this.localPath,
+    this.localSubdir = '',
     this.total = 0,
     this.done = 0,
     this.status = TransferStatus.queued,
@@ -52,6 +57,7 @@ class TransferTask {
         name: name,
         remotePath: remotePath,
         localPath: localPath,
+        localSubdir: localSubdir,
         total: total,
         done: done,
         status: status ?? this.status,
@@ -70,6 +76,7 @@ class TransferTask {
         'name': name,
         'remotePath': remotePath,
         'localPath': localPath,
+        'localSubdir': localSubdir,
         'total': total,
         'done': done,
         'status': status.name,
@@ -87,6 +94,7 @@ class TransferTask {
         name: (j['name'] ?? '').toString(),
         remotePath: (j['remotePath'] ?? '').toString(),
         localPath: (j['localPath'] ?? '').toString(),
+        localSubdir: (j['localSubdir'] ?? '').toString(),
         total: (j['total'] as num?)?.toInt() ?? 0,
         done: (j['done'] as num?)?.toInt() ?? 0,
         status: TransferStatus.values.firstWhere(

@@ -164,12 +164,31 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   // ------------------------------------------------------------- enqueue
 
   Future<String?> enqueueDownload(FileItem item, String currentDir) async {
+    if (item.isDir) return '暂不支持整目录下载';
+    final remotePath = item.parent ?? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}');
+    return enqueueDownloadInto(item: item, remotePath: remotePath, localSubdir: '');
+  }
+
+  /// 入队一个下载任务，可指定本地相对子目录（v1.0.31）。
+  ///
+  /// 文件夹递归下载时，每个文件带着自己的相对子目录进来，落盘后与远端结构一致。
+  /// [localSubdir] 用 `/` 分隔，调用方需保证每级已过 `safePathSegment`。
+  Future<String?> enqueueDownloadInto({
+    required FileItem item,
+    required String remotePath,
+    required String localSubdir,
+  }) async {
     final session = ref.read(sessionProvider);
     final profile = session.profile;
     if (profile == null || session.api == null) return '尚未连接服务器';
     if (item.isDir) return '暂不支持整目录下载';
-    final dir = await _downloadDir(profile);
-    final remotePath = item.parent ?? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}');
+    final root = await _downloadDir(profile);
+    final dir = localSubdir.isEmpty ? root : '$root${Platform.pathSeparator}$localSubdir';
+    try {
+      await Directory(dir).create(recursive: true);
+    } catch (error) {
+      return '无法创建目录 $dir：$error';
+    }
     // 同名文件不能互相覆盖：已在队列里的同一远程文件复用原路径（续传），
     // 否则在磁盘上顺延出「name (2).ext」。
     final localPath = _resolveLocalPath(dir, item.name, remotePath);
@@ -181,6 +200,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       name: item.name,
       remotePath: remotePath,
       localPath: localPath,
+      localSubdir: localSubdir,
       total: item.size,
       sign: item.sign,
     );
