@@ -65,32 +65,6 @@ class _TransferSettings extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text('时段限速', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              for (final day in const ['一', '二', '三', '四', '五', '六', '日'])
-                Container(
-                  width: 20,
-                  height: 20,
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(
-                    gradient: day == '日' ? null : OlTokens.gradientBrand,
-                    color: day == '日' ? p.surface : null,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Center(
-                    child: Text(
-                      day,
-                      style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w700, color: day == '日' ? p.ink4 : Colors.white),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text('工作日 09:00–18:00 限速 2 MB/s，其余时段不限速。', style: TextStyle(fontSize: 9, height: 1.6, color: p.ink4)),
-          const SizedBox(height: 12),
           Text('完成后', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
           _SwitchRow(label: '任务完成通知', value: settings.trayNotify, onChanged: notifier.setTrayNotify),
           _SwitchRow(
