@@ -356,3 +356,42 @@ class _StatusBar extends ConsumerWidget {
 
 // ---------------------------------------------------------------------------
 // 列表 / 网格
+
+/// 内联错误条（v1.0.42）。
+///
+/// 切目录保留旧列表后，若新目录加载失败不会走整页 `_ErrorBody`（那会清掉列表），
+/// 用这条紧凑横幅把原因显示在列表上方，并提供重试。
+class _InlineErrorBar extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _InlineErrorBar({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFF8C9D2)),
+      ),
+      child: Row(
+        children: [
+          const OlIcon('alert', size: 13, color: Color(0xFFD92D4B)),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10.5, height: 1.4, color: Color(0xFF8A2438)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          OlGhostButton(label: '重试', icon: 'refresh', height: 22, fontSize: 9, onTap: onRetry),
+        ],
+      ),
+    );
+  }
+}

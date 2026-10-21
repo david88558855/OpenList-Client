@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.42 · 2026-10-20
+
+### 移除全部动画/转场
+- `OlSwitch`：去掉 180ms 滑块动画（`AnimatedContainer` + `AnimatedAlign`），改为瞬时切换。
+- `OlSkeleton`：去掉 1.4s 呼吸循环（`AnimationController..repeat`），改为静态占位色块。
+- FAB：去掉 180ms 加号旋转（`AnimatedRotation`）。
+- 页面转场此前已全局关闭（`_NoTransitionBuilder`），本版后全仓不再有任何
+  `Animated*` / `AnimationController` / `Transition` 实现。
+- 保留的系统级指示器：`RefreshIndicator`、`CircularProgressIndicator`、`showDialog` 默认淡入
+  （属状态指示/框架默认，非转场特效；如需彻底静态化需自定义 dialog 转场）。
+
+### 修复：切目录保留旧列表后，加载失败无提示
+- v1.0.38 为消除闪烁改为保留旧 `items`，但错误判断依赖 `items.isEmpty`，
+  于是「进入新目录失败」时显示的是上一个目录内容且没有任何提示。
+- 新增 `_InlineErrorBar`：`error != null` 且列表非空时，在列表上方显示原因 + 重试；
+  桌面放在 `Column[提示, Expanded(列表)]`，移动端作为独立 sliver（不能进 `else` 链否则吃掉列表）。
+
+### 其它
+- `openlist_api` 续传校验里的 `match!` 改为 `match?.group(3)`（不再依赖「上面一定 throw」）。
+- 新增 `docs/CODE-REVIEW-2.md`：第二轮全量审查（含 P1/P2 建议清单与修复顺序）。
+
 ## v1.0.41 · 2026-10-20
 
 ### 桌面：配置备份卡移到「当前实例」下方

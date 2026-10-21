@@ -380,7 +380,9 @@ class OpenListApi {
       if (start != existing) {
         throw const ApiException(-1, '续传位置不匹配（文件可能已变化），请删除后重新下载');
       }
-      final remoteTotal = match!.group(3);
+      // 用 ?. 而非 !：`start != existing` 抛错的路径虽然覆盖了 null 分支，
+      // 但依赖「上面一定 throw」过于隐晦，改空安全更稳（v1.0.42）。
+      final remoteTotal = match?.group(3);
       if (remoteTotal != null && remoteTotal != '*') {
         total = int.tryParse(remoteTotal) ?? total;
       }

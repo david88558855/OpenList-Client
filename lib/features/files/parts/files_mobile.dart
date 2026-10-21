@@ -523,12 +523,9 @@ class _FabState extends State<_Fab> {
               borderRadius: BorderRadius.circular(19),
               boxShadow: const [BoxShadow(color: Color(0x6638BDF8), blurRadius: 22, offset: Offset(0, 12))],
             ),
-            child: Center(
-              child: AnimatedRotation(
-                turns: _open ? 0.125 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: const OlIcon('plus', size: 22, color: Colors.white, strokeWidth: 2.2),
-              ),
+            // v1.0.42：去掉 180ms 旋转动画，图标保持静止（仍是「+」作为展开入口）
+            child: const Center(
+              child: OlIcon('plus', size: 22, color: Colors.white, strokeWidth: 2.2),
             ),
           ),
         ),

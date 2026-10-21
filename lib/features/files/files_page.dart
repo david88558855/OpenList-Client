@@ -233,7 +233,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       );
     }
     if (items.isEmpty) return _EmptyBody(filtered: _kind != null);
-    return state.grid
+    final list = state.grid
         ? _GridView(
             items: items,
             scroll: _scroll,
@@ -248,6 +248,21 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             batch: _batch,
             onMenu: (item, position) => showItemMenu(context, ref, item, position, selection: state.selectedItems),
           );
+
+    // v1.0.42：切目录时保留了旧列表（避免闪烁），但若新目录加载失败，
+    // `items` 非空就不会走上面的 _ErrorBody —— 用户看到上一个目录的内容却没有提示。
+    if (state.error != null && !state.offline) {
+      return Column(
+        children: [
+          _InlineErrorBar(
+            message: state.error!,
+            onRetry: () => ref.read(filesProvider.notifier).refresh(),
+          ),
+          Expanded(child: list),
+        ],
+      );
+    }
+    return list;
   }
 
   // ---------------------------------------------------------------- A2 移动端
@@ -291,6 +306,14 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                   ),
                 ),
                 SliverToBoxAdapter(child: _MobileCrumb(state: state)),
+                // 错误条独立于下面的 if/else 链：有旧列表时要和列表同时出现
+                if (items.isNotEmpty && state.error != null && !state.offline)
+                  SliverToBoxAdapter(
+                    child: _InlineErrorBar(
+                      message: state.error!,
+                      onRetry: () => ref.read(filesProvider.notifier).refresh(),
+                    ),
+                  ),
                 if (items.isEmpty && state.showSkeleton)
                   const SliverToBoxAdapter(child: SizedBox(height: 420, child: _SkeletonBody()))
                 else if (items.isEmpty && state.loading)

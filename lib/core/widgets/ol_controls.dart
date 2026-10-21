@@ -307,8 +307,8 @@ class OlSwitch extends StatelessWidget {
       cursor: onChanged == null ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onChanged == null ? null : () => onChanged!(!value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+        // v1.0.42：全项目移除动画/转场，开关改为瞬时切换（不再有滑块过渡）
+        child: Container(
           width: w,
           height: h,
           decoration: BoxDecoration(
@@ -316,8 +316,7 @@ class OlSwitch extends StatelessWidget {
             color: value ? null : (context.ol.isDark ? const Color(0xFF20364C) : const Color(0xFFDFE8F1)),
             borderRadius: BorderRadius.circular(99),
           ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
+          child: Align(
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.5),
@@ -635,7 +634,7 @@ class OlDot extends StatelessWidget {
   }
 }
 
-class OlSkeleton extends StatefulWidget {
+class OlSkeleton extends StatelessWidget {
   final double height;
   final double? width;
   final double radius;
@@ -643,34 +642,16 @@ class OlSkeleton extends StatefulWidget {
   const OlSkeleton({super.key, this.height = 10, this.width, this.radius = 4});
 
   @override
-  State<OlSkeleton> createState() => _OlSkeletonState();
-}
-
-class _OlSkeletonState extends State<OlSkeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // v1.0.42：去掉原来的 1.4s 呼吸动画（repeat 反向），改为静态占位色块。
     final base = context.ol.isDark ? const Color(0xFF16273C) : const Color(0xFFE8F0F7);
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final t = 0.55 + _c.value * 0.45;
-        return Container(
-          height: widget.height,
-          width: widget.width,
-          decoration: BoxDecoration(
-            color: base.withAlpha((255 * t).round()),
-            borderRadius: BorderRadius.circular(widget.radius),
-          ),
-        );
-      },
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: base,
+        borderRadius: BorderRadius.circular(radius),
+      ),
     );
   }
 }
