@@ -165,7 +165,7 @@ final site = await api.publicSettings();
 | P2-4.1 颜色 token | ✅ 已修 | v1.0.47 | 新增 3 个 danger token，14 个文件替换 |
 | P2-4.3 分区再拆 | ✅ 已修 | v1.0.48 | `settings_sections.dart` → 4 个 part |
 | P2-4.2 字号 token | ⏭️ 不建议做 | — | 见下 |
-| P2-4.4 长 build 方法 | ⏳ 未做 | — | `_buildDesktop` 仍内联列表区/详情面板 |
+| P2-4.4 长 build 方法 | ✅ 已修 | v1.0.49 | `_buildDesktop` 190→55 行，抽出四个面板组件 |
 
 ### 关于字号 token（P2-4.2）—— 建议放弃
 
@@ -184,7 +184,6 @@ final site = await api.publicSettings();
 
 ### 仍需跟进
 
-- P2-4.4：`servers_page._buildDesktop`（约 400 行）内联了「列表区 + 右侧详情面板」，
-  可抽成 `_ServerListPanel` / `_ServerDetailPanel` 两个 widget，把页面壳压到 200 行内。
-- 返回卡顿：v1.0.44 加了 `RepaintBoundary`，需实机确认；若仍卡，说明单帧构建成本过高，
-  下一步要拆分区 widget 并减少阴影层数。
+- 返回卡顿：v1.0.44 加了 `RepaintBoundary`，**待实机验证**；若仍卡，说明单帧构建成本过高，
+  下一步要拆分区 widget 并减少阴影层数（需先确认具体卡在哪一帧）。
+- 字号档位收敛（11 → 5 档）属视觉决策，需产品确认后再动。
