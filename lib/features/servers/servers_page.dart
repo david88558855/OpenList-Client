@@ -623,8 +623,9 @@ class _ServerRow extends StatelessWidget {
       onTap: onSelect,
       onDoubleTap: onSwitch,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 7),
+        // v1.0.39：行整体略微加高，配合字号/按钮放大
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           gradient: current ? const LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Color(0xFFF5FCFE), Color(0xFFF7FEFC)]) : null,
           color: current ? null : p.card,
@@ -634,12 +635,12 @@ class _ServerRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(color: current ? const Color(0xFFE9F8FF) : p.surfaceAlt, borderRadius: BorderRadius.circular(9)),
-              child: Center(child: OlIcon('server', size: 15, color: current ? const Color(0xFF0A93C4) : p.ink3)),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: current ? const Color(0xFFE9F8FF) : p.surfaceAlt, borderRadius: BorderRadius.circular(10)),
+              child: Center(child: OlIcon('server', size: 17, color: current ? const Color(0xFF0A93C4) : p.ink3)),
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -651,7 +652,7 @@ class _ServerRow extends StatelessWidget {
                           server.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: p.ink),
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink),
                         ),
                       ),
                       if (current) ...[
@@ -665,13 +666,13 @@ class _ServerRow extends StatelessWidget {
                     '${server.baseUrl} · ${server.username}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: p.ink4),
+                    style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: p.ink4),
                   ),
                 ],
               ),
             ),
             SizedBox(
-              width: 78,
+              width: 84,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -682,12 +683,12 @@ class _ServerRow extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         server.latencyMs != null ? '${server.latencyMs} ms' : (server.health == ServerHealth.timeout ? '超时' : '未连接'),
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: healthColor),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: healthColor),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(relativeTime(server.lastUsed), style: TextStyle(fontSize: 8.5, color: p.ink4)),
+                  Text(relativeTime(server.lastUsed), style: TextStyle(fontSize: 9.5, color: p.ink4)),
                 ],
               ),
             ),
@@ -704,10 +705,10 @@ class _ServerRow extends StatelessWidget {
                 ]);
               },
               child: Container(
-                width: 23,
-                height: 23,
-                decoration: BoxDecoration(border: Border.all(color: p.line2), borderRadius: BorderRadius.circular(6), color: p.card),
-                child: Center(child: OlIcon('more-v', size: 12, color: p.ink3)),
+                width: 27,
+                height: 27,
+                decoration: BoxDecoration(border: Border.all(color: p.line2), borderRadius: BorderRadius.circular(7), color: p.card),
+                child: Center(child: OlIcon('more-v', size: 14, color: p.ink3)),
               ),
             ),
           ],
@@ -733,17 +734,18 @@ class _TinyButton extends StatelessWidget {
       // 内层 onTap 会被双击判定拖住约 300ms，用户感知就是「点了编辑没反应」。
       onTapDown: (_) => onTap(),
       child: Container(
-        height: 23,
-        padding: const EdgeInsets.symmetric(horizontal: 7),
+        // v1.0.39：按钮略微加大（23×9 → 27×10.5），点击区域更舒服
+        height: 27,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: primary ? const Color(0xFFEAF8FE) : p.card,
           border: Border.all(color: primary ? const Color(0xFFCDEEFA) : p.line),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(7),
         ),
         child: Center(
           child: Text(
             label,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: primary ? const Color(0xFF08799F) : p.ink2),
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: primary ? const Color(0xFF08799F) : p.ink2),
           ),
         ),
       ),
