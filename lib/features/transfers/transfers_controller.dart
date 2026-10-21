@@ -170,7 +170,15 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   }
 
   /// 批量入队后统一调度一次（配合 `schedule: false` 使用）。
-  Future<void> kick() => _pump();
+  ///
+  /// v1.0.34：_persist 会把**全部任务**序列化成 JSON。批量入队 1000 个文件时，
+  /// 每个任务都 persist 一次 = 1000 次全量序列化，直接卡主线程。
+  /// 因此批量路径统一走「入队时不 persist、kick 时补一次」。
+  Future<void> kick() async {
+    _persist();
+    _emit();
+    await _pump();
+  }
 
   /// 入队一个下载任务，可指定本地相对子目录（v1.0.31）。
   ///
@@ -209,8 +217,10 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       sign: item.sign,
     );
     state = state.copyWith(tasks: [task, ...state.tasks], clearError: true);
-    _persist();
-    if (schedule) await _pump();
+    if (schedule) {
+      _persist();
+      await _pump();
+    }
     return null;
   }
 
