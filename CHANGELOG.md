@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.46 · 2026-10-20
+
+### 结构整理：服务器页拆分（审查报告 P1-3.1 第二块）
+- `servers_page.dart` 从 **978 行拆到 517 行**：
+
+  | 文件 | 行数 | 内容 |
+  |---|---|---|
+  | `servers_page.dart` | 517 | 页面壳、`_buildDesktop` / `_buildMobile`、导出导入逻辑 |
+  | `parts/servers_rail.dart` | 121 | 左栏（返回 / 当前实例摘要 / 配置备份） |
+  | `parts/servers_row.dart` | 270 | 服务器行 / 小按钮 / 配置卡 / 当前实例卡 / 深色 chip |
+  | `parts/servers_mobile.dart` | 81 | 移动端服务器卡 |
+
+- `part` 方案，类名与逻辑零改动。
+- 剩余：页面壳仍 517 行（`_buildDesktop` 内联了列表区与右侧详情面板），
+  下一步可把这两块抽成独立 widget，进一步压到 200 行内。
+
 ## v1.0.45 · 2026-10-20
 
 ### 结构整理：传输页拆分（审查报告 P1-3.1 第一块）
