@@ -347,6 +347,9 @@ class OpenListApi {
           headers: headers,
           responseType: ResponseType.stream,
           followRedirects: true,
+          // v1.0.36：原来只设了 receive/send 超时（1 天），没有连接超时。
+          // 服务端不响应时请求会一直挂着，任务停在 running 0% 无法判断。
+          connectTimeout: const Duration(seconds: 20),
           receiveTimeout: const Duration(days: 1),
           sendTimeout: const Duration(days: 1),
           validateStatus: (s) => s != null && s < 400,
