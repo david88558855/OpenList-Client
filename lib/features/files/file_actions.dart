@@ -199,7 +199,7 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
     if (context.mounted) olToast(context, '尚未连接服务器', error: true);
     return;
   }
-  await _downloadFolders(context, ref, api, dirs);
+  await _downloadFolders(context, ref, api, dirs, basePath);
 }
 
 /// 单次批量下载的上限，防止误选超大目录把队列撑爆、把服务端打满。
@@ -311,6 +311,8 @@ Future<void> _downloadFolders(
   WidgetRef ref,
   OpenListApi api,
   List<FileItem> dirs,
+  // 浏览目录：仅用于「文件夹自身 parent 为空」时拼根路径，透传给 _scanFolders。
+  String basePath,
 ) async {
   var cancelled = false;
   var dialogReady = false;
