@@ -351,7 +351,21 @@ class OlSeg<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final double height;
 
-  const OlSeg({super.key, required this.items, required this.value, required this.onChanged, this.height = 24});
+  /// v1.0.32：等分模式。[expand] 为 true 时每个选项均分可用宽度并允许文字省略。
+  ///
+  /// 之前只有自适应宽度（`MainAxisSize.min` + 文本不压缩）：移动端字号放大后，
+  /// 「进行中 / 已完成 / 失败」三段总宽会超过容器，最后一段的选中白块被顶出灰底
+  /// （用户截图里的溢出）。放进 `Expanded` 的场景都应该传 true。
+  final bool expand;
+
+  const OlSeg({
+    super.key,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+    this.height = 24,
+    this.expand = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -359,55 +373,71 @@ class OlSeg<T> extends StatelessWidget {
     // v2.3：移动端分段控件同样抬到 30，文案 12。
     final mobile = _isMobile(context);
     final segHeight = mobile ? (height < 30 ? 30.0 : height) : height;
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF3F7FB),
-        borderRadius: BorderRadius.circular(8),
+    // 裁剪兜底：即使某段内容再宽，也不会画到灰底外面（选中块的阴影/圆角一并被裁）。
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF3F7FB),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            for (final item in items)
+              if (expand)
+                Expanded(child: _segItem(context, item, p, mobile, segHeight))
+              else
+                _segItem(context, item, p, mobile, segHeight),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final item in items)
-            GestureDetector(
-              onTap: () => onChanged(item.value),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Container(
-                  height: segHeight,
-                  padding: EdgeInsets.symmetric(horizontal: mobile ? 12 : 8),
-                  decoration: BoxDecoration(
-                    color: item.value == value ? (p.isDark ? const Color(0xFF1B2F45) : Colors.white) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: item.value == value && !p.isDark
-                        ? const [BoxShadow(color: Color(0x1A0D1B2A), blurRadius: 4, offset: Offset(0, 1))]
-                        : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (item.icon != null) ...[
-                        OlIcon(
-                          item.icon!,
-                          size: 12,
-                          color: item.value == value ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
-                        ),
-                        const SizedBox(width: 5),
-                      ],
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: mobile ? 12 : (height < 23 ? 9.5 : 10.5),
-                          fontWeight: FontWeight.w700,
-                          color: item.value == value ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
-                        ),
-                      ),
-                    ],
+    );
+  }
+
+  Widget _segItem(BuildContext context, OlSegItem<T> item, OlPalette p, bool mobile, double segHeight) {
+    final selected = item.value == value;
+    return GestureDetector(
+      onTap: () => onChanged(item.value),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: segHeight,
+          padding: EdgeInsets.symmetric(horizontal: expand ? 6 : (mobile ? 12 : 8)),
+          alignment: expand ? Alignment.center : null,
+          decoration: BoxDecoration(
+            color: selected ? (p.isDark ? const Color(0xFF1B2F45) : Colors.white) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: expand ? MainAxisAlignment.center : MainAxisAlignment.start,
+            children: [
+              if (item.icon != null) ...[
+                OlIcon(
+                  item.icon!,
+                  size: 12,
+                  color: selected ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
+                ),
+                const SizedBox(width: 5),
+              ],
+              Flexible(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: mobile ? 12 : (height < 23 ? 9.5 : 10.5),
+                    fontWeight: FontWeight.w700,
+                    color: selected ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
                   ),
                 ),
               ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

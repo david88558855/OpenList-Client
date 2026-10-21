@@ -174,6 +174,8 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
               child: Row(
                 children: [
                   Expanded(
+                    // v1.0.32：等分模式。三档在放大字号下会超出可用宽度，
+                    // 之前最后一段的选中块会被顶出灰底（用户截图里的溢出）。
                     child: OlSeg<_Filter>(
                       items: const [
                         OlSegItem(_Filter.active, '进行中'),
@@ -182,6 +184,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                       ],
                       value: (_filter == _Filter.done || _filter == _Filter.failed) ? _filter : _Filter.active,
                       onChanged: (f) => setState(() => _filter = f),
+                      expand: true,
                     ),
                   ),
                   const SizedBox(width: 8),
