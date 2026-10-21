@@ -303,7 +303,9 @@ Future<T?> showOlDialog<T>({
     barrierLabel: 'dialog',
     barrierColor: barrierColor,
     transitionDuration: Duration.zero,
-    pageBuilder: (dialogContext, _, __) => builder(dialogContext),
+    // showDialog 默认 useSafeArea，showGeneralDialog 不会 —— 这里补上，
+    // 避免小屏 / 刘海屏上对话框顶到状态栏。
+    pageBuilder: (dialogContext, _, __) => SafeArea(child: builder(dialogContext)),
   );
 }
 
@@ -317,6 +319,8 @@ Timer? _toastTimer;
 void olToast(BuildContext context, String message, {bool error = false}) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
+  // 自绘提示不会自动避让系统手势条 / 导航栏，这里手动补上底部安全区
+  final safeBottom = MediaQuery.maybeOf(context)?.viewPadding.bottom ?? 0;
 
   // 连续调用时只保留最新一条
   _toastTimer?.cancel();
@@ -332,7 +336,7 @@ void olToast(BuildContext context, String message, {bool error = false}) {
     builder: (_) => Positioned(
       left: 16,
       right: 16,
-      bottom: 24,
+      bottom: 24 + safeBottom,
       child: IgnorePointer(
         child: Center(
           child: Container(

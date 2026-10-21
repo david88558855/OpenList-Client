@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.53 · 2026-10-20
+
+### 零动画改造的收尾修正（审查发现）
+- **对话框安全区**：`showDialog` 默认 `useSafeArea: true`，换成的 `showGeneralDialog` 没有这个能力，
+  小屏 / 刘海屏上对话框可能顶到状态栏。`showOlDialog` 的 `pageBuilder` 外层补 `SafeArea`。
+- **提示条底部避让**：自绘 toast 固定 `bottom: 24`，Android 手势条会压住它。
+  改为 `24 + viewPadding.bottom`。
+- **恢复瞬时按下高亮**：上一版把 `highlightColor` 也设成透明，点击完全没有视觉反馈。
+  涟漪（动画）已由 `NoSplash` 去掉，但按下高亮是一帧变色、不是动画，恢复为 6% 黑。
+
 ## v1.0.52 · 2026-10-20
 
 ### 交互过渡动画全部清零

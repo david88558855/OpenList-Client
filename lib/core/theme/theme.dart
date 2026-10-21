@@ -22,8 +22,10 @@ ThemeData olTheme(Brightness brightness) {
     // 全项目不要任何动画，这里换成 NoSplash 并把高亮色设为透明，
     // 点击即刻响应、没有任何过渡。
     splashFactory: NoSplash.splashFactory,
+    // 涟漪扩散是动画，去掉；但保留**瞬时**的按下高亮色，
+    // 否则点击完全没有视觉反馈（不是动画，是一帧变色）。
     splashColor: Colors.transparent,
-    highlightColor: Colors.transparent,
+    highlightColor: const Color(0x0F0D1B2A),
     dividerColor: p.line2,
     // v1.0.15：切换版块 / 导航栏一律硬切换，不要任何转场动作。
     // 之前桌面是 FadeUpwards（淡入 + 上滑 1/12 屏高），Android 是 Material 3 的 Zoom
