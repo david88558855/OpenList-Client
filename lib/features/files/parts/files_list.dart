@@ -48,6 +48,8 @@ class _ListView extends ConsumerWidget {
         Expanded(
           child: ListView.builder(
             controller: scroll,
+            // 内容不满一屏时也能下拉刷新
+            physics: const AlwaysScrollableScrollPhysics(),
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
@@ -208,6 +210,7 @@ class _GridView extends ConsumerWidget {
     final state = ref.watch(filesProvider);
     return GridView.builder(
       controller: scroll,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         // v2.6：网格收紧（150→116，比例 0.92→1.06），文件名不再被大片留白推到底部。

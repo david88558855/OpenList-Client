@@ -10,6 +10,7 @@ import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/workspace_nav.dart';
+import '../../core/widgets/ol_scroll.dart';
 
 /// 收藏。
 ///
@@ -116,12 +117,6 @@ class _DesktopBody extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text('收藏', style: TextStyle(fontSize: 18, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: p.ink)),
                 const Spacer(),
-                OlGhostButton(
-                  label: '刷新',
-                  icon: 'refresh',
-                  height: 30,
-                  onTap: () => ref.invalidate(favoritesProvider),
-                ),
               ],
             ),
           ),
@@ -172,14 +167,35 @@ class _FavoriteList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(sessionProvider).profile;
     final entries = ref.watch(favoritesProvider).where((e) => e.serverId == profile?.id).toList();
+    // v1.0.56：统一下拉刷新（收藏是本地数据，刷新即重建列表）
+    Future<void> refresh() async {
+      ref.invalidate(favoritesProvider);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+
     if (entries.isEmpty) {
-      return const OlEmptyState(
-        icon: 'star',
-        title: '还没有收藏',
-        subtitle: '在文件上右键或长按，选「收藏」即可固定到这里',
+      // 空态也要能下拉：包一层可滚动容器
+      return OlPullToRefresh(
+        onRefresh: refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(
+              height: 320,
+              child: OlEmptyState(
+                icon: 'star',
+                title: '还没有收藏',
+                subtitle: '在文件上右键或长按，选「收藏」即可固定到这里',
+              ),
+            ),
+          ],
+        ),
       );
     }
-    return ListView.separated(
+    return OlPullToRefresh(
+      onRefresh: refresh,
+      child: ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
       itemCount: entries.length,
       separatorBuilder: (context, index) => Divider(height: 1, color: context.ol.divider),
@@ -204,6 +220,7 @@ class _FavoriteList extends ConsumerWidget {
           },
         );
       },
+      ),
     );
   }
 }

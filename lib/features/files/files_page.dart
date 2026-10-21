@@ -14,6 +14,7 @@ import '../../core/models/api_types.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
+import '../../core/widgets/ol_scroll.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../../core/widgets/workspace_nav.dart';
@@ -258,11 +259,19 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             message: state.error!,
             onRetry: () => ref.read(filesProvider.notifier).refresh(),
           ),
-          Expanded(child: list),
+          Expanded(
+            child: OlPullToRefresh(
+              onRefresh: () => ref.read(filesProvider.notifier).refresh(),
+              child: list,
+            ),
+          ),
         ],
       );
     }
-    return list;
+    return OlPullToRefresh(
+      onRefresh: () => ref.read(filesProvider.notifier).refresh(),
+      child: list,
+    );
   }
 
   // ---------------------------------------------------------------- A2 移动端
@@ -287,10 +296,10 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       },
       child: Stack(
         children: [
-          RefreshIndicator(
-            color: OlTokens.sky600,
+          OlPullToRefresh(
             onRefresh: () => ref.read(filesProvider.notifier).refresh(),
             child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 const SliverToBoxAdapter(child: _MobileHead()),
                 const SliverToBoxAdapter(child: _MobileMounts()),

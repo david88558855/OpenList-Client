@@ -40,9 +40,6 @@ class _MobileHead extends ConsumerWidget {
                 ),
               ),
               _CircleBtn(icon: 'search', onTap: () => context.go('/search')),
-              const SizedBox(width: 8),
-              // v2.1：右上角由「更多」改为刷新。
-              _CircleBtn(icon: 'refresh', onTap: () => ref.read(filesProvider.notifier).refresh()),
             ],
           ),
           const SizedBox(height: 10),

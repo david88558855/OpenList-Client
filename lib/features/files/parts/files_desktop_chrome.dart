@@ -44,13 +44,6 @@ class _TopBar extends ConsumerWidget {
             ),
           ),
           _SearchMini(onTap: () => context.go('/search')),
-          const SizedBox(width: 6),
-          OlIconButton(
-            icon: 'refresh',
-            tooltip: '刷新 F5',
-            squared: true,
-            onTap: () => ref.read(filesProvider.notifier).refresh(),
-          ),
           const SizedBox(width: 8),
           OlPrimaryButton(label: '上传', icon: 'upload', height: 30, onTap: () => pickAndUpload(context, ref)),
         ],

@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.56 · 2026-10-20
+
+### 刷新入口统一为下拉刷新
+- **删除全部页面刷新按钮**（3 处）：
+  文件页桌面工具栏的刷新图标、文件页移动端右上角的圆形刷新、收藏页工具栏的「刷新」。
+  错误态的「重试」按钮保留（那是失败恢复，不是刷新）。
+- **新增 `OlPullToRefresh`**（`core/widgets/ol_scroll.dart`）：安卓与桌面共用同一套逻辑。
+  关键点在桌面：Flutter 默认 `ScrollBehavior.dragDevices` 不含鼠标/触控板，
+  滚轮也产生不了 overscroll —— `RefreshIndicator` 在电脑上永远触发不了。
+  组件内放开 `touch / mouse / trackpad / stylus` 拖动，视觉与安卓完全一致。
+- 列表与网格补 `AlwaysScrollableScrollPhysics`：内容不满一屏时也能下拉。
+- 收藏页空态改为可滚动容器，空列表同样支持下拉。
+- 文件页桌面 / 移动端、收藏页三处统一接入；收藏是本地数据，下拉即重建列表。
+
 ## v1.0.55 · 2026-10-20
 
 ### 移除：传输页的「时段限速」
