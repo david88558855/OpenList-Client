@@ -130,7 +130,10 @@ class FilesNotifier extends StateNotifier<FilesState> {
       path: normalized,
       loading: true,
       showSkeleton: false,
-      items: const [],
+      // v1.0.38：不再清空 items。清空会让列表区立刻塌成骨架屏，
+      // 每次进/出子目录都闪一下；保留旧列表直到新数据到达更平稳
+      //（面包屑已经变成新路径，列表在几百毫秒内替换）。
+      // 骨架屏只用于「超过 400ms 仍未返回」（showSkeleton 由 _skeletonTimer 置位）。
       total: 0,
       page: 1,
       selected: const {},

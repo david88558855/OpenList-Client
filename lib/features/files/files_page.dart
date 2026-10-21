@@ -115,6 +115,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   @override
   Widget build(BuildContext context) {
+    // v1.0.38：目录切换后把列表拉回顶部。之前沿用上一个目录的滚动位置，
+    // 新列表更短时会被 clamp 到末尾，看起来像「闪/跳」一下。
+    ref.listen<String>(filesProvider.select((s) => s.path), (previous, next) {
+      if (previous != next && _scroll.hasClients) _scroll.jumpTo(0);
+    });
     if (context.isNarrow) return _buildMobile(context);
     return _buildDesktop(context);
   }
@@ -217,7 +222,10 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   Widget _buildBody(FilesState state) {
     final items = _filtered(state.items);
-    if (items.isEmpty && state.loading) return const _SkeletonBody();
+    // v1.0.38：骨架屏只在「超过 400ms 仍未返回」时出现（showSkeleton 由 controller 置位），
+    // 快速切换目录时不再闪一下骨架；未到延迟前用等高占位保持布局稳定。
+    if (items.isEmpty && state.showSkeleton) return const _SkeletonBody();
+    if (items.isEmpty && state.loading) return const SizedBox.expand();
     if (items.isEmpty && state.error != null && !state.offline) {
       return _ErrorBody(
         message: state.error!,
@@ -283,8 +291,10 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                   ),
                 ),
                 SliverToBoxAdapter(child: _MobileCrumb(state: state)),
-                if (items.isEmpty && state.loading)
+                if (items.isEmpty && state.showSkeleton)
                   const SliverToBoxAdapter(child: SizedBox(height: 420, child: _SkeletonBody()))
+                else if (items.isEmpty && state.loading)
+                  const SliverToBoxAdapter(child: SizedBox(height: 420))
                 else if (items.isEmpty && state.error != null && !state.offline)
                   SliverToBoxAdapter(
                     child: SizedBox(

@@ -242,23 +242,6 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                                           footer: '不含密码，仅地址与偏好',
                                         ),
                                       ),
-                                      const SizedBox(width: 7),
-                                      Expanded(
-                                        child: _ConfigCard(
-                                          title: '连接诊断',
-                                          child: Row(
-                                            children: [
-                                              OlDot(size: 4, color: session.signedIn ? OlTokens.ok : OlTokens.warn),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                session.signedIn ? '全部正常 · ${session.latencyMs ?? '—'} ms' : '未连接',
-                                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: session.signedIn ? const Color(0xFF0B7A63) : p.ink4),
-                                              ),
-                                            ],
-                                          ),
-                                          footer: '基于 /api/public/settings 探测',
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ],
