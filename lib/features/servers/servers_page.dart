@@ -97,6 +97,8 @@ class _ServersPageState extends ConsumerState<ServersPage> {
           current: session.profile,
           count: serversState.count,
           onBack: () => goBackOrFiles(context),
+          onExport: _exportConfig,
+          onImport: _importConfig,
         ),
         Expanded(
           child: Container(
@@ -222,24 +224,6 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                                         child: Text(
                                           '列表保存在本地，凭据写入系统安全存储；删除服务器只移除本地配置，不影响服务端数据。',
                                           style: TextStyle(fontSize: 8.5, height: 1.6, color: p.ink4),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _ConfigCard(
-                                          title: '配置备份',
-                                          child: Row(
-                                            children: [
-                                              OlChip(label: '导出', icon: 'external', height: 22, onTap: _exportConfig),
-                                              const SizedBox(width: 5),
-                                              OlChip(label: '导入', icon: 'download', height: 22, onTap: _importConfig),
-                                            ],
-                                          ),
-                                          footer: '不含密码，仅地址与偏好',
                                         ),
                                       ),
                                     ],
@@ -498,10 +482,17 @@ class _ServersRail extends StatelessWidget {
   final int count;
   final VoidCallback onBack;
 
+  /// v1.0.41：配置备份从「服务器列表末尾」上移到「当前实例」卡片正下方，
+  /// 位置更符合「当前实例的附属操作」语义，也不用滚到列表底部才找得到。
+  final VoidCallback onExport;
+  final VoidCallback onImport;
+
   const _ServersRail({
     required this.current,
     required this.count,
     required this.onBack,
+    required this.onExport,
+    required this.onImport,
   });
 
   @override
@@ -575,6 +566,17 @@ class _ServersRail extends StatelessWidget {
                 Text('共 $count 个服务器', style: TextStyle(fontSize: 9, color: p.ink4)),
               ],
             ),
+          ),
+          const OlSectionLabel('配置备份'),
+          _ConfigCard(
+            child: Row(
+              children: [
+                Expanded(child: OlChip(label: '导出', icon: 'external', height: 22, onTap: onExport)),
+                const SizedBox(width: 5),
+                Expanded(child: OlChip(label: '导入', icon: 'download', height: 22, onTap: onImport)),
+              ],
+            ),
+            footer: '不含密码，仅地址与偏好',
           ),
           const Spacer(),
           Padding(
@@ -754,11 +756,12 @@ class _TinyButton extends StatelessWidget {
 }
 
 class _ConfigCard extends StatelessWidget {
-  final String title;
+  /// 传 null 时由外部的 OlSectionLabel 承担标题（左侧窄栏就是这种用法）。
+  final String? title;
   final Widget child;
   final String footer;
 
-  const _ConfigCard({required this.title, required this.child, required this.footer});
+  const _ConfigCard({this.title, required this.child, required this.footer});
 
   @override
   Widget build(BuildContext context) {
@@ -769,8 +772,10 @@ class _ConfigCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.ink3)),
-          const SizedBox(height: 6),
+          if (title != null && title!.isNotEmpty) ...[
+            Text(title!, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.ink3)),
+            const SizedBox(height: 6),
+          ],
           child,
           const SizedBox(height: 5),
           Text(footer, style: TextStyle(fontSize: 8, color: p.ink4)),
