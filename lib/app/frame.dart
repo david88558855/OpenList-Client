@@ -80,7 +80,10 @@ class _AppFrameState extends ConsumerState<AppFrame> {
     // 此时不再追加底部内边距，否则会多出一段空白。
     final insets = _frameInsets(mq, bleed: widget.edgeToEdge, navShown: navShown);
 
-    Widget content = widget.child;
+    // v1.0.44：内容区加独立图层。打开子页面（如设置 → 服务器管理）时，
+    // 被覆盖的页面会保留自己的 layer，返回时直接合成、无需整页重绘 ——
+    // 这是「从服务器管理返回设置页卡一下」的主要开销（设置页有大量卡片/阴影）。
+    Widget content = RepaintBoundary(child: widget.child);
     if (insets != EdgeInsets.zero) {
       // 消费掉已经补过的内边距：子页面再次读取 MediaQuery.padding 时不会重复避让。
       content = MediaQuery.removePadding(

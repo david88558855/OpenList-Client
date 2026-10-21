@@ -105,8 +105,15 @@ class SessionNotifier extends StateNotifier<SessionState> {
     state = SessionState(profile: profile, api: api, connecting: true);
     final watch = Stopwatch()..start();
     try {
-      final user = await api.me();
-      final site = await api.publicSettings();
+      // v1.0.44：两个请求并行，省掉一个 RTT。
+      // 但错误语义要分开：`me()` 决定成败（401/403 才算登出），
+      // `publicSettings()` 只是站点信息，失败不应影响登录 —— 单独吞掉。
+      // 注意不能直接用 Future.wait：它会把异常包成 ParallelWaitError，
+      // 下面的 `on ApiException` 就捕获不到，会被误判成「离线模式」。
+      final meFuture = api.me();
+      final siteFuture = api.publicSettings().then<SiteInfo?>((s) => s).catchError((Object _) => null);
+      final user = await meFuture;
+      final site = await siteFuture;
       watch.stop();
       state = SessionState(
         profile: profile,
@@ -120,8 +127,8 @@ class SessionNotifier extends StateNotifier<SessionState> {
             profile.id,
             latencyMs: watch.elapsedMilliseconds,
             health: ServerHealth.ok,
-            siteTitle: site.title,
-            version: site.version ?? site.apiVersion,
+            siteTitle: site?.title,
+            version: site?.version ?? site?.apiVersion,
           );
       ref.read(appSettingsProvider.notifier).rememberLatency(watch.elapsedMilliseconds);
     } on ApiException catch (e) {

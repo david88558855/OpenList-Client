@@ -11,6 +11,7 @@ import '../../core/models/api_types.dart';
 import '../../core/models/server_profile.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/storage/download_paths.dart';
+import '../../core/storage/prefs.dart';
 
 class TransfersState {
   final List<TransferTask> tasks;
@@ -71,7 +72,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   bool _pumping = false;
   ProviderSubscription<AppSettings>? _settingsSub;
 
-  TransfersNotifier(this.ref) : super(const TransfersState()) {
+  /// 缓存 prefs：dispose 时 ref 已失效，但合并窗口里的状态还得落盘。
+  final Prefs _prefs;
+
+  TransfersNotifier(this.ref)
+      : _prefs = ref.read(prefsProvider),
+        super(const TransfersState()) {
     state = state.copyWith(concurrency: ref.read(appSettingsProvider).concurrency);
     // v2.6：设置页改并发数后立即生效。之前只在构造时读一次，必须重启应用才生效。
     _settingsSub = ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
@@ -95,6 +101,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   @override
   void dispose() {
+    // 合并窗口内的改动必须立即落盘，否则退出应用会丢任务列表
+    _persistNow();
     _settingsSub?.close();
     _ticker?.cancel();
     for (final token in _tokens.values) {
@@ -120,12 +128,26 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     }
   }
 
+  Timer? _persistTimer;
+
+  /// v1.0.44：落盘改为 400ms 合并。
+  ///
+  /// `_persist` 会把**全部任务**序列化成 JSON，而 `_run` 的 finally 每个任务都调一次：
+  /// 1000 个任务的批量下载 = 1000 次全量序列化，持续占用主线程。
+  /// 合并后一批任务结束只写一次（prefs 内部还有 250ms 落盘合并，双保险）。
   void _persist() {
+    _persistTimer?.cancel();
+    _persistTimer = Timer(const Duration(milliseconds: 400), _persistNow);
+  }
+
+  void _persistNow() {
+    _persistTimer?.cancel();
+    _persistTimer = null;
     final list = state.tasks
         .where((e) => e.status == TransferStatus.paused || e.status == TransferStatus.queued || e.status == TransferStatus.running || e.status == TransferStatus.failed)
         .map((e) => e.toJson())
         .toList();
-    ref.read(prefsProvider).setJsonList(_persistKey, list);
+    _prefs.setJsonList(_persistKey, list);
   }
 
   void _emit() => state = state.copyWith(tasks: List<TransferTask>.of(state.tasks));

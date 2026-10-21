@@ -206,6 +206,10 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
 const _maxFolderFiles = 2000;
 const _maxFolderDepth = 24;
 
+/// 递归扫描的节流间隔：翻页 80ms、目录切换 40ms。
+const _scanPageGap = Duration(milliseconds: 80);
+const _scanDirGap = Duration(milliseconds: 40);
+
 /// 扫描得到的一个待入队文件：远端完整路径在扫描时就已经确定。
 class _FolderEntry {
   final FileItem item;
@@ -297,10 +301,13 @@ Future<_ScanOutcome> _scanFolders(
       onProgress?.call(outcome.fileCount, scannedDirs);
       if (pageItems.length < 100) break;
       page++;
-      // 服务端限流的兜底间隔
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      // 服务端限流的兜底间隔（翻页）
+      await Future<void>.delayed(_scanPageGap);
     }
     if (outcome.cancelled || outcome.truncated) break;
+    // v1.0.44：目录之间也留间隔。之前只在翻页时等待，深层目录会连续打 list，
+    // 服务端一限流就变成「N 个目录读取失败」。
+    await Future<void>.delayed(_scanDirGap);
   }
   return outcome;
 }
