@@ -195,45 +195,93 @@ Future<void> showOlActionSheet(
   );
 }
 
+/// 右键 / 「⋮」浮层菜单（v1.0.51 重写）。
+///
+/// 原来直接用 Material 的 `showMenu`：它的 `transitionDuration` 固定 300ms
+/// （打开是 fade + scale，关闭同样 300ms），点上「⋮」要等近三分之一秒才看到菜单，
+/// 关掉时又要等一次 —— 这就是「有动画而且显示很慢」的原因。
+///
+/// 现在用 `showGeneralDialog` 自绘：transitionDuration / reverseTransitionDuration
+/// 都是 0，菜单立即出现、立即消失；位置自己算，超出屏幕右下时自动翻转/夹紧。
 Future<void> showOlMenu(BuildContext context, {required Offset position, required List<OlMenuItem> items}) async {
+  if (items.isEmpty) return;
   final p = context.ol;
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  final selected = await showMenu<int>(
+  final screen = MediaQuery.sizeOf(context);
+  const width = 160.0;
+  const itemHeight = 34.0;
+  final height = items.length * itemHeight + 8;
+
+  var left = position.dx;
+  var top = position.dy;
+  // 优先向右下展开；右侧/下方放不下就翻转，最后夹紧在屏幕内
+  if (left + width > screen.width - 8) left = position.dx - width;
+  if (top + height > screen.height - 8) top = position.dy - height;
+  left = left.clamp(8.0, (screen.width - width - 8).clamp(8.0, double.infinity)).toDouble();
+  top = top.clamp(8.0, (screen.height - height - 8).clamp(8.0, double.infinity)).toDouble();
+
+  final selected = await showGeneralDialog<int>(
     context: context,
-    color: p.card,
-    elevation: 18,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: p.line)),
-    position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
-    items: [
-      for (var i = 0; i < items.length; i++)
-        PopupMenuItem<int>(
-          value: i,
-          height: 34,
-          padding: EdgeInsets.zero,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 5),
-            child: Row(
-              children: [
-                OlIcon(items[i].icon, size: 13, color: items[i].danger ? OlTokens.dangerDeep : p.ink3),
-                const SizedBox(width: 8),
-                Text(
-                  items[i].label,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: items[i].danger ? OlTokens.dangerDeep : p.ink2,
-                  ),
-                ),
-              ],
+    barrierDismissible: true,
+    barrierLabel: 'menu',
+    // 透明遮罩：靠 hit-test 关闭，不压暗背景
+    barrierColor: Colors.transparent,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    pageBuilder: (dialogContext, _, __) => Stack(
+      children: [
+        Positioned(
+          left: left,
+          top: top,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: width,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: p.line),
+                boxShadow: const [BoxShadow(color: Color(0x1F0D1B2A), blurRadius: 18, offset: Offset(0, 6))],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(dialogContext).pop(i),
+                      child: Container(
+                        height: itemHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          children: [
+                            OlIcon(items[i].icon, size: 13, color: items[i].danger ? OlTokens.dangerDeep : p.ink3),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                items[i].label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: items[i].danger ? OlTokens.dangerDeep : p.ink2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-    ],
+      ],
+    ),
   );
-  if (selected != null && overlay != null) {
-    final item = items[selected];
-    item.onTap?.call();
-  }
+  if (selected != null) items[selected].onTap?.call();
 }
 
 void olToast(BuildContext context, String message, {bool error = false}) {
