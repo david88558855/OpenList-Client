@@ -851,7 +851,7 @@ class _DirPickerDialogState extends ConsumerState<_DirPickerDialog> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                   : _error != null
-                      ? Center(child: Text(_error!, style: TextStyle(fontSize: 11.5, color: const Color(0xFFD92D4B))))
+                      ? Center(child: Text(_error!, style: TextStyle(fontSize: 11.5, color: OlTokens.dangerDeep)))
                       : ListView(
                           children: [
                             if (_path != '/')

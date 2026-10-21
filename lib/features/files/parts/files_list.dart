@@ -354,7 +354,7 @@ class _DropOverlay extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const OlIcon('upload', size: 18, color: Color(0xFF0EA5E9)),
+              const OlIcon('upload', size: 18, color: OlTokens.sky600),
               const SizedBox(width: 10),
               Text('松手即可上传到当前目录', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.ink)),
             ],

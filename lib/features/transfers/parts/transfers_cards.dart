@@ -430,7 +430,7 @@ class _TaskRow extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: failed ? FontWeight.w700 : FontWeight.w500,
-                          color: failed ? const Color(0xFFD92D4B) : p.ink4,
+                          color: failed ? OlTokens.dangerDeep : p.ink4,
                         ),
                       ),
                     ),
@@ -455,7 +455,7 @@ class _TaskRow extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
-                    color: failed ? const Color(0xFFD92D4B) : p.ink,
+                    color: failed ? OlTokens.dangerDeep : p.ink,
                   ),
                 ),
                 const SizedBox(height: 2),

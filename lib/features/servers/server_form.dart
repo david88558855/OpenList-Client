@@ -308,7 +308,7 @@ class _ServerFormState extends ConsumerState<ServerForm> {
               children: [
                 Text(
                   _testing ? '连接测试中…' : (_latency != null ? '连接测试 正常 · $_latency ms' : '连接测试'),
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: _latency != null ? const Color(0xFF0B7A63) : p.ink4),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: _latency != null ? OlTokens.okDeep : p.ink4),
                 ),
                 const Spacer(),
                 OlChip(label: _testing ? '测试中' : '重新测试', selected: false, height: 22, onTap: _testing ? null : _test),

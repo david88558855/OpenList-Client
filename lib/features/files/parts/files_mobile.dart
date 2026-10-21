@@ -467,7 +467,7 @@ class _BatchAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    final color = !enabled ? p.ink4 : (danger ? const Color(0xFFD92D4B) : p.ink2);
+    final color = !enabled ? p.ink4 : (danger ? OlTokens.dangerDeep : p.ink2);
     return GestureDetector(
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,

@@ -212,7 +212,7 @@ class OlDangerButton extends StatelessWidget {
           height: _mobileHeight(context, height),
           padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF1F3),
+            color: OlTokens.dangerSurface,
             border: Border.all(color: const Color(0xFFFFD9E0)),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -220,7 +220,7 @@ class OlDangerButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: mobile ? 16 : 14, color: const Color(0xFFD92D4B)),
+                OlIcon(icon!, size: mobile ? 16 : 14, color: OlTokens.dangerDeep),
                 const SizedBox(width: 6),
               ],
               Text(
@@ -230,7 +230,7 @@ class OlDangerButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: _mobileFont(context, 11.5),
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFFD92D4B),
+                  color: OlTokens.dangerDeep,
                 ),
               ),
             ],
@@ -472,7 +472,7 @@ class OlChip extends StatelessWidget {
       border = bg;
     } else if (teal) {
       bg = const Color(0xFFE7FBF5);
-      fg = const Color(0xFF0B7A63);
+      fg = OlTokens.okDeep;
       border = const Color(0xFFCDEFE7);
     } else {
       bg = p.isDark ? const Color(0xFF101F31) : const Color(0xFFF3F8FC);
@@ -603,7 +603,7 @@ class OlBadge extends StatelessWidget {
   final Color bg;
   final Color? border;
 
-  const OlBadge({super.key, required this.label, this.fg = const Color(0xFF0B7A63), this.bg = const Color(0xFFE7FBF5), this.border});
+  const OlBadge({super.key, required this.label, this.fg = OlTokens.okDeep, this.bg = const Color(0xFFE7FBF5), this.border});
 
   @override
   Widget build(BuildContext context) {

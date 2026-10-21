@@ -243,14 +243,14 @@ class _MobileTile extends StatelessWidget {
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
         child: Row(
           children: [
-            OlIcon(icon, size: 18, color: danger ? const Color(0xFFD92D4B) : p.ink3),
+            OlIcon(icon, size: 18, color: danger ? OlTokens.dangerDeep : p.ink3),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: danger ? const Color(0xFFD92D4B) : p.ink),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: danger ? OlTokens.dangerDeep : p.ink),
               ),
             ),
             if (value.isNotEmpty)

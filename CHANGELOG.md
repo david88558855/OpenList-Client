@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.47 · 2026-10-20
+
+### 颜色 token 化（审查报告 P2-4.1）
+- `OlTokens` 补充错误提示三色：`dangerSurface`（底色）/ `dangerBorder`（描边）/ `dangerInk`（文字）。
+- 把散落在 14 个文件里的高频字面量统一到语义 token：
+  `Color(0xFFD92D4B)` → `dangerDeep`、`0xFF0B7A63` → `okDeep`、`0xFF0EA5E9` → `sky600`、
+  `0xFFFFF1F3`/`0xFFF8C9D2`/`0xFF8A2438` → 新增的三个 danger token。
+- 之后调整错误态配色只改一处；`part` 文件沿用主文件的 import，不额外引依赖。
+
 ## v1.0.46 · 2026-10-20
 
 ### 结构整理：服务器页拆分（审查报告 P1-3.1 第二块）

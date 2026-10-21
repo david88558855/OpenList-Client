@@ -364,7 +364,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const OlIcon('alert', size: 20, color: Color(0xFFD92D4B)),
+            const OlIcon('alert', size: 20, color: OlTokens.dangerDeep),
             const SizedBox(height: 8),
             Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: p.ink3)),
             const SizedBox(height: 10),

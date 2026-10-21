@@ -62,7 +62,7 @@ class _ServersSection extends ConsumerWidget {
                         const SizedBox(width: 7),
                         OlBadge(
                           label: session.signedIn ? '已连接' : '未连接',
-                          fg: session.signedIn ? const Color(0xFF0B7A63) : const Color(0xFFB47405),
+                          fg: session.signedIn ? OlTokens.okDeep : const Color(0xFFB47405),
                           bg: session.signedIn ? const Color(0xFFE7FBF5) : const Color(0xFFFFF6E5),
                         ),
                       ],
@@ -135,7 +135,7 @@ class _InfoStrip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const OlIcon('info', size: 14, color: Color(0xFF0EA5E9)),
+          const OlIcon('info', size: 14, color: OlTokens.sky600),
           const SizedBox(width: 8),
           Expanded(child: Text(text, style: TextStyle(fontSize: 9.5, height: 1.6, color: p.ink3))),
         ],
@@ -474,7 +474,7 @@ class _PlaybackSection extends ConsumerWidget {
               ListTile(
                 dense: true,
                 title: Text('${speed.toStringAsFixed(2)}×', style: const TextStyle(fontSize: 12.5)),
-                trailing: speed == current ? const OlIcon('check', size: 14, color: Color(0xFF0EA5E9)) : null,
+                trailing: speed == current ? const OlIcon('check', size: 14, color: OlTokens.sky600) : null,
                 onTap: () => Navigator.of(sheetContext).pop(speed),
               ),
           ],
@@ -579,7 +579,7 @@ class _ThemeCard extends StatelessWidget {
                       alignment: Alignment.topRight,
                       child: Padding(
                         padding: EdgeInsets.all(5),
-                        child: OlIcon('check', size: 12, color: Color(0xFF0EA5E9)),
+                        child: OlIcon('check', size: 12, color: OlTokens.sky600),
                       ),
                     )
                   : null,
@@ -619,7 +619,7 @@ class _AboutSection extends ConsumerWidget {
                 icon: 'external',
                 title: '项目主页',
                 subtitle: 'github.com/david88558855/OpenList-Client',
-                trailing: const OlIcon('chev-r', size: 13, color: Color(0xFF0EA5E9)),
+                trailing: const OlIcon('chev-r', size: 13, color: OlTokens.sky600),
                 onTap: () => launchUrl(
                   Uri.parse('https://github.com/david88558855/OpenList-Client'),
                   mode: LaunchMode.externalApplication,

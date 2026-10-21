@@ -372,20 +372,20 @@ class _InlineErrorBar extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(8, 6, 8, 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F3),
+        color: OlTokens.dangerSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFF8C9D2)),
+        border: Border.all(color: OlTokens.dangerBorder),
       ),
       child: Row(
         children: [
-          const OlIcon('alert', size: 13, color: Color(0xFFD92D4B)),
+          const OlIcon('alert', size: 13, color: OlTokens.dangerDeep),
           const SizedBox(width: 7),
           Expanded(
             child: Text(
               message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10.5, height: 1.4, color: Color(0xFF8A2438)),
+              style: const TextStyle(fontSize: 10.5, height: 1.4, color: OlTokens.dangerInk),
             ),
           ),
           const SizedBox(width: 8),

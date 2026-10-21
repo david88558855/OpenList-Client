@@ -26,7 +26,7 @@ class _ServerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     final healthColor = server.health == ServerHealth.ok
-        ? const Color(0xFF0B7A63)
+        ? OlTokens.okDeep
         : server.health == ServerHealth.timeout
             ? OlTokens.warnDeep
             : p.ink4;

@@ -236,7 +236,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('WELCOME BACK', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 2.2, color: Color(0xFF0EA5E9))),
+        const Text('WELCOME BACK', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 2.2, color: OlTokens.sky600)),
         const SizedBox(height: 9),
         Text('连接到你的服务器', style: TextStyle(fontSize: 25, height: 1.15, letterSpacing: -0.9, fontWeight: FontWeight.w800, color: p.ink)),
         const SizedBox(height: 7),
@@ -389,7 +389,7 @@ class _ProbePill extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               done ? '已连接' : '探测',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: done ? const Color(0xFF0B7A63) : const Color(0xFF8FA1B3)),
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: done ? OlTokens.okDeep : const Color(0xFF8FA1B3)),
             ),
           ],
         ),
@@ -407,12 +407,12 @@ class _InlineError extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const OlIcon('alert', size: 13, color: Color(0xFFD92D4B)),
+        const OlIcon('alert', size: 13, color: OlTokens.dangerDeep),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             message,
-            style: const TextStyle(fontSize: 10.5, height: 1.5, fontWeight: FontWeight.w600, color: Color(0xFFD92D4B)),
+            style: const TextStyle(fontSize: 10.5, height: 1.5, fontWeight: FontWeight.w600, color: OlTokens.dangerDeep),
           ),
         ),
       ],
@@ -429,12 +429,12 @@ class _ProbeOk extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const OlIcon('check', size: 13, color: Color(0xFF0B7A63)),
+        const OlIcon('check', size: 13, color: OlTokens.okDeep),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             ms == null ? '$title · 已连接' : '$title · 已连接 ${ms}ms',
-            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF0B7A63)),
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: OlTokens.okDeep),
           ),
         ),
       ],

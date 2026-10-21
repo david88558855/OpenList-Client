@@ -131,14 +131,14 @@ Future<void> showOlActionSheet(
                                       width: 42,
                                       height: 42,
                                       decoration: BoxDecoration(
-                                        color: item.danger ? const Color(0xFFFFF1F3) : const Color(0xFFF1F8FC),
+                                        color: item.danger ? OlTokens.dangerSurface : const Color(0xFFF1F8FC),
                                         borderRadius: BorderRadius.circular(13),
                                       ),
                                       child: Center(
                                         child: OlIcon(
                                           item.icon,
                                           size: 17,
-                                          color: item.danger ? const Color(0xFFD92D4B) : const Color(0xFF3D7E9E),
+                                          color: item.danger ? OlTokens.dangerDeep : const Color(0xFF3D7E9E),
                                         ),
                                       ),
                                     ),
@@ -175,7 +175,7 @@ Future<void> showOlActionSheet(
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: item.danger ? const Color(0xFFD92D4B) : p.ink2,
+                                    color: item.danger ? OlTokens.dangerDeep : p.ink2,
                                   ),
                                 ),
                               ),
@@ -214,14 +214,14 @@ Future<void> showOlMenu(BuildContext context, {required Offset position, require
             margin: const EdgeInsets.symmetric(horizontal: 5),
             child: Row(
               children: [
-                OlIcon(items[i].icon, size: 13, color: items[i].danger ? const Color(0xFFD92D4B) : p.ink3),
+                OlIcon(items[i].icon, size: 13, color: items[i].danger ? OlTokens.dangerDeep : p.ink3),
                 const SizedBox(width: 8),
                 Text(
                   items[i].label,
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: items[i].danger ? const Color(0xFFD92D4B) : p.ink2,
+                    color: items[i].danger ? OlTokens.dangerDeep : p.ink2,
                   ),
                 ),
               ],

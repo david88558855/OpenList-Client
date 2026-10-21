@@ -23,6 +23,11 @@ class OlTokens {
   static const warn = Color(0xFFF59E0B);
   static const warnDeep = Color(0xFFB47405);
   static const danger = Color(0xFFF43F5E);
+
+  /// v1.0.47：错误提示的底色 / 描边 / 文字（原来散落在各页面的字面量）
+  static const dangerSurface = Color(0xFFFFF1F3);
+  static const dangerBorder = Color(0xFFF8C9D2);
+  static const dangerInk = Color(0xFF8A2438);
   static const dangerDeep = Color(0xFFD92D4B);
 
   // ---- 文件类型色（02 · Video / Image / Doc）----

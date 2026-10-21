@@ -13,7 +13,7 @@ class _MobileServerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     final (label, color) = switch (profile.health) {
-      ServerHealth.ok => ('${profile.latencyMs ?? 0} ms', const Color(0xFF0B7A63)),
+      ServerHealth.ok => ('${profile.latencyMs ?? 0} ms', OlTokens.okDeep),
       ServerHealth.timeout => ('超时', OlTokens.warnDeep),
       ServerHealth.unauthorized => ('需登录', OlTokens.dangerDeep),
       ServerHealth.unknown => ('未连接', p.ink4),
