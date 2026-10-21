@@ -216,7 +216,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       total: item.size,
       sign: item.sign,
     );
-    state = state.copyWith(tasks: [task, ...state.tasks], clearError: true);
+    // v1.0.35：如果之前点过「全部暂停」，新任务会静默卡在 queued（列表里有、进度不动）。
+    // 用户主动点下载就说明想让任务跑，这里直接解除全局暂停。
+    state = state.copyWith(tasks: [task, ...state.tasks], clearError: true, pausedGlobally: false);
     if (schedule) {
       _persist();
       await _pump();
@@ -304,6 +306,18 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     _persist();
   }
 
+  /// 批量移除（「清除失败 / 清除已完成」用）：一次状态更新 + 一次落盘。
+  void clearTasks(List<String> ids) {
+    if (ids.isEmpty) return;
+    final set = ids.toSet();
+    for (final id in set) {
+      _tokens.remove(id);
+      _pausedByGlobal.remove(id);
+    }
+    state = state.copyWith(tasks: state.tasks.where((e) => !set.contains(e.id)).toList());
+    _persist();
+  }
+
   void clearFinished() {
     state = state.copyWith(
       tasks: state.tasks.where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed).toList(),
@@ -371,7 +385,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     try {
       if (!state.pausedGlobally) {
         var running = state.tasks.where((e) => e.status == TransferStatus.running).length;
-        final limit = state.concurrency;
+        // 并发数为 0（异常值）会让下面直接 break，任务永远不启动
+        final limit = state.concurrency > 0 ? state.concurrency : 1;
         for (final task in state.tasks.toList()) {
           if (running >= limit) break;
           if (task.status == TransferStatus.queued) {

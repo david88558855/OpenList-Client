@@ -423,7 +423,11 @@ class OpenListApi {
     }
     // v1.0.22：完整性断言。服务端提前关流 / 网络抖动时 `await for` 会正常结束，
     // 之前直接把「收了多少字节」当成功，半截文件就被标记为已完成。
-    if (total > 0 && received < total) {
+    // v1.0.35：压缩传输（gzip/br）下 content-length 是压缩前长度，与实收字节不等，
+    // 这种响应不做长度断言，避免把正常下载判成「不完整」。
+    final encoding = (res.headers.value('content-encoding') ?? '').toLowerCase();
+    final compressed = encoding.isNotEmpty && encoding != 'identity';
+    if (!compressed && total > 0 && received < total) {
       throw ApiException(-1, '下载不完整（$received/$total 字节），可重试续传');
     }
     return received;

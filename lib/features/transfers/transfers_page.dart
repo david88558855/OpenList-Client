@@ -760,8 +760,8 @@ class _TaskListSliver extends StatelessWidget {
   }
 }
 
-/// 卡片头：标题 + 全部/下载/上传 分段。
-class _TaskListHeader extends StatelessWidget {
+/// 卡片头：标题 + 全部/下载/上传 分段；已完成/失败分组额外给「清除」。
+class _TaskListHeader extends ConsumerWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
   final ValueChanged<_Filter> onFilter;
@@ -769,8 +769,9 @@ class _TaskListHeader extends StatelessWidget {
   const _TaskListHeader({required this.tasks, required this.filter, required this.onFilter});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    final clearable = filter == _Filter.done || filter == _Filter.failed;
     // v2.6：标题跟随筛选走。之前固定写「进行中」，切到已完成/失败仍是这个标题。
     final title = switch (filter) {
       _Filter.done => '已完成',
@@ -788,6 +789,17 @@ class _TaskListHeader extends StatelessWidget {
         children: [
           Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
           const Spacer(),
+          // v1.0.35：已完成 / 失败分组提供一键清除（之前只能逐条点，失败列表清不掉）
+          if (clearable && tasks.isNotEmpty) ...[
+            OlGhostButton(
+              label: '清除',
+              icon: 'trash',
+              height: 21,
+              fontSize: 9,
+              onTap: () => ref.read(transfersProvider.notifier).clearTasks(tasks.map((e) => e.id).toList()),
+            ),
+            const SizedBox(width: 6),
+          ],
           OlSeg<_Filter>(
             items: [
               OlSegItem(_Filter.all, '全部 ${tasks.length}'),
@@ -891,7 +903,15 @@ class _TaskRow extends ConsumerWidget {
               child: Center(child: OlIcon('cloud-dl', size: 12, color: p.ink4)),
             )
           else if (failed)
-            OlGhostButton(label: '重试', height: 22, fontSize: 9, onTap: () => notifier.retry(task.id))
+            // v1.0.35：失败任务之前只有「重试」，没有移除按钮，失败列表越积越多清不掉。
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OlGhostButton(label: '重试', height: 22, fontSize: 9, onTap: () => notifier.retry(task.id)),
+                const SizedBox(width: 2),
+                OlIconButton(icon: 'x', size: 24, iconSize: 12, tooltip: '移除', onTap: () => notifier.remove(task.id)),
+              ],
+            )
           else if (running)
             OlIconButton(icon: 'pause', size: 24, iconSize: 12, tooltip: '暂停', onTap: () => notifier.pause(task.id))
           else if (task.status == TransferStatus.paused)
