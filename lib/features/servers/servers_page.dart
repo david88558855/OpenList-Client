@@ -19,6 +19,7 @@ import 'server_form.dart';
 part 'parts/servers_rail.dart';
 part 'parts/servers_row.dart';
 part 'parts/servers_mobile.dart';
+part 'parts/servers_panels.dart';
 
 class ServersPage extends ConsumerStatefulWidget {
   const ServersPage({super.key});
@@ -95,7 +96,6 @@ class _ServersPageState extends ConsumerState<ServersPage> {
     return Row(
       children: [
         // v2.6：服务器管理不再复用「设置」侧栏，自带返回入口。
-        // 之前它寄生在设置分区里，进去以后找不到回文件页的路，切分区还会整页缩放。
         _ServersRail(
           current: session.profile,
           count: serversState.count,
@@ -107,63 +107,18 @@ class _ServersPageState extends ConsumerState<ServersPage> {
           child: Container(
             color: p.card,
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+            // v1.0.49：页面壳只做组装，四块分别由 _ServerListHeader /
+            // _ServerFilterBar / _ServerListBody / _ServerDetailPanel 承担。
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('服务器管理', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: p.ink)),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${serversState.count} 个服务器 · 数量不限 · 配置与缓存按实例隔离',
-                            style: TextStyle(fontSize: 10.5, color: p.ink4),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OlPrimaryButton(
-                      label: '添加服务器',
-                      icon: 'plus',
-                      onTap: () => setState(() => _selectedId = 'new'),
-                    ),
-                  ],
-                ),
+                _ServerListHeader(onAdd: () => setState(() => _selectedId = 'new')),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 196,
-                      child: OlField(
-                        controller: _search,
-                        icon: 'search',
-                        hint: '搜索名称或地址',
-                        dense: true,
-                        onChanged: (v) => setState(() => _query = v),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OlChip(label: '全部 ${serversState.count}', selected: _filter == 'all', onTap: () => setState(() => _filter = 'all')),
-                    const SizedBox(width: 6),
-                    OlChip(
-                      label: '已连接 ${serversState.servers.where((e) => e.health == ServerHealth.ok).length}',
-                      selected: _filter == 'ok',
-                      onTap: () => setState(() => _filter = 'ok'),
-                    ),
-                    const SizedBox(width: 6),
-                    OlChip(
-                      label: '异常 ${serversState.servers.where((e) => e.health != ServerHealth.ok).length}',
-                      selected: _filter == 'error',
-                      onTap: () => setState(() => _filter = 'error'),
-                    ),
-                    const Spacer(),
-                    if (session.profile != null)
-                      OlChip(label: '当前：${session.profile!.name}', teal: true, icon: 'check'),
-                  ],
+                _ServerFilterBar(
+                  controller: _search,
+                  filter: _filter,
+                  onQuery: (v) => setState(() => _query = v),
+                  onFilter: (v) => setState(() => _filter = v),
                 ),
                 const SizedBox(height: 10),
                 Expanded(
@@ -171,104 +126,20 @@ class _ServersPageState extends ConsumerState<ServersPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: ListView(
-                                children: [
-                                  for (final server in servers)
-                                    _ServerRow(
-                                      server: server,
-                                      current: server.id == serversState.activeId,
-                                      selected: server.id == editing?.id,
-                                      onSelect: () => setState(() => _selectedId = server.id),
-                                      onSwitch: () => _switchTo(server),
-                                      // v1.0.16：「编辑」打开独立编辑页（带返回），
-                                      // 之前只是把右侧表单切到该服务器，若它已选中就完全没反馈。
-                                      onEdit: () => context.push('/servers/edit/${server.id}'),
-                                      onDelete: () async {
-                                        final confirmed = await olConfirm(
-                                          context,
-                                          title: '删除「${server.name}」',
-                                          message: '只移除本地配置与凭据，不影响服务端数据。',
-                                          confirm: '删除',
-                                          danger: true,
-                                        );
-                                        if (!confirmed) return;
-                                        final wasActive = serversState.activeId == server.id;
-                                        await ref.read(serverListProvider.notifier).remove(server.id);
-                                        if (wasActive) await ref.read(sessionProvider.notifier).retry();
-                                        if (context.mounted) olToast(context, '已删除 ${server.name}');
-                                      },
-                                      onReconnect: () async {
-                                        final result = await ref.read(sessionProvider.notifier).probe(server.baseUrl);
-                                        if (!context.mounted) return;
-                                        if (result.ok) {
-                                          await ref.read(serverListProvider.notifier).touch(
-                                                server.id,
-                                                latencyMs: result.latencyMs,
-                                                health: ServerHealth.ok,
-                                                siteTitle: result.site?.title,
-                                                version: result.site?.version,
-                                              );
-                                          if (context.mounted) olToast(context, '连接正常 · ${result.latencyMs} ms');
-                                        } else {
-                                          await ref.read(serverListProvider.notifier).touch(server.id, health: ServerHealth.timeout);
-                                          if (context.mounted) olToast(context, result.error ?? '连接失败', error: true);
-                                        }
-                                      },
-                                    ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      const OlIcon('info', size: 10, color: Color(0xFFB2C1CF)),
-                                      const SizedBox(width: 5),
-                                      Expanded(
-                                        child: Text(
-                                          '列表保存在本地，凭据写入系统安全存储；删除服务器只移除本地配置，不影响服务端数据。',
-                                          style: TextStyle(fontSize: 8.5, height: 1.6, color: p.ink4),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        child: _ServerListBody(
+                          servers: servers,
+                          editingId: editing?.id,
+                          onSelect: (id) => setState(() => _selectedId = id),
+                          onSwitch: _switchTo,
                         ),
                       ),
                       const SizedBox(width: 11),
-                      Container(
-                        width: 316,
-                        decoration: BoxDecoration(
-                          color: p.surfaceAlt,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: p.line2),
-                        ),
-                        child: isNew
-                            ? ServerForm(
-                                profile: null,
-                                onClose: () => setState(() => _selectedId = null),
-                                onSaved: () => setState(() => _selectedId = null),
-                              )
-                            : editing == null
-                            ? Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const OlIcon('server', size: 16, color: OlTokens.sky600),
-                                    const SizedBox(height: 8),
-                                    Text('选择左侧服务器进行编辑，或添加一个新的实例。', style: TextStyle(fontSize: 11, height: 1.7, color: p.ink3)),
-                                  ],
-                                ),
-                              )
-                            : ServerForm(
-                                profile: editing,
-                                onClose: () => setState(() => _selectedId = 'new'),
-                                onSaved: () => setState(() {}),
-                                onDeleted: () => setState(() => _selectedId = null),
-                              ),
+                      _ServerDetailPanel(
+                        isNew: isNew,
+                        editing: editing,
+                        onClear: () => setState(() => _selectedId = null),
+                        onBackToNew: () => setState(() => _selectedId = 'new'),
+                        onSaved: () => setState(() {}),
                       ),
                     ],
                   ),

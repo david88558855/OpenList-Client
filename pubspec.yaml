@@ -1,7 +1,7 @@
 name: openlist_client
 description: OpenList Client — Windows & Android native client for self-hosted OpenList.
 publish_to: none
-version: 1.0.48+49
+version: 1.0.49+50
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
