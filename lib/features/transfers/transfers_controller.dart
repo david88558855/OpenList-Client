@@ -163,11 +163,14 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   // ------------------------------------------------------------- enqueue
 
-  Future<String?> enqueueDownload(FileItem item, String currentDir) async {
+  Future<String?> enqueueDownload(FileItem item, String currentDir, {bool schedule = true}) async {
     if (item.isDir) return '暂不支持整目录下载';
     final remotePath = item.parent ?? (currentDir == '/' ? '/${item.name}' : '$currentDir/${item.name}');
-    return enqueueDownloadInto(item: item, remotePath: remotePath, localSubdir: '');
+    return enqueueDownloadInto(item: item, remotePath: remotePath, localSubdir: '', schedule: schedule);
   }
+
+  /// 批量入队后统一调度一次（配合 `schedule: false` 使用）。
+  Future<void> kick() => _pump();
 
   /// 入队一个下载任务，可指定本地相对子目录（v1.0.31）。
   ///
@@ -177,6 +180,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     required FileItem item,
     required String remotePath,
     required String localSubdir,
+    bool schedule = true,
   }) async {
     final session = ref.read(sessionProvider);
     final profile = session.profile;
@@ -206,7 +210,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     );
     state = state.copyWith(tasks: [task, ...state.tasks], clearError: true);
     _persist();
-    await _pump();
+    if (schedule) await _pump();
     return null;
   }
 
@@ -430,8 +434,10 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     } on ApiException catch (e) {
       if (task.status != TransferStatus.paused) {
         task.status = TransferStatus.failed;
-        task.error = e.friendly;
-        if (e.needsReauth) await ref.read(sessionProvider.notifier).expire();
+        // v1.0.33：下载走的是 /d/<path>?sign=，401 多半是签名过期而不是会话失效。
+        // 批量下载文件夹时会入队大量任务，之前任何一个 401 都会调 expire()
+        // 把整机登出 —— 用户看到的就是「下载文件夹 → 跳回登录页」。
+        task.error = e.needsReauth ? '下载链接已失效，请重试' : e.friendly;
       }
     } catch (e) {
       if (task.status != TransferStatus.paused) {

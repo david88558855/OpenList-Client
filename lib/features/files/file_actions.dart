@@ -174,15 +174,23 @@ Future<void> downloadItem(BuildContext context, WidgetRef ref, FileItem item) as
 /// 批量下载（v1.0.26 起，v1.0.31 支持文件夹递归）。
 ///
 /// 桌面与移动端共用这一个入口：
-///   - 全是文件 → 逐个入队，不弹窗；
+///   - 全是文件 → 逐个入队，不弹窗、不逐个 toast（最后汇总一次）；
 ///   - 含文件夹 → 先扫描目录树（带进度、可取消），再按相对子目录逐个入队，
 ///     落盘结构与远端一致。
 Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> items) async {
+  final notifier = ref.read(transfersProvider.notifier);
+  final basePath = ref.read(filesProvider).path;
   final files = items.where((e) => !e.isDir).toList();
   final dirs = items.where((e) => e.isDir).toList();
 
-  for (final item in files) {
-    await downloadItem(context, ref, item);
+  if (files.isNotEmpty) {
+    for (final item in files) {
+      // schedule: false —— 批量入队时不要每加一条就调度一次，
+      // 否则 N 个文件会触发 N 次 _pump + N 次落盘。
+      await notifier.enqueueDownload(item, basePath, schedule: false);
+    }
+    await notifier.kick();
+    if (context.mounted) olToast(context, '已加入 ${files.length} 个文件');
   }
   if (dirs.isEmpty) return;
 
@@ -191,7 +199,6 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
     if (context.mounted) olToast(context, '尚未连接服务器', error: true);
     return;
   }
-  final basePath = ref.read(filesProvider).path;
   await _downloadFolders(context, ref, api, dirs, basePath);
 }
 
@@ -294,7 +301,14 @@ Future<void> _downloadFolders(
   String basePath,
 ) async {
   var cancelled = false;
+  var dialogReady = false;
+  var dialogClosed = false;
   final progress = ValueNotifier<(int, int)>((0, 0));
+  // 用 rootNavigator 的 Navigator 显式关闭弹窗：只 pop 一次，且带状态守卫。
+  // v1.0.33：之前是「设一个 -1 哨兵，让弹窗自己在 build 里 pop」，
+  // 每帧都会注册一次 postFrameCallback，pop 次数不受控 —— 会把文件页也弹掉，
+  // 表现为「批量下载文件夹 → 界面崩掉 / 跳回登录」。
+  final navigator = Navigator.of(context, rootNavigator: true);
 
   unawaited(showDialog<void>(
     context: context,
@@ -302,7 +316,13 @@ Future<void> _downloadFolders(
     barrierColor: const Color(0x59091424),
     builder: (_) => _FolderScanDialog(
       progress: progress,
-      onCancel: () => cancelled = true,
+      onCancel: () {
+        cancelled = true;
+        // 用户点取消时也负责关掉自己，任何情况下都不会被弹窗卡住
+        dialogClosed = true;
+        if (navigator.canPop()) navigator.pop();
+      },
+      onReady: () => dialogReady = true,
     ),
   ));
 
@@ -316,26 +336,43 @@ Future<void> _downloadFolders(
       onProgress: (found, scannedDirs) => progress.value = (found, scannedDirs),
     );
   } finally {
-    progress.value = (-1, -1); // 通知弹窗自行关闭
+    // 等弹窗真正挂载（正常一帧内就绪），最多重试 5 帧
+    for (var i = 0; i < 5 && !dialogReady; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    if (!dialogClosed) {
+      dialogClosed = true;
+      if (dialogReady && context.mounted) {
+        await _popScanDialog(navigator);
+      }
+    }
+    // 弹窗正在执行退出动画，此时 dispose 会让 ValueListenableBuilder 访问已释放对象
+    unawaited(Future<void>.delayed(
+      const Duration(milliseconds: 400),
+      progress.dispose,
+    ));
   }
   if (!context.mounted) return;
 
+  final notifier = ref.read(transfersProvider.notifier);
   var queued = 0;
   var failed = 0;
   for (var i = 0; i < outcome.files.length; i++) {
     final item = outcome.files[i];
     final remote = item.parent ?? joinPath(basePath, item.name);
-    final error = await ref.read(transfersProvider.notifier).enqueueDownloadInto(
-          item: item,
-          remotePath: remote,
-          localSubdir: outcome.subdirs[i],
-        );
+    final error = await notifier.enqueueDownloadInto(
+      item: item,
+      remotePath: remote,
+      localSubdir: outcome.subdirs[i],
+      schedule: false,
+    );
     if (error == null) {
       queued++;
     } else {
       failed++;
     }
   }
+  await notifier.kick();
   if (!context.mounted) return;
 
   final parts = <String>['已加入 $queued 个文件'];
@@ -347,11 +384,31 @@ Future<void> _downloadFolders(
   olToast(context, parts.join('，'), error: failed > 0 || outcome.failedDirs > 0);
 }
 
+/// 关闭扫描弹窗：只 pop 一次，异常吞掉（弹窗可能已被用户关掉）。
+Future<void> _popScanDialog(NavigatorState navigator) async {
+  try {
+    if (navigator.canPop()) navigator.pop();
+  } catch (_) {}
+}
+
 /// 「正在扫描目录」弹窗：显示已发现文件数与已扫描目录数，可取消。
-class _FolderScanDialog extends StatelessWidget {
+class _FolderScanDialog extends StatefulWidget {
   final ValueNotifier<(int, int)> progress;
   final VoidCallback onCancel;
-  const _FolderScanDialog({required this.progress, required this.onCancel});
+  final VoidCallback? onReady;
+  const _FolderScanDialog({required this.progress, required this.onCancel, this.onReady});
+
+  @override
+  State<_FolderScanDialog> createState() => _FolderScanDialogState();
+}
+
+class _FolderScanDialogState extends State<_FolderScanDialog> {
+  @override
+  void initState() {
+    super.initState();
+    // 挂载完成后再回报，调用方据此判断「现在 pop 是安全的」
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.onReady?.call());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -359,48 +416,40 @@ class _FolderScanDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ValueListenableBuilder<(int, int)>(
-        valueListenable: progress,
-        builder: (context, value, _) {
-          if (value == (-1, -1) && Navigator.of(context).canPop()) {
-            // 扫描结束，由调用方控制关闭
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
-            });
-          }
-          return Container(
-            width: 360,
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-            decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: p.line)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const OlIcon('folder', size: 14, color: OlTokens.sky600),
-                    const SizedBox(width: 8),
-                    Text('正在扫描文件夹', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '已发现 ${value.$1} 个文件 · 已扫描 ${value.$2} 个目录',
-                  style: TextStyle(fontSize: 11, color: p.ink3),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '上限 $_maxFolderFiles 个文件、$_maxFolderDepth 层目录',
-                  style: TextStyle(fontSize: 9.5, color: p.ink4),
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OlGhostButton(label: '取消', onTap: onCancel),
-                ),
-              ],
-            ),
-          );
-        },
+        valueListenable: widget.progress,
+        builder: (context, value, _) => Container(
+          width: 360,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: p.line)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const OlIcon('folder', size: 14, color: OlTokens.sky600),
+                  const SizedBox(width: 8),
+                  Text('正在扫描文件夹', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.ink)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '已发现 ${value.$1} 个文件 · 已扫描 ${value.$2} 个目录',
+                style: TextStyle(fontSize: 11, color: p.ink3),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '上限 $_maxFolderFiles 个文件、$_maxFolderDepth 层目录',
+                style: TextStyle(fontSize: 9.5, color: p.ink4),
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OlGhostButton(label: '取消', onTap: widget.onCancel),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -647,7 +696,12 @@ Future<void> showItemMenu(
   final entries = <OlMenuItem>[
     if (openAction != null) openAction,
     favoriteItem(),
-    if (!item.isDir) OlMenuItem('下载', 'download', () => downloadItem(context, ref, item)),
+    // v1.0.33：文件夹也提供「下载」—— 走递归下载（含子目录全部文件）。
+    OlMenuItem(
+      '下载',
+      'download',
+      () => item.isDir ? downloadItems(context, ref, [item]) : downloadItem(context, ref, item),
+    ),
     OlMenuItem('重命名', 'edit', () => renameItem(context, ref, item)),
     OlMenuItem('移动到…', 'move', () => moveOrCopyItems(context, ref, targets, move: true)),
     OlMenuItem('复制到…', 'copy', () => moveOrCopyItems(context, ref, targets, move: false)),
@@ -698,7 +752,13 @@ class _DirPickerDialogState extends ConsumerState<_DirPickerDialog> {
 
   Future<void> _load() async {
     final api = ref.read(sessionProvider).api;
-    if (api == null) return;
+    if (api == null) {
+      setState(() {
+        _loading = false;
+        _error = '尚未连接服务器';
+      });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -717,11 +777,19 @@ class _DirPickerDialogState extends ConsumerState<_DirPickerDialog> {
         _loading = false;
         _error = e.friendly;
       });
+    } catch (e) {
+      // v1.0.33：非 ApiException（解析失败 / 类型不符）之前会让弹窗永远转圈。
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '读取目录失败：$e';
+      });
     }
   }
 
   Future<void> _enter(String path) async {
-    _path = path;
+    if (path == _path) return;
+    setState(() => _path = path);
     await _load();
   }
 

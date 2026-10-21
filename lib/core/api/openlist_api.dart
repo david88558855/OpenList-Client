@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import '../format.dart';
 import '../models/api_types.dart';
 import 'api_exception.dart';
 
@@ -234,14 +235,21 @@ class OpenListApi {
 
   Future<List<DirNode>> dirs({String path = '/', String password = ''}) async {
     final data = await _post('/api/fs/dirs', {'path': path, 'password': password});
-    if (data is! List) return const [];
+    // v1.0.33：兼容两种返回结构。
+    //   AList v3：data 是数组 [{name, path}]
+    //   OpenList v4 / 部分部署：data 是 {content: [...], total: n}
+    // 之前只认数组，遇到 {content:[]} 就返回空列表 → 移动/复制弹窗永远进不去下一层。
+    final raw = data is Map ? (data['content'] ?? data['data']) : data;
+    if (raw is! List) return const [];
     final out = <DirNode>[];
-    for (final e in data) {
+    for (final e in raw) {
       if (e is Map) {
         final name = (e['name'] ?? '').toString();
-        final p = (e['path'] ?? '').toString();
         if (name.isEmpty) continue;
-        out.add(DirNode(name, p.isEmpty ? path : p));
+        final p = (e['path'] ?? '').toString();
+        // 服务端没给 path 时按「当前目录 + 名称」拼，之前错误地回退成当前目录本身，
+        // 点进去等于原地刷新，看起来就是「点不动」。
+        out.add(DirNode(name, p.isEmpty ? joinPath(path, name) : p));
       }
     }
     return out;
