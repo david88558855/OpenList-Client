@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
@@ -423,8 +422,16 @@ class _ServersPageState extends ConsumerState<ServersPage> {
     );
   }
 
+  /// 导出配置（v1.0.43）。
+  ///
+  /// 改为弹系统保存对话框：由用户决定路径与文件名，取消则什么都不做；
+  /// 之前是固定写到应用文档目录，用户既不知道位置也改不了名字。
   Future<void> _exportConfig() async {
     final servers = ref.read(serverListProvider).servers;
+    if (servers.isEmpty) {
+      olToast(context, '还没有可导出的服务器配置', error: true);
+      return;
+    }
     final payload = {
       'product': 'OpenList Client',
       'version': 1,
@@ -435,14 +442,45 @@ class _ServersPageState extends ConsumerState<ServersPage> {
         return json;
       }).toList(),
     };
+    final content = const JsonEncoder.withIndent('  ').convert(payload);
+
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final defaultName = 'openlist-servers-${now.year}${two(now.month)}${two(now.day)}.json';
+
+    String? path;
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}${Platform.pathSeparator}openlist-servers.json');
-      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(payload));
+      path = await FilePicker.platform.saveFile(
+        dialogTitle: '导出服务器配置',
+        fileName: defaultName,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        // Android 走 SAF，插件拿不到可写路径，必须由它带着内容写入；
+        // 桌面端会忽略该参数、只返回路径。
+        bytes: utf8.encode(content),
+      );
+    } catch (e) {
+      if (mounted) olToast(context, '无法打开保存对话框：$e', error: true);
+      return;
+    }
+    // 用户取消：不写任何文件
+    if (path == null || path.isEmpty) return;
+
+    try {
+      // 桌面端 saveFile 只负责选址，落盘要自己做
+      if (!Platform.isAndroid) {
+        final file = File(path);
+        await file.parent.create(recursive: true);
+        await file.writeAsString(content, flush: true);
+      }
       if (!mounted) return;
-      olToast(context, '已导出到 ${file.path}');
-    } catch (_) {
-      if (mounted) olToast(context, '导出失败，检查存储权限', error: true);
+      olToast(context, '已导出到 $path');
+    } on FileSystemException catch (e) {
+      if (!mounted) return;
+      olToast(context, '写入失败：${e.osError?.message ?? e.message}', error: true);
+    } catch (e) {
+      if (!mounted) return;
+      olToast(context, '导出失败：$e', error: true);
     }
   }
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.43 · 2026-10-20
+
+### 配置导出改为系统保存对话框
+- 之前固定写到 `<应用文档目录>/openlist-servers.json`：用户既改不了路径也改不了文件名，
+  导完还得去找文件。
+- 现在调用 `FilePicker.platform.saveFile` 弹出系统保存框：
+  - 默认文件名 `openlist-servers-YYYYMMDD.json`，用户可改路径与名称；
+  - **取消则不写任何文件**；
+  - 桌面端 `saveFile` 只返回路径，落盘由自己完成（`writeAsString(flush: true)`）；
+    Android 走 SAF，由插件按 `bytes` 写入；
+  - 写入失败区分 `FileSystemException`（显示系统错误，如磁盘满/无权限）与其它异常；
+  - 没有可导出的服务器时直接提示，不弹框。
+- 移除不再使用的 `path_provider` 导入。
+
 ## v1.0.42 · 2026-10-20
 
 ### 移除全部动画/转场
