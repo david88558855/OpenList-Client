@@ -186,10 +186,11 @@ class OlTitleBar extends ConsumerWidget {
           const SizedBox(width: 7),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            // v2.6：服务器管理是独立页面，用 go 而不是 push。
-            // push 在 Windows 上会走 Material 的缩放转场（看起来像整页"放大又缩小"），
-            // 并且叠在标签页之上，返回路径容易断。
-            onTap: () => context.go('/servers'),
+            // v1.0.40：改用 push。全局已关闭页面转场（PageTransitionsTheme →
+            // _NoTransitionBuilder），当初「push 会缩放转场」的顾虑不成立；
+            // 而 go 会重建成整条路由栈，从设置/文件页进去后返回要重建目标页，
+            // 表现为明显卡顿。
+            onTap: () => context.push('/servers'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(

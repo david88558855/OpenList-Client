@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.40 · 2026-10-20
+
+### 修复：从设置进入服务器管理后，返回卡顿
+- **根因**：进入「服务器管理」的入口用的是 `context.go('/servers')`。`go` 会**重建整条路由栈**
+  （设置页被丢弃），于是返回按钮里 `goBackOrFiles()` 的 `canPop()` 判定为 false，
+  走兜底 `context.go('/files')` —— 既跳到错误页面，又要重建文件页（重新拉目录、渲染列表），
+  观感就是「点了返回，卡一下，然后到了别的页面」。
+- **修复**：所有非全局入口统一改 `context.push('/servers')`，设置页留在栈里，
+  返回变成一次 pop（不重建、不发请求）。涉及：
+  - 标题栏「当前服务器」入口（`frame.dart`）
+  - 设置 → 服务器分区的「添加服务器」「管理」（`settings_sections.dart`）
+  - 登录页「服务器管理」（`login_page.dart`）
+- `frame.dart` 里原注释写的是「push 会触发缩放转场」，但全局转场早已关闭
+  （`PageTransitionsTheme` → `_NoTransitionBuilder`），前提不成立，注释同步更正。
+
 ## v1.0.39 · 2026-10-20
 
 ### 服务器列表行放大（桌面）

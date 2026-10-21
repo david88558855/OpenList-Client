@@ -455,7 +455,7 @@ class _ServerEntry extends StatelessWidget {
     final bg = dark ? const Color(0x0FFFFFFF) : p.surfaceAlt;
     final border = dark ? const Color(0x1AFFFFFF) : p.line;
     return GestureDetector(
-      onTap: () => context.go('/servers'),
+      onTap: () => context.push('/servers'),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(

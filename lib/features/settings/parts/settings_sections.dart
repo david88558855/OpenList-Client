@@ -21,7 +21,8 @@ class _ServersSection extends ConsumerWidget {
         _SectionHead(
           title: '服务器管理',
           subtitle: '当前连接的 OpenList 实例与登录身份',
-          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.go('/servers')),
+          // v1.0.40：push 而非 go —— go 会重建成整条栈，返回时设置页要重新构建（卡顿）
+          action: OlGhostButton(label: '添加服务器', icon: 'plus', height: 28, fontSize: 10.5, onTap: () => context.push('/servers')),
         ),
         Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -84,7 +85,7 @@ class _ServersSection extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.go('/servers')),
+              OlGhostButton(label: '管理', height: 26, fontSize: 10, onTap: () => context.push('/servers')),
             ],
           ),
         ),
