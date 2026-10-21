@@ -316,11 +316,18 @@ Timer? _toastTimer;
 ///
 /// 原来用 `SnackBar`：进入 250ms 上滑 + 退出 250ms 淡出，操作后要等动画才看到结果。
 /// 现在直接往 Overlay 里塞一条静态提示，出现与消失都是瞬时的，计时到点即移除。
+/// 轻提示（v1.0.54 重新设计）。
+///
+/// - **位置**：移到页面顶部（安全区往下约 52，落在文件页「服务器地址」与
+///   「所有文件」标题之间），不再压在底部导航上；
+/// - **视觉**：白底 + 细描边 + 轻阴影，替代原来的深色块，和页面卡片风格统一；
+/// - **文字**：显式 `decoration: none`，去掉部分机型上出现的下划线（黄线）；
+/// - 出现与消失都是瞬时的（不带动画）。
 void olToast(BuildContext context, String message, {bool error = false}) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
-  // 自绘提示不会自动避让系统手势条 / 导航栏，这里手动补上底部安全区
-  final safeBottom = MediaQuery.maybeOf(context)?.viewPadding.bottom ?? 0;
+  final p = context.ol;
+  final safeTop = MediaQuery.maybeOf(context)?.viewPadding.top ?? 0;
 
   // 连续调用时只保留最新一条
   _toastTimer?.cancel();
@@ -336,25 +343,40 @@ void olToast(BuildContext context, String message, {bool error = false}) {
     builder: (_) => Positioned(
       left: 16,
       right: 16,
-      bottom: 24 + safeBottom,
+      top: safeTop + 52,
       child: IgnorePointer(
         child: Center(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 520),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: error ? const Color(0xFF3A1520) : const Color(0xFF0D1B2A),
-              borderRadius: BorderRadius.circular(10),
+              color: p.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: error ? OlTokens.dangerBorder : p.line2),
+              boxShadow: const [BoxShadow(color: Color(0x140D1B2A), blurRadius: 14, offset: Offset(0, 4))],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                OlIcon(error ? 'alert' : 'check', size: 14, color: error ? const Color(0xFFFDA4AF) : const Color(0xFF5EEAD4)),
+                OlIcon(
+                  error ? 'alert' : 'check',
+                  size: 14,
+                  color: error ? OlTokens.dangerDeep : OlTokens.okDeep,
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     message,
-                    style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    // decoration 显式置 none：部分 Android 机型会把默认样式渲染出下划线
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      height: 1.3,
+                      color: error ? OlTokens.dangerInk : p.ink,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 ),
               ],
