@@ -25,6 +25,8 @@ class SingleInstance {
   static const _activate = 'openlist-show';
 
   /// 主实例的监听 socket（保持引用，避免被 GC 回收导致端口释放）。
+  // 持有引用防止被 GC（运行时依赖它接收唤醒包）
+  // ignore: unused_field
   static RawDatagramSocket? _socket;
 
   /// 锁文件句柄：必须一直持有，进程退出时由系统释放。

@@ -9,7 +9,6 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
-import '../../core/widgets/ol_icon.dart';
 import '../../core/widgets/workspace_nav.dart';
 
 /// 收藏。

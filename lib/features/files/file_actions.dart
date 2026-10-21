@@ -199,7 +199,7 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
     if (context.mounted) olToast(context, '尚未连接服务器', error: true);
     return;
   }
-  await _downloadFolders(context, ref, api, dirs, basePath);
+  await _downloadFolders(context, ref, api, dirs);
 }
 
 /// 单次批量下载的上限，防止误选超大目录把队列撑爆、把服务端打满。
@@ -290,8 +290,8 @@ Future<_ScanOutcome> _scanFolders(
             outcome.truncated = true;
             break;
           }
-          outcome.files.add(item);
-          outcome.subdirs.add(entry.value);
+          // 远端路径在扫描时就按「当前遍历到的目录 + 文件名」确定，不再事后反推
+          outcome.entries.add(_FolderEntry(item, joinPath(entry.key, item.name), entry.value));
         }
       }
       onProgress?.call(outcome.fileCount, scannedDirs);
@@ -311,7 +311,6 @@ Future<void> _downloadFolders(
   WidgetRef ref,
   OpenListApi api,
   List<FileItem> dirs,
-  String basePath,
 ) async {
   var cancelled = false;
   var dialogReady = false;
