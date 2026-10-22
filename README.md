@@ -3,10 +3,6 @@
 > OpenList（AList 系服务端）的 **Windows 便携版 + Android** 客户端。
 > 一套 Flutter 代码库同时产出 `windows-x64-portable.zip` 与 `android-arm64.apk`，纯原生渲染，不使用 WebView 包裹网页。
 
-- 仓库：<https://github.com/david88558855/OpenList-Client>
-- 当前版本：`1.0.22+23`（最新 Release：[v1.0.22](https://github.com/david88558855/OpenList-Client/releases/tag/v1.0.22)）
-- 代码审查报告：[`docs/CODE-REVIEW.md`](docs/CODE-REVIEW.md) · 架构说明：[`docs/PROJECT.md`](docs/PROJECT.md)
-
 ---
 
 ## 1. 项目定位
