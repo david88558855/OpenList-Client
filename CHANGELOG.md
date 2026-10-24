@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.57 · 2026-10-24
+
+### 文件页桌面工具条新增「返回上层目录」
+- **位置**：桌面端文件页工具条左侧，紧跟「N 个项目」计数（`parts/files_desktop_chrome.dart` 的 `_Toolbar`）。
+- **样式**：复用 `OlGhostButton`（白底 / 1px 描边 / 圆角 8 / 高 28 / 10.5px 粗体），
+  与同工具条里的「批量」按钮完全一致，不引入新控件。
+- **禁用态**：根目录（`path == '/'`）时置灰且点击无响应，避免"点了没反应"。
+- **仅桌面端**：`_Toolbar` 只在 `_buildDesktop()` 里使用；安卓端的 `_KindFilter` 不含此控件，
+  安卓「返回上一层」由系统返回键承担（`AppFrame.onBack` → `filesProvider.goUp()`），
+  因此移动端既不渲染这个按钮，也不绑定任何点击事件。
+- **`OlGhostButton` 补禁用配色**（`core/widgets/ol_controls.dart`）：`onTap == null` 时底色 / 描边 /
+  文字图标一起置灰（浅色 #F4F7FA / #EEF3F8 / #9AABBC，深色 #0F1D2C / #142435 / #5E7488），
+  鼠标光标改为不可点。既有调用点全部传非空闭包，外观零变化。
+- **导航逻辑零新增**：直接复用既有的 `filesProvider.goUp()`，未新增目录跳转代码。
+
 ## v1.0.56 · 2026-10-20
 
 ### 刷新入口统一为下拉刷新

@@ -224,6 +224,21 @@ class _Toolbar extends ConsumerWidget {
             selected == 0 ? '${state.items.length} 个项目' : '${state.items.length} 个项目 · 已选 $selected 项',
             style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
           ),
+          const SizedBox(width: 10),
+          // v1.0.57：桌面端新增「返回上层目录」入口（工具条左侧、紧跟项目计数）。
+          // 根目录（state.path == '/'）时禁用置灰，没有可返回的上级。
+          //
+          // 只在桌面端存在：_Toolbar 仅被 _buildDesktop 使用，安卓端的
+          // _KindFilter 不包含此控件 —— 安卓「返回上一层」由系统返回键承担
+          // （AppFrame.onBack → filesProvider.goUp()），因此移动端既不渲染
+          // 这个按钮，也不绑定任何点击事件。
+          OlGhostButton(
+            label: '返回上层目录',
+            icon: 'arrow-up',
+            height: 28,
+            fontSize: 10.5,
+            onTap: state.path == '/' ? null : () => ref.read(filesProvider.notifier).goUp(),
+          ),
           const Spacer(),
           OlSeg<bool>(
             items: const [

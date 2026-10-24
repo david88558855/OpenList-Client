@@ -109,23 +109,34 @@ class OlGhostButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     final mobile = _isMobile(context);
+    // v1.0.57：onTap 为 null 时进入禁用态——底色/描边/文字图标一起置灰，
+    // 光标改为不可点。之前禁用态与可用态长得一模一样，点不动却看不出来。
+    // 既有调用点全部传非空闭包，只有文件页「返回上层目录」在根目录时传 null。
+    final enabled = onTap != null;
+    final bg = enabled
+        ? (p.isDark ? const Color(0xFF12202F) : Colors.white)
+        : (p.isDark ? const Color(0xFF0F1D2C) : const Color(0xFFF4F7FA));
+    final border = enabled
+        ? p.line
+        : (p.isDark ? const Color(0xFF142435) : const Color(0xFFEEF3F8));
+    final fg = enabled ? p.ink2 : p.ink4;
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: _mobileHeight(context, height),
           padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
           decoration: BoxDecoration(
-            color: p.isDark ? const Color(0xFF12202F) : Colors.white,
+            color: bg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: p.line),
+            border: Border.all(color: border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                OlIcon(icon!, size: mobile ? 16 : 14, color: p.ink2),
+                OlIcon(icon!, size: mobile ? 16 : 14, color: fg),
                 const SizedBox(width: 6),
               ],
               Text(
@@ -135,7 +146,7 @@ class OlGhostButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: _mobileFont(context, fontSize),
                   fontWeight: FontWeight.w700,
-                  color: p.ink2,
+                  color: fg,
                 ),
               ),
             ],
