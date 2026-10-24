@@ -19,6 +19,9 @@ OUT="dist/OpenList-Client-${VERSION}-android-arm64.apk"
 cp build/app/outputs/flutter-apk/app-release.apk "$OUT"
 
 if command -v sha256sum >/dev/null 2>&1; then
-  sha256sum "$OUT" | tee "$OUT.sha256"
+  # v1.0.58：校验文件里只写文件名，不带 dist/ 前缀。
+  # 用户把 APK 与 .sha256 下载到同一目录后，`sha256sum -c` 要能直接通过；
+  # 之前写的是 "dist/xxx.apk"，那个路径在下载目录里不存在，必然报 No such file。
+  ( cd dist && sha256sum "$(basename "$OUT")" ) | tee "$OUT.sha256"
 fi
 ls -lh dist/

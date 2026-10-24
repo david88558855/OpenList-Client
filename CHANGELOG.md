@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.58 · 2026-10-24
+
+### 修复：安卓 APK 的校验文件写进了构建路径
+- **问题**：`tool/ci_build_android.sh` 用 `sha256sum "$OUT"` 生成校验文件，而 `$OUT` 含
+  `dist/` 前缀，于是 `.sha256` 里写的是 `dist/OpenList-Client-<版本>-android-arm64.apk`。
+  用户从 Releases 把 APK 与 `.sha256` 下载到同一目录后执行 `sha256sum -c`，
+  会因 `dist/` 这个路径在下载目录里不存在而报 `No such file or directory` —— 校验功能形同虚设。
+  （Windows 便携版的 `.sha256` 写的是裸文件名，一直正常，只有安卓这一份有问题。）
+- **修复**：改为在 `dist/` 目录内执行 `sha256sum`，输出只含文件名，与 Windows 版口径一致。
+  下载后 `sha256sum -c OpenList-Client-<版本>-android-arm64.apk.sha256` 可直接通过。
+- 本次只改构建脚本与版本元数据，**业务代码零改动**，界面与交互与 v1.0.57 完全相同。
+
 ## v1.0.57 · 2026-10-24
 
 ### 文件页桌面工具条新增「返回上层目录」
